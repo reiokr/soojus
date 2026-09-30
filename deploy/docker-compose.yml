@@ -1,0 +1,56 @@
+# Kasutamine: cp .env.example .env && docker compose up -d --build
+# Käivita see kaustast deploy/. Soojus on ainult sama masina (127.0.0.1) kaudu ligipääsetav,
+# sisselogimise ja HTTPS-i annab Tailscale (vt docs/proxmox.md).
+services:
+  soojus:
+    build: ..
+    container_name: soojus
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3210}
+      TZ: Europe/Tallinn
+    ports:
+      - "127.0.0.1:3210:3210"
+    volumes:
+      - ./data:/app/data
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto:/mosquitto/config
+      - mosquitto-data:/mosquitto/data
+
+  nodered:
+    image: nodered/node-red:latest
+    container_name: nodered
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Tallinn
+    ports:
+      - "1880:1880"
+    volumes:
+      - nodered-data:/data
+
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguard
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "3000:3000/tcp"
+      - "8081:80/tcp"
+    volumes:
+      - adguard-work:/opt/adguardhome/work
+      - adguard-conf:/opt/adguardhome/conf
+
+volumes:
+  mosquitto-data:
+  nodered-data:
+  adguard-work:
+  adguard-conf:
