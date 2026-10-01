@@ -2,7 +2,7 @@ import React, { useEffect, useSyncExternalStore } from 'react';
 import { ListMusic, Pause, Play, Repeat1, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { getAmbience } from './ambience.js';
 
-// Muusika on kogu rakenduse peale üks ühine objekt (ambience.js), seega Plaani ja Elava kodu lehe nupud näitavad sama seisu ning lehte vahetades muusika ei katke.
+// Muusika on kogu rakenduse peale üks ühine objekt (ambience.js), seega Kodu ja Elava kodu lehe nupud näitavad sama seisu ning lehte vahetades muusika ei katke.
 export default function SoundControl() {
   const amb = getAmbience(), s = useSyncExternalStore(amb.subscribe, amb.getSnapshot);
   useEffect(() => amb.attach(), [amb]);

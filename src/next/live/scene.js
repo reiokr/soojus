@@ -549,13 +549,15 @@ export class LiveScene {
       ctx.save(); rr(ctx, x, y, w, h, 4); ctx.clip();
       const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, sky.mid); g.addColorStop(1, sky.horizon); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
       const inner = ctx.createRadialGradient(x + w / 2, y + h * 0.7, 6, x + w / 2, y + h * 0.7, Math.max(w, h) * 0.85);
-      inner.addColorStop(0, rgba(glow.color, 0.35 + 0.6 * glow.strength * (0.4 + dark * 0.6))); inner.addColorStop(1, rgba(glow.color, 0.1 + 0.3 * dark)); ctx.fillStyle = inner; ctx.fillRect(x, y, w, h);
+      // päeval peegeldub toa soe valgus klaasis, öösel on akna taga tume õu: hõõgus nõrgeneb pimedusega ja jääb ainult alumisse serva (lambi poole)
+    const day = 1 - dark * 0.82; inner.addColorStop(0, rgba(glow.color, (0.35 + 0.6 * glow.strength * (0.4 + dark * 0.6)) * day)); inner.addColorStop(1, rgba(glow.color, (0.1 + 0.3 * dark) * day)); ctx.fillStyle = inner; ctx.fillRect(x, y, w, h);
       inside?.();
       ctx.restore();
       ctx.strokeStyle = mix('#ffffff', '#1a1c28', dark * 0.75); ctx.lineWidth = 6; rr(ctx, x, y, w, h, 4); ctx.stroke();
       ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y + h); ctx.moveTo(x, y + h / 2); ctx.lineTo(x + w, y + h / 2); ctx.stroke();
     };
-    pane(800, 495, 180, 115, () => this.drawBird(ctx, dark)); pane(1062, 482, 56, 46);
+    const env = { glow, dark, sky };
+    pane(800, 495, 180, 115, () => { this.drawWindowWeather(ctx, 800, 495, 180, 115, env); this.drawBird(ctx, dark); }); pane(1062, 482, 56, 46, () => this.drawWindowWeather(ctx, 1062, 482, 56, 46, env));
     if (dark > 0.05) { // valgus langeb õue (maja sees hõõgub, aknast väljas ei ole valgust, seega valgus langeb ainult maale)
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       const spill = ctx.createRadialGradient(890, GROUND + 8, 10, 890, GROUND + 8, 260); spill.addColorStop(0, rgba(glow.color, 0.22 * dark * glow.strength)); spill.addColorStop(1, rgba(glow.color, 0));
@@ -563,20 +565,89 @@ export class LiveScene {
     }
   }
 
+  // Ilm aknast vaadatuna: pilved, vihmajooned, lumehelbed, udu ja äikesevälk (aken on kärbitud ristkülik, mille sees see joonistatakse).
+  drawWindowWeather(ctx, x, y, w, h, { dark }) {
+    const a = this.a, t = this.reduced ? 0 : this.t, wet = clamp(a.rain * 0.8 + a.storm * 0.6 + a.snow * 0.4);
+    const cloudCol = mix(mix('#ffffff', '#98a1b0', wet), '#1c2230', dark * 0.8);
+    if (a.cloud > 0.12) {
+      const n = Math.ceil(a.cloud * 5);
+      for (let i = 0; i < n; i++) {
+        const span = w + 120, cx = x - 60 + ((i * 71 + t * (3 + i * 1.4) * (1 + a.wind * 2.5)) % span), cy = y + 12 + ((i * 37) % (h * 0.55)), r = (14 + (i * 13) % 18) * (w / 180 + 0.45);
+        const gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 1.6); gr.addColorStop(0, rgba(cloudCol, Math.min(0.9, a.cloud * 0.8))); gr.addColorStop(1, rgba(cloudCol, 0));
+        ctx.save(); ctx.translate(cx, cy); ctx.scale(1.7, 0.7); ctx.translate(-cx, -cy); ctx.fillStyle = gr; ctx.fillRect(cx - r * 1.7, cy - r * 1.7, r * 3.4, r * 3.4); ctx.restore();
+      }
+      ctx.fillStyle = rgba(mix('#8a93a3', '#10141f', dark * 0.8), Math.min(0.5, a.cloud * 0.5)); ctx.fillRect(x, y, w, h);
+    }
+    // vihm ja lumi järgivad välisilma: sama kalle (vasakult ülalt paremale alla), sama kiirus ja pikkus ning sama hõredus (tihedus pinnaühiku kohta ×2, et läbi klaasi paistaks)
+    const area = w * h, fr = n => { const v = Math.sin(n) * 43758.5453; return v - Math.floor(v); };
+    if (a.rain > 0.04) {
+      const n = Math.max(1, Math.round(340 * a.rain * area / (2200 * 740) * 2)), slant = 0.1 + a.wind * 0.55, tone = dark > 0.4 ? '185,205,235' : '170,195,230';
+      ctx.lineCap = 'round'; ctx.lineWidth = 1.3 + a.rain * 0.7; ctx.strokeStyle = `rgba(${tone},${(0.55 + 0.3 * a.rain).toFixed(3)})`; ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const v = 620 + fr(i * 3.1) * 380, l = 10 + fr(i * 5.7) * 14, span = h + l + 20, run = t * v + fr(i * 9.3) * span, c = Math.floor(run / span);
+        const py = y - l + (run % span), px = x - 20 + fr(i * 12.9 + c * 78.2) * (w + 40) + slant * (py - y);
+        ctx.moveTo(px, py); ctx.lineTo(px - slant * l, py - l);
+      }
+      ctx.stroke();
+    }
+    if (a.snow > 0.04) {
+      const n = Math.max(1, Math.round(240 * Math.min(1, a.snow * 1.5) * area / (2200 * 700) * 2)), drift = a.wind * 160;
+      ctx.fillStyle = `rgba(${dark > 0.4 ? '225,235,250' : '255,255,255'},${(0.72 + 0.2 * a.snow).toFixed(3)})`; ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const v = (26 + fr(i * 4.3) * 40) * (0.7 + a.snow * 0.6), r = 1.2 + fr(i * 6.1) * 2.4, span = h + 2 * r + 10, run = t * v + fr(i * 8.7) * span, c = Math.floor(run / span);
+        const py = y - r + (run % span), px = x - 10 + fr(i * 11.3 + c * 51.7) * (w + 20) + Math.sin(t * 0.9 + i) * 6 + (drift / v) * (py - y);
+        ctx.moveTo(px + r, py); ctx.arc(px, py, r, 0, TAU);
+      }
+      ctx.fill();
+    }
+    if (a.fog > 0.04) { ctx.fillStyle = rgba(mix('#dfe6ee', '#3a4458', dark * 0.85), Math.min(0.85, a.fog * 0.8)); ctx.fillRect(x, y, w, h); }
+    if (a.flash > 0.02) { ctx.fillStyle = `rgba(255,255,255,${(a.flash * 0.75).toFixed(3)})`; ctx.fillRect(x, y, w, h); }
+  }
+
   // aknast mööda lendav tihane (ilmub ainult siis, kui kass aknast välja vaatab); öösel ei lenda
   drawBird(ctx, dark) {
-    const b = this.catPose?.bird, vis = clamp(1 - dark / 0.7);
-    if (!b || vis <= 0.02) return;
-    const u = b.u, x = 786 + 208 * (b.dir > 0 ? u : 1 - u), y = b.y0 + Math.sin(u * 9) * 7 - Math.sin(u * Math.PI) * 14, flap = Math.sin(this.t * 38);
-    ctx.save(); ctx.translate(x, y); ctx.scale(b.dir, 1); ctx.rotate(Math.cos(u * 9) * 0.12 - 0.08); ctx.globalAlpha = vis;
-    const back = mix('#5f86b4', '#26344b', dark), belly = mix('#f0d450', '#7a6b30', dark), cap = mix('#26364d', '#101722', dark);
+    const b = this.catPose?.bird;
+    if (!b) return;
+    const u = b.u, x = 786 + 208 * (b.dir > 0 ? u : 1 - u), y = b.y0 + Math.sin(u * 9) * 7 - Math.sin(u * Math.PI) * 14;
+    // öösel lendab akna taga ööliblikas (tule poole), päeval tihane
+    const night = clamp((dark - 0.35) / 0.3);
+    if (night > 0.5) { this.drawMoth(ctx, x, y, u, b.dir, night); return; }
+    const flap = Math.sin(this.t * 38), dim = clamp((dark - 0.3) / 0.45);
+    const lit = c => mix(c, '#eef4ff', dim * 0.8), rim = rgba('#f6faff', 0.45 + 0.45 * dim);
+    const back = lit(mix('#5f86b4', '#26344b', dark * 0.5)), belly = lit(mix('#f0d450', '#7a6b30', dark * 0.5)), cap = lit(mix('#26364d', '#101722', dark * 0.5));
+    ctx.save(); ctx.translate(x, y); ctx.scale(b.dir * 1.35, 1.35); ctx.rotate(Math.cos(u * 9) * 0.12 - 0.08);
+    const wing = () => { ctx.beginPath(); ctx.moveTo(-2, -2); ctx.quadraticCurveTo(-5, -9 * flap - 2, -11, -7 * flap + 1); ctx.quadraticCurveTo(-6, -1, 2, -0.5); ctx.closePath(); };
+    const body = () => { ctx.beginPath(); ctx.ellipse(0, 0, 8.5, 4.6, 0, 0, TAU); };
     ctx.fillStyle = back; ctx.beginPath(); ctx.moveTo(-7, 0.5); ctx.lineTo(-16, -1.5 + flap * 1.2); ctx.lineTo(-15, 2.8); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(0, 0, 8.5, 4.6, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = belly; body(); ctx.fill();
     ctx.fillStyle = back; ctx.beginPath(); ctx.ellipse(-0.5, -1.6, 8, 3.2, 0, Math.PI, TAU); ctx.fill();
     ctx.fillStyle = cap; ctx.beginPath(); ctx.arc(7.2, -1.8, 3.5, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#f4f4ee'; ctx.beginPath(); ctx.ellipse(7.8, -0.4, 2.2, 1.5, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.moveTo(10.2, -2); ctx.lineTo(13.4, -1.2); ctx.lineTo(10.2, -0.6); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = back; ctx.beginPath(); ctx.moveTo(-2, -2); ctx.quadraticCurveTo(-5, -9 * flap - 2, -11, -7 * flap + 1); ctx.quadraticCurveTo(-6, -1, 2, -0.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = lit('#f4f4ee'); ctx.beginPath(); ctx.ellipse(7.8, -0.4, 2.2, 1.5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = mix('#2a2a2a', '#c9d4e4', dim * 0.7); ctx.beginPath(); ctx.moveTo(10.2, -2); ctx.lineTo(13.4, -1.2); ctx.lineTo(10.2, -0.6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = back; wing(); ctx.fill();
+    // hele äär, et lind paistaks ka tumeda klaasi ja häguse ilmaga
+    ctx.strokeStyle = rim; ctx.lineWidth = 1.1; ctx.lineJoin = 'round'; body(); ctx.stroke(); wing(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(7.2, -1.8, 3.5, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+
+  // Ööliblikas: kahvatud tiivad, kiire tiivalöök, rahutu lend ja ümber pehme hõõgus (tuli akna taga), et teda öösel tumedal klaasil näha oleks.
+  drawMoth(ctx, x, y, u, dir, night) {
+    const t = this.reduced ? 0 : this.t, beat = Math.sin(t * 26), knock = Math.sin(u * 22) * 3.2, wing = mix('#efe4c8', '#f7f0dd', night), edge = mix('#c2b088', '#d8cba8', night), body = mix('#6b5c42', '#a3957a', night);
+    ctx.save(); ctx.translate(x, y + knock); ctx.rotate(Math.cos(u * 10) * 0.2 - 0.05); ctx.scale(dir * 1.2, 1.2);
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 15); glow.addColorStop(0, rgba('#ffeec2', 0.4 * night)); glow.addColorStop(1, rgba('#ffeec2', 0));
+    ctx.fillStyle = glow; ctx.fillRect(-15, -15, 30, 30);
+    const fly = 0.55 + 0.45 * beat;   // tiivalöök: tiivad tõusevad ja laskuvad
+    for (const sg of [-1, 1]) {
+      ctx.fillStyle = rgba(wing, 0.95); ctx.beginPath(); ctx.ellipse(-1.5, sg * (3.4 * fly + 1.2), 6.4, 2.5 + 1.6 * (1 - fly), sg * 0.22, 0, TAU); ctx.fill();
+      ctx.strokeStyle = rgba(edge, 0.85); ctx.lineWidth = 0.7; ctx.stroke();
+      ctx.fillStyle = rgba(mix(wing, edge, 0.3), 0.8); ctx.beginPath(); ctx.ellipse(-3.6, sg * (2.6 * fly + 1), 4.2, 1.8 + 1.1 * (1 - fly), sg * 0.28, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(0, 0, 5.6, 1.9, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = rgba('#4c3f2c', 0.75); ctx.lineWidth = 0.7; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(5.4, -0.4, 1.6, 1.4, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = rgba(body, 0.95); ctx.lineWidth = 0.8;
+    for (const sg of [-1, 1]) { ctx.beginPath(); ctx.moveTo(5.8, -0.9 + sg * 0.5); ctx.quadraticCurveTo(9, -3 + sg * 2.4, 11.4, -3.6 + sg * 3.2); ctx.stroke(); }
     ctx.restore();
   }
 

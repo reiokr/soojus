@@ -58,7 +58,7 @@ const loadBuffer = (ctx, track) => {
 
 // Üks silmus korraga: AudioBufferSourceNode.loop on näidistäpne ja sisseehitatud lugudes on kaja saba algusesse tagasi keeratud.
 // Iga lugu mängib oma helitugevuse sõlmega, nii saab lugude vahel sujuvalt üle minna.
-// Heli on kogu rakenduse peale üks ühine objekt (getAmbience): lehtede vahel liikudes (Plaan ⇄ Elav kodu) muusika ei katke ega alga otsast.
+// Heli on kogu rakenduse peale üks ühine objekt (getAmbience): lehtede vahel liikudes (Kodu ⇄ Elav kodu) muusika ei katke ega alga otsast.
 // Kui ühelgi lehel pole enam muusikanuppu, jääb muusika pausile ja jätkub samast kohast, kui nupp tagasi tuleb.
 export class Ambience {
   constructor(storage = globalThis.localStorage) {

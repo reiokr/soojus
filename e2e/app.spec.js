@@ -136,8 +136,8 @@ test('new Kodu-plaan interface can be switched on and off and keeps working cont
   await page.getByRole('button',{name:'Uus · Kodu-plaan'}).click();
   await expect(page.locator('html')).toHaveAttribute('data-ui','next');
   await expect(page.getByRole('navigation',{name:'Põhinavigatsioon'}).getByRole('button',{name:'Tarbevesi'})).toBeVisible();
-  await page.getByRole('navigation',{name:'Põhinavigatsioon'}).getByRole('button',{name:'Plaan'}).click();
-  await expect(page.getByRole('heading',{name:'Kodu plaan'})).toBeAttached();
+  await page.getByRole('navigation',{name:'Põhinavigatsioon'}).getByRole('button',{name:'Kodu'}).click();
+  await expect(page.getByRole('heading',{name:'Kodu'})).toBeAttached();
   await expect(page.getByText('Viimased 24 tundi')).toBeVisible();
   await page.getByRole('navigation',{name:'Põhinavigatsioon'}).getByRole('button',{name:'Tarbevesi'}).click();
   await page.getByRole('button',{name:/Muuda: Tarbevee sihttemperatuur/}).click();
@@ -182,7 +182,7 @@ test('ventilation page shows readings, warnings and the setup form in both inter
   await page.addInitScript(()=>localStorage.setItem('soojus.ui','next'));
   await page.reload();
   await expect(page.getByRole('heading',{name:'Ventilatsioon',level:1})).toBeVisible();
-  await page.getByRole('navigation',{name:'Põhinavigatsioon'}).getByRole('button',{name:'Plaan'}).click();
+  await page.getByRole('navigation',{name:'Põhinavigatsioon'}).getByRole('button',{name:'Kodu'}).click();
   await expect(page.getByText('Ventilatsiooni filter vajab vahetust.')).toBeVisible();
   await expect(page.locator('.live.is-embedded .live-status')).toContainText('kiirus 4/10');
   await expect(page.locator('.live.is-embedded .live-status')).toContainText('CO₂ 1150 ppm');
@@ -386,7 +386,7 @@ const soundSpy = () => {
   AudioContext.prototype.createBufferSource = function () { const s = make.call(this); window.__sources.push(s); const st = s.start; s.start = function (...a) { window.__starts.push(a[1] ?? 0); return st.apply(this, a); }; return s; };
 };
 
-test('muusika ei katke Plaani ja Elava kodu lehe vahel liikudes ning sama muusikanupp näitab sama seisu', async ({ page }) => {
+test('muusika ei katke Kodu ja Elava kodu lehe vahel liikudes ning sama muusikanupp näitab sama seisu', async ({ page }) => {
   await page.addInitScript(() => { if (!sessionStorage.getItem('fresh')) { sessionStorage.setItem('fresh', '1'); localStorage.clear(); } });
   await page.addInitScript(soundSpy);
   await page.goto('/');
@@ -625,7 +625,7 @@ test('footer and panel tell that the heat pump is read directly with myUplink as
   await expect(page.locator('.nx-foot')).toContainText('myUplink Public API');
 });
 
-test('pump error log lists stored errors and Plaan warns about a recent one', async ({ page }) => {
+test('pump error log lists stored errors and Kodu warns about a recent one', async ({ page }) => {
   const recent = new Date(Date.now() - 3600000).toISOString(), older = new Date(Date.now() - 3 * 86400000).toISOString();
   const view = { configured: true, host: '192.168.100.171', time: new Date().toISOString(), error: null, primary: true, verified: true, mapped: 11, upstreamProblem: null, powerSource: null, errors7d: 6,
     errors: [{ time: recent, code: 765, name: 'Külmaaine ülekuumenemine liiga madal (SSH alla 2 K üle 5 min)' }, { time: older, code: 765, name: 'Külmaaine ülekuumenemine liiga madal (SSH alla 2 K üle 5 min)' }],
@@ -644,7 +644,7 @@ test('pump error log lists stored errors and Plaan warns about a recent one', as
   await expect(page.locator('.nx-notes')).not.toContainText('Pump andis veakoodi');
 });
 
-test('the pump error note on Plaan can be hidden and returns only for a newer error', async ({ page, request }) => {
+test('the pump error note on Kodu can be hidden and returns only for a newer error', async ({ page, request }) => {
   const recent = new Date(Date.now() - 3600000).toISOString();
   const view = { configured: true, host: '192.168.100.171', time: new Date().toISOString(), error: null, primary: true, verified: true, mapped: 11, upstreamProblem: null, powerSource: null, errors7d: 2, errorsAck: null,
     errors: [{ time: recent, code: 765, name: 'Külmaaine ülekuumenemine liiga madal' }], data: { temperatures: {}, inputs: {}, outputs: {} }, points: [] };

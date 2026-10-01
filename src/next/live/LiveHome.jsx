@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, CloudRain, Droplets, Fan, Flame, Home as HomeIcon, MapPin, Maximize2, Minimize2, Moon, Sparkles, Sunrise, Sunset, Thermometer } from 'lucide-react';
 import { number, time } from '../../lib.js';
-import { pumpState } from '../logic.js';
+import { greeting, pumpState } from '../logic.js';
 import { LiveScene, season, HOTSPOTS, W, VIEW } from './scene.js';
 import { buildLiveState, liveSummary, DEMOS } from './state.js';
 import { moonName, moonPhase, sunTimes } from './sky.js';
@@ -13,7 +13,7 @@ import { LocationPanel } from '../../location.jsx';
 const dayName = new Intl.DateTimeFormat('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
 const SEASONS = { winter: 'talv', spring: 'kevad', summer: 'suvi', autumn: 'sügis', late: 'hilissügis' };
 
-// embedded: Plaani lehe versioon ainult päris andmetega (ilma demo, kellaaja liuguri, prognoosi ja selgitusteta).
+// embedded: Kodu lehe versioon ainult päris andmetega (ilma demo, kellaaja liuguri, prognoosi ja selgitusteta).
 export default function LiveHome({ ctx, embedded = false }) {
   const stageRef = useRef(null), viewRef = useRef(null), canvasRef = useRef(null), sceneRef = useRef(null), hideTimer = useRef(0);
   const [size, setSize] = useState({ w: 0, h: 0 }), [hot, setHot] = useState(null);
@@ -79,6 +79,7 @@ export default function LiveHome({ ctx, embedded = false }) {
           <span className="live-hot-label" role="tooltip"><b>{h.label}</b><em>{nowText[id]}</em><span>{id === 'ground' && live.brine.present ? 'Toru maa sees, kus soojakandja võtab maapinnast soojust ja viib selle pumbani. Temperatuurid tulevad soojuspumba enda kohtvõrguliidesest.' : h.info}</span><i>Ava leht: {h.go} <ArrowRight size={12}/></i></span>
         </button>; })}</div>}
       <div className="live-hud live-clock">
+        <em className="live-greeting">{greeting(live.time)}</em>
         <b>{time(live.time)}</b>
         <span>{dayName.format(live.time).replace(/^./, c => c.toUpperCase())} · {SEASONS[seasonKey]}</span>
         <small className="live-place"><MapPin size={13}/> {live.place.name}</small>
@@ -94,7 +95,7 @@ export default function LiveHome({ ctx, embedded = false }) {
       <div className="live-bottom">
       {full && <div className="live-hud live-devices" role="group" aria-label="Seadmete seis">
         <div className="live-device"><span className={`live-dot ${live.heatOn || live.hwOn ? 'on' : ''}`}/><div><small><Flame size={13}/> Maasoojuspump</small><b>{nowText.pump}</b><em>Kompressor {live.compressor ? 'töötab' : 'seisab'} · pealevool {t(live.supply)} · tagasivool {t(live.returnT)}</em></div></div>
-        {live.vent.present && <div className="live-device"><span className={`live-dot ${live.vent.running ? 'air' : 'off'}`}/><div><small><Fan size={13}/> Ventilatsioon</small><b>{nowText.vent}</b><em>Õhuvool {number(live.vent.airflow, 0)} m³/h{live.vent.supplyTemp != null && ` · sissepuhe ${t(live.vent.supplyTemp)}`}{live.vent.bypass && ' · möödaviik'}</em></div></div>}
+        {live.vent.present && <div className="live-device"><span className={`live-dot ${live.vent.running ? 'air' : 'off'}`}/><div><small><Fan size={13}/> Ventilatsioon</small><b>{nowText.vent}</b><em>Õhuvool {number(live.vent.airflow, 0)} m³/h{live.vent.humidity != null && ` · õhuniiskus ${number(live.vent.humidity, 0)}%`}{live.vent.bypass && ' · möödaviik'}</em></div></div>}
         <div className="live-device"><span className={`live-dot ${live.hwOn ? 'on' : ''}`}/><div><small><Droplets size={13}/> Tarbevesi</small><b>{nowText.boiler}</b><em>Toas {t(live.indoor)} · väljas {t(live.outdoor)}</em></div></div>
         {live.demo && <em className="live-demo-tag">DEMO</em>}
       </div>}

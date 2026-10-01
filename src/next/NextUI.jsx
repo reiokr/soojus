@@ -3,23 +3,18 @@ import { AlertCircle, ArrowRight, Bell, Clock3, Droplets, History, LayoutTemplat
 import { api, number, time, enumText, timeTicks } from '../lib.js';
 import HousePlan from './HousePlan.jsx';
 import { co2Quality, climatePoints, climateQuery } from '../ventilation-logic.js';
-import { pumpState, stateSentence, formatDuration, daySummary, subscriptionWarning, secondsAsText } from './logic.js';
+import { pumpState, formatDuration, daySummary, subscriptionWarning, secondsAsText } from './logic.js';
 import './palette.css';
 import './next.css';
 
 const LiveHome = lazy(() => import('./live/LiveHome.jsx'));
-const NAV = [['overview', 'Plaan', LayoutDashboard], ['heating', 'Küte', Thermometer], ['water', 'Tarbevesi', Droplets], ['ventilation', 'Ventilatsioon', Fan, 'Õhk'], ['history', 'Ajalugu', History]];
+const NAV = [['overview', 'Kodu', LayoutDashboard], ['heating', 'Küte', Thermometer], ['water', 'Tarbevesi', Droplets], ['ventilation', 'Ventilatsioon', Fan, 'Õhk'], ['history', 'Ajalugu', History]];
 const MORE = [['live', 'Elav kodu', Sparkles], ['parameters', 'Parameetrid', SlidersHorizontal], ['alarms', 'Teavitused', Bell], ['device', 'Minu seade', Monitor], ['settings', 'Seaded ja ühendus', Settings2]];
-const TITLES = { overview: 'Kodu plaan', heating: 'Küte', water: 'Tarbevesi', ventilation: 'Ventilatsioon', live: 'Elav kodu', history: 'Ajalugu', parameters: 'Kõik parameetrid', alarms: 'Teavitused', device: 'Minu seade', settings: 'Seaded ja ühendus' };
+const TITLES = { overview: 'Kodu', heating: 'Küte', water: 'Tarbevesi', ventilation: 'Ventilatsioon', live: 'Elav kodu', history: 'Ajalugu', parameters: 'Kõik parameetrid', alarms: 'Teavitused', device: 'Minu seade', settings: 'Seaded ja ühendus' };
 const SUBTITLES = {
   heating: 'Kütteringi seadistused ja näidud.', water: 'Sooja vee temperatuur ja seadistused.', ventilation: 'Airobot ventilatsiooniseadme näidud ja ajalugu.', history: 'Mõõtmiste ajalugu ja trendid.',
   live: 'Kodu päris andmetega: päike, soojus ja õhk liiguvad.', parameters: 'Kõik seadme API kaudu saadaolevad parameetrid.', alarms: 'Aktiivsed ja varasemad seadme teavitused.', device: 'Ühendus, püsivara ja seadme info.', settings: 'Ühendus, liides ja muudatuste ajalugu.'
 };
-
-function greeting() {
-  const h = new Date().getHours();
-  return h < 5 ? 'Head ööd' : h < 11 ? 'Tere hommikust' : h < 17 ? 'Tere päevast' : h < 22 ? 'Tere õhtust' : 'Head ööd';
-}
 
 function useDay(deviceId, tick, enabled) {
   const [day, setDay] = useState(null);
@@ -76,37 +71,60 @@ function Trend({ ctx, initial = 'heat' }) {
   </section>;
 }
 
-function Overview({ ctx }) {
-  const { m, online, stale, activeNotices, subscriptions, model, selection, tick, points, errors, favorites } = ctx;
-  const state = pumpState(m);
-  const hasState = model === 'WZSV 92H3M';
-  const day = useDay(selection, tick, hasState);
+// Peidetud teated jäävad brauserisse meelde: teade tuleb tagasi alles siis, kui selle sisu muutub oluliselt (nt häirete arv, tähtaeg lähenes või filter vajab vahetust).
+const HIDDEN_KEY = 'soojus.notes.hidden';
+function useHiddenNotes() {
+  const [hidden, setHidden] = useState(() => { try { const v = JSON.parse(localStorage.getItem(HIDDEN_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } });
+  const save = next => { setHidden(next); try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(next)); } catch { /* privaatne režiim */ } };
+  return [hidden, save];
+}
+
+// Kodu lehe teated (häired, vananenud andmed, filter, tähtaeg jne). Kasutab ka Teavituste leht, kus peidetud teateid saab uuesti nähtavale tuua.
+function usePlanNotes(ctx) {
+  const { online, stale, activeNotices, subscriptions, errors } = ctx;
   const { view: vent } = ctx.airobot;
   const subs = Array.isArray(subscriptions) ? subscriptions.flatMap(s => s.subscriptions || []) : subscriptions?.subscriptions || [];
   const warning = subscriptionWarning(subs);
-  const notes = [];
-  if (errors.notices) notes.push({ tone: 'warn', text: 'Häirete olek pole hetkel saadaval.' });
-  else if (activeNotices.length) notes.push({ tone: 'warn', text: `Aktiivseid häireid: ${activeNotices.length}.`, action: ['Vaata', 'alarms'] });
-  if (stale) notes.push({ tone: 'warn', text: 'Seadme mõõtmised on vanemad kui 15 minutit.' });
+  const [hiddenNotes, setHiddenNotes] = useHiddenNotes(), notes = [];
+  if (!online) notes.push({ id: 'offline', sig: 'offline', tone: 'warn', text: 'Soojuspump on võrguühenduseta.' });
+  if (errors.notices) notes.push({ id: 'notices', sig: 'unavailable', tone: 'warn', text: 'Häirete olek pole hetkel saadaval.' });
+  else if (activeNotices.length) notes.push({ id: 'notices', sig: String(activeNotices.length), tone: 'warn', text: `Aktiivseid häireid: ${activeNotices.length}.`, action: ['Vaata', 'alarms'] });
+  if (stale) notes.push({ id: 'stale', sig: 'stale', tone: 'warn', text: 'Seadme mõõtmised on vanemad kui 15 minutit.' });
   const lastError = ctx.lux?.view?.errors?.[0];
   const errorAcked = lastError && ctx.lux.view.errorsAck && Date.parse(lastError.time) <= Date.parse(ctx.lux.view.errorsAck);
   const hideError = async () => { try { ctx.lux.setView(await api('/luxtronik/errors/ack', { method: 'POST', body: '{}' })); } catch (e) { ctx.notify?.(e.message, true); } };
-  if (lastError && !errorAcked && Date.now() - Date.parse(lastError.time) < 24 * 3600000) notes.push({ dismiss: hideError, tone: 'warn', text: `Pump andis veakoodi ${lastError.code} (${lastError.name}) kell ${time(lastError.time)}${ctx.lux.view.errors7d > 1 ? `; viimase 7 päeva jooksul ${ctx.lux.view.errors7d} korda` : ''}.`, action: ['Vaata', 'settings'] });
+  if (lastError && !errorAcked && Date.now() - Date.parse(lastError.time) < 24 * 3600000) notes.push({ custom: true, dismiss: hideError, tone: 'warn', text: `Pump andis veakoodi ${lastError.code} (${lastError.name}) kell ${time(lastError.time)}${ctx.lux.view.errors7d > 1 ? `; viimase 7 päeva jooksul ${ctx.lux.view.errors7d} korda` : ''}.`, action: ['Vaata', 'settings'] });
   if (vent?.configured && vent.data) {
-    if (vent.data.switches.filterAlert) notes.push({ tone: 'warn', text: 'Ventilatsiooni filter vajab vahetust.', action: ['Ventilatsioon', 'ventilation'] });
-    else if (vent.errors.length) notes.push({ tone: 'warn', text: `Ventilatsiooni viga: ${vent.errors.join(', ')}.`, action: ['Ventilatsioon', 'ventilation'] });
-    else if (['high', 'bad'].includes(co2Quality(vent.data.co2).key)) notes.push({ tone: 'warn', text: `CO₂ on kõrge (${vent.data.co2} ppm).`, action: ['Ventilatsioon', 'ventilation'] });
-  } else if (vent?.configured && vent.error) notes.push({ tone: 'warn', text: 'Ventilatsiooniseadmega puudub ühendus.', action: ['Ventilatsioon', 'ventilation'] });
-  if (warning) notes.push({ tone: 'warn', text: warning.days > 0 ? `${warning.name} kehtib veel ${warning.days} päeva.` : `${warning.name} on aegunud.`, action: ['Minu seade', 'device'] });
+    if (vent.data.switches.filterAlert) notes.push({ id: 'vent', sig: 'filter', tone: 'warn', text: 'Ventilatsiooni filter vajab vahetust.', action: ['Ventilatsioon', 'ventilation'] });
+    else if (vent.errors.length) notes.push({ id: 'vent', sig: `error:${vent.errors.join(',')}`, tone: 'warn', text: `Ventilatsiooni viga: ${vent.errors.join(', ')}.`, action: ['Ventilatsioon', 'ventilation'] });
+    else if (['high', 'bad'].includes(co2Quality(vent.data.co2).key)) notes.push({ id: 'vent', sig: `co2:${co2Quality(vent.data.co2).key}`, tone: 'warn', text: `CO₂ on kõrge (${vent.data.co2} ppm).`, action: ['Ventilatsioon', 'ventilation'] });
+  } else if (vent?.configured && vent.error) notes.push({ id: 'vent', sig: 'offline', tone: 'warn', text: 'Ventilatsiooniseadmega puudub ühendus.', action: ['Ventilatsioon', 'ventilation'] });
+  if (warning) notes.push({ id: 'subscription', sig: `${warning.name}:${warning.days <= 0 ? 'expired' : warning.days <= 14 ? 'soon' : 'info'}`, tone: 'warn', text: warning.days > 0 ? `${warning.name} kehtib veel ${warning.days} päeva.` : `${warning.name} on aegunud.`, action: ['Minu seade', 'device'] });
+  const list = notes.map(n => ({ ...n, hidden: !n.custom && hiddenNotes[n.id] === n.sig }));
+  const hide = n => { if (n.custom) n.dismiss(); else setHiddenNotes({ ...hiddenNotes, [n.id]: n.sig }); };
+  const show = n => { const rest = { ...hiddenNotes }; delete rest[n.id]; setHiddenNotes(rest); };
+  return { notes: list, hide, show };
+}
+
+function PlanNotes({ ctx }) {
+  const { notes, hide, show } = usePlanNotes(ctx);
+  return <section className="nx-panel nx-plannotes">
+    <div className="nx-panel-head"><h2>Kodu lehe teated</h2></div>
+    {notes.length > 0 ? <ul className="nx-notes">{notes.map((n, i) => <li key={n.id ?? i} className={n.tone}><AlertCircle size={16}/><span>{n.text}{n.hidden && <em className="nx-hiddentag"> · peidetud</em>}</span>{n.action && <button type="button" className="nx-link" onClick={() => ctx.navigate(n.action[1])}>{n.action[0]} <ArrowRight size={13}/></button>}<button type="button" className="nx-link" onClick={() => n.hidden ? show(n) : hide(n)}>{n.hidden ? 'Näita Kodu lehel' : 'Peida Kodu lehelt'}</button></li>)}</ul> : <p className="nx-muted">Praegu ühtegi teadet ei ole.</p>}
+    <p className="nx-muted">Peidetud teade ei ilmu Kodu lehele tagasi enne, kui selle sisu oluliselt muutub (näiteks häirete arv või tähtaeg lähenes). Siit saad selle igal ajal uuesti nähtavale tuua.</p>
+  </section>;
+}
+
+function Overview({ ctx }) {
+  const { m, model, selection, tick, points, favorites } = ctx;
+  const state = pumpState(m);
+  const hasState = model === 'WZSV 92H3M';
+  const day = useDay(selection, tick, hasState);
+  const { notes, hide } = usePlanNotes(ctx), shownNotes = notes.filter(n => !n.hidden);
   const dT = m.supply?.value != null && m.returnT?.value != null ? Number(m.supply.value) - Number(m.returnT.value) : null;
   return <>
     <section className="nx-hero">
-      <div>
-        <p className="nx-eyebrow">{greeting()}</p>
-        <h2>{stateSentence(state, online)}</h2>
-        <p className="nx-lead">{ctx.climate.indoor != null ? `Toas ${number(ctx.climate.indoor, 1)} °C · ` : ''}väljas {number(ctx.climate.outdoor, 1)} °C · tarbevesi {number(m.water?.value, 1)} °C{Number.isFinite(m.waterTarget) ? ` (siht ${number(m.waterTarget, 0)} °C)` : ''}{m.power?.value > 0 ? ` · võimsus ${number(m.power.value, 1)} kW` : ''}.</p>
-      </div>
-      {notes.length > 0 ? <ul className="nx-notes">{notes.map((n, i) => <li key={i} className={n.tone}><AlertCircle size={16}/><span>{n.text}</span>{n.dismiss && <button type="button" className="nx-link nx-dismiss" onClick={n.dismiss} aria-label="Peida see veateade (logi jääb Seadetesse)">Peida</button>}{n.action && <button type="button" className="nx-link" onClick={() => ctx.navigate(n.action[1])}>{n.action[0]} <ArrowRight size={13}/></button>}</li>)}</ul> : <p className="nx-allgood"><i/>Häireid ei ole, andmed on värsked.</p>}
+      {shownNotes.length > 0 ? <ul className="nx-notes">{shownNotes.map((n, i) => <li key={n.id ?? i} className={n.tone}><AlertCircle size={16}/><span>{n.text}</span><button type="button" className="nx-link nx-dismiss" onClick={() => hide(n)} aria-label={n.custom ? 'Peida see veateade (logi jääb Seadetesse)' : `Peida teade: ${n.text}`}>Peida</button>{n.action && <button type="button" className="nx-link" onClick={() => ctx.navigate(n.action[1])}>{n.action[0]} <ArrowRight size={13}/></button>}</li>)}</ul> : notes.length === 0 && <p className="nx-allgood"><i/>Häireid ei ole, andmed on värsked.</p>}
     </section>
     <div className="nx-overview">
     <Suspense fallback={<section className="nx-panel"><div className="nx-skeleton"><i/></div></section>}><LiveHome ctx={ctx} embedded/></Suspense>
@@ -199,7 +217,7 @@ export default function NextUI({ ctx }) {
     {page === 'live' && <Suspense fallback={<div className="nx-skeleton"><i/></div>}><LiveHome ctx={ctx}/></Suspense>}
     {page === 'history' && <parts.HistoryPage deviceId={selection} points={ctx.points} tick={ctx.tick} theme={theme} model={model} stateId={model === 'WZSV 92H3M' ? '17' : null} ventPoints={ctx.airobot?.view?.configured && ctx.airobot.view.data ? ctx.airobot.view.points : []} luxPoints={ctx.lux?.view?.configured && ctx.lux.view.data ? ctx.lux.view.points : []}/>}
     {page === 'parameters' && <parts.Parameters {...shared} search={ctx.search} setSearch={ctx.setSearch} favorites={ctx.favorites} favorite={ctx.favorite}/>}
-    {page === 'alarms' && <parts.AlarmsPage systemId={system?.systemId} tick={ctx.tick}/>}
+    {page === 'alarms' && <><parts.AlarmsPage systemId={system?.systemId} tick={ctx.tick}/><PlanNotes ctx={ctx}/></>}
     {page === 'device' && <parts.DevicePage {...shared} firmware={ctx.firmware} aid={ctx.aid} subscriptions={ctx.subscriptions}/>}
     {page === 'settings' && <parts.SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} weather={ctx.weather} lux={ctx.lux}/>}
   </>;

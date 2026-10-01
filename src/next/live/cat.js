@@ -67,7 +67,7 @@ export class CatBrain {
       seg('jump', 0.9, { x: RADIATOR.x, y: -RADIATOR.h, r: STAND, c: 0 }, { arc: 22, air: true });
       seg('land', 0.35, { r: 3.5, c: 0.6 });
       seg('sitdown', 1.1, { r: 0, s: 1, c: 0 });
-      const gaze = 9 + r() * 4, n = gaze > 11 ? 3 : 2, flights = Array.from({ length: n }, (_, i) => ({ t0: 1.2 + i * (gaze - 3.4) / n + r() * 0.9, d: 2.3 + r() * 0.5, dirX: r() < 0.5 ? 1 : -1, y0: 520 + r() * 55 }));
+      const gaze = 9 + r() * 4, n = gaze > 11 ? 3 : 2, flights = Array.from({ length: n }, (_, i) => ({ t0: 1.2 + i * (gaze - 3.4) / n + r() * 0.9, d: 2.9 + r() * 0.6, dirX: r() < 0.5 ? 1 : -1, y0: 520 + r() * 55 }));
       seg('gaze', gaze, {}, { window: true, flights });
       seg('situp', 1.1, { r: STAND, s: 0 });
       seg('crouch', 0.45, { r: 2.5, c: 1 });

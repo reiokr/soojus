@@ -21,8 +21,9 @@ export function buildLiveState({ m = {}, climate = {}, vent = null, state = {}, 
     vent: d ? {
       present: true, running: d.switches.power && d.fans.supplyRpm > 0, level: d.fans.supplyLevel, rpm: d.fans.supplyRpm, airflow: d.airflow.supply,
       co2: d.co2, supplyTemp: d.temperatures.supply, extractTemp: d.temperatures.extract, recovery: d.heatRecovery, bypass: d.switches.bypass,
+      humidity: Number.isFinite(d.humidity?.extract) ? d.humidity.extract : null,
       mode: vent.mode, modeText: vent.modeText
-    } : { present: false, running: false, level: 0, rpm: 0, airflow: 0, co2: 500, supplyTemp: null, extractTemp: null, recovery: 0, bypass: false, mode: null, modeText: null }
+    } : { present: false, running: false, level: 0, rpm: 0, airflow: 0, co2: 500, supplyTemp: null, extractTemp: null, recovery: 0, bypass: false, humidity: null, mode: null, modeText: null }
   };
   if (hour != null && Number.isFinite(hour)) {
     const t = new Date(now), h = Math.min(23.99, Math.max(0, hour));
@@ -34,7 +35,7 @@ export function buildLiveState({ m = {}, climate = {}, vent = null, state = {}, 
   if ((demo === 'heat' || demo === 'water' || demo === 'all') && live.brine.present) Object.assign(live.brine, { out: Math.min(live.brine.out, live.brine.in - 3.2) });
   if (heat) Object.assign(live, { compressor: true, heatOn: true, heatDemand: false, powerKw: 3.4, supply: 38, returnT: 31, buffer: 36 });
   if (water) Object.assign(live, { compressor: true, hwOn: true, hwDemand: false, powerKw: 4.2, supply: 52, returnT: 44, water: Math.max(live.water ?? 0, 50), waterTarget: live.waterTarget ?? 55 });
-  if (air) Object.assign(live.vent, { present: true, running: true, level: 8, rpm: 2600, airflow: 240, co2: 1150, recovery: live.vent.recovery || 80, mode: 'boost', modeText: 'Õhutus', supplyTemp: live.vent.supplyTemp ?? 19, extractTemp: live.vent.extractTemp ?? 22 });
+  if (air) Object.assign(live.vent, { present: true, running: true, level: 8, rpm: 2600, airflow: 240, co2: 1150, recovery: live.vent.recovery || 80, mode: 'boost', modeText: 'Õhutus', supplyTemp: live.vent.supplyTemp ?? 19, extractTemp: live.vent.extractTemp ?? 22, humidity: live.vent.humidity ?? 46 });
   if (demo === 'all') live.powerKw = 4.2;
   return live;
 }

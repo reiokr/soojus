@@ -15,6 +15,12 @@ export function pumpState({ workMode, heatingState, hwState, compressor }) {
   return { heatOn, hwOn, heatDemand, hwDemand, running: heatOn || hwOn, stalled: comp === false && (modeHeat || modeHw), stalledFor: modeHw && !modeHeat ? 'tarbevee soojendus' : 'küte' };
 }
 
+// Tervitus kellaaja järgi (näidatakse Elava kodu pildil kellaaja kohal; järgib pildil näidatavat aega, mitte alati praegust).
+export function greeting(date = new Date()) {
+  const h = date.getHours();
+  return h < 5 ? 'Head ööd' : h < 11 ? 'Tere hommikust' : h < 17 ? 'Tere päevast' : h < 22 ? 'Tere õhtust' : 'Head ööd';
+}
+
 export function stateSentence(state, online) {
   if (!online) return 'Soojuspump on võrguühenduseta.';
   if (state.stalled) return `${state.stalledFor === 'küte' ? 'Küte' : 'Tarbevee soojendus'} on nõutud, aga kompressor seisab ja ootab käivitumist.`;

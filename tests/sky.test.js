@@ -51,11 +51,11 @@ test('ground frosts in the cold and windows glow warmer when indoors is comforta
 import { buildLiveState, liveSummary, DEMOS } from '../src/next/live/state.js';
 
 const base = { m: { water: { value: 46.3 }, power: { value: 0 }, supply: { value: 24.8 }, returnT: { value: 24.6 }, buffer: { value: 24 }, waterTarget: 45 }, climate: { outdoor: 17, indoor: 22.8 }, state: { heatOn: false, hwOn: false }, now: new Date(2026, 8, 30, 16, 0) };
-const ventView = { mode: 'auto', modeText: 'Automaatne', data: { switches: { power: true, bypass: false }, fans: { supplyRpm: 1300, supplyLevel: 1 }, airflow: { supply: 100 }, co2: 590, temperatures: { supply: 21.2, extract: 22.8 }, heatRecovery: 79 } };
+const ventView = { mode: 'auto', modeText: 'Automaatne', data: { switches: { power: true, bypass: false }, fans: { supplyRpm: 1300, supplyLevel: 1 }, airflow: { supply: 100 }, co2: 590, temperatures: { supply: 21.2, extract: 22.8 }, heatRecovery: 79, humidity: { extract: 44.6, supply: 40.1, outside: 78 } } };
 
 test('live state carries real readings and reports a resting pump', () => {
   const s = buildLiveState({ ...base, vent: ventView });
-  assert.equal(s.demo, false); assert.equal(s.water, 46.3); assert.equal(s.indoor, 22.8); assert.equal(s.vent.level, 1); assert.equal(s.vent.running, true);
+  assert.equal(s.demo, false); assert.equal(s.water, 46.3); assert.equal(s.indoor, 22.8); assert.equal(s.vent.level, 1); assert.equal(s.vent.running, true); assert.equal(s.vent.humidity, 44.6, 'toa niiskus tuleb väljatõmbest');
   assert.equal(liveSummary(s), 'pump puhkab, ventilatsioon töötab kiirusel 1/10');
   assert.equal(buildLiveState({ ...base }).vent.present, false);
   assert.equal(buildLiveState({ m: { water: { value: '' } } }).water, null);
