@@ -1,30 +1,23 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ListMusic, Repeat1, Volume1, Volume2, VolumeX } from 'lucide-react';
-import { Ambience, TRACKS, loadMode, loadTrack, loadVolume } from './ambience.js';
+import React, { useEffect, useSyncExternalStore } from 'react';
+import { ListMusic, Pause, Play, Repeat1, Volume1, Volume2, VolumeX } from 'lucide-react';
+import { getAmbience } from './ambience.js';
 
+// Muusika on kogu rakenduse peale üks ühine objekt (ambience.js), seega Plaani ja Elava kodu lehe nupud näitavad sama seisu ning lehte vahetades muusika ei katke.
 export default function SoundControl() {
-  const ref = useRef(null);
-  const [on, setOn] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [volume, setVolume] = useState(loadVolume), [track, setTrack] = useState(loadTrack), [mode, setMode] = useState(loadMode), [tracks, setTracks] = useState(TRACKS);
-  useEffect(() => { const a = new Ambience(); a.onTrack = setTrack; a.onTracks = setTracks; a.refresh(); a.onError = e => setError(e.message || 'Järgmist lugu ei õnnestunud laadida.'); ref.current = a; return () => a.destroy(); }, []);
+  const amb = getAmbience(), s = useSyncExternalStore(amb.subscribe, amb.getSnapshot);
+  useEffect(() => amb.attach(), [amb]);
 
-  const run = async job => { setBusy(true); setError(''); try { await job(); } catch (e) { setError(e.message || 'Heli ei käivitunud.'); } finally { setBusy(false); } };
-  const toggle = () => {
-    const a = ref.current;
-    if (on) { a.stop(); setOn(false); return; }
-    run(async () => { await a.start(); setOn(true); });
-  };
-  const pick = e => { const id = e.target.value; setTrack(id); run(() => ref.current.setTrack(id)); };
-  const flipMode = () => { const m = mode === 'one' ? 'all' : 'one'; setMode(m); ref.current?.setMode(m); };
-  const change = e => { const v = Number(e.target.value); setVolume(v); ref.current?.setVolume(v); };
-  const Icon = !on || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
-  const modeLabel = mode === 'one' ? 'Esitus: ühe loo kordamine (vajuta, et mängida kõiki järjest)' : 'Esitus: kõik järjest (vajuta, et kordada ühte)';
-  const label = on ? 'Lülita taustamuusika välja' : 'Lülita hubane taustamuusika sisse';
+  const Icon = !s.on || s.paused || s.volume === 0 ? VolumeX : s.volume < 0.5 ? Volume1 : Volume2;
+  const label = s.on ? 'Lülita taustamuusika välja (järgmine käivitus algab algusest)' : 'Lülita hubane taustamuusika sisse';
+  const modeLabel = s.mode === 'one' ? 'Esitus: ühe loo kordamine (vajuta, et mängida kõiki järjest)' : 'Esitus: kõik järjest (vajuta, et kordada ühte)';
+  const hint = s.blocked ? 'Brauser ootab esimest klõpsu või klahvivajutust, siis jätkub muusika' : s.error || label;
 
-  return <div className={`live-sound ${on ? 'is-on' : ''}`} role="group" aria-label="Taustamuusika">
-    <button type="button" className="live-sound-btn" onClick={toggle} disabled={busy} aria-pressed={on} aria-label={label} title={error || label}><Icon size={16}/><span>{busy ? 'Laadin…' : on ? 'Muusika sees' : 'Muusika'}</span></button>
-    <select value={tracks.some(t => t.id === track) ? track : tracks[0].id} onChange={pick} onFocus={() => ref.current?.refresh()} onMouseDown={() => ref.current?.refresh()} aria-label="Lugu">{tracks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}</select>
-    <button type="button" className="live-sound-mode" onClick={flipMode} aria-label={modeLabel} title={modeLabel} data-mode={mode}>{mode === 'one' ? <Repeat1 size={16}/> : <ListMusic size={16}/>}</button>
-    <input type="range" min="0" max="1" step="0.01" value={volume} onChange={change} aria-label="Helitugevus" aria-valuetext={`${Math.round(volume * 100)}%`}/>
-    {error && <small role="alert">{error}</small>}
+  return <div className={`live-sound ${s.on ? 'is-on' : ''}`} role="group" aria-label="Taustamuusika">
+    <button type="button" className="live-sound-btn" onClick={() => amb.toggle()} disabled={s.busy} aria-pressed={s.on} aria-label={label} title={hint}><Icon size={16}/><span>{s.busy ? 'Laadin…' : s.paused ? 'Pausil' : s.blocked ? 'Klõpsa lehel' : s.on ? 'Muusika sees' : 'Muusika'}</span></button>
+    {s.on && <button type="button" className="live-sound-pause" onClick={() => amb.togglePause()} disabled={s.busy} aria-pressed={s.paused} aria-label={s.paused ? 'Jätka muusikat' : 'Peata muusika pausile'} title={s.paused ? 'Jätka samast kohast' : 'Paus (lugu jätkub samast kohast)'}>{s.paused ? <Play size={16}/> : <Pause size={16}/>}</button>}
+    <select value={s.tracks.some(t => t.id === s.trackId) ? s.trackId : s.tracks[0].id} onChange={e => amb.setTrack(e.target.value)} onFocus={() => amb.refresh()} onMouseDown={() => amb.refresh()} aria-label="Lugu">{s.tracks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}</select>
+    <button type="button" className="live-sound-mode" onClick={() => amb.setMode(s.mode === 'one' ? 'all' : 'one')} aria-label={modeLabel} title={modeLabel} data-mode={s.mode}>{s.mode === 'one' ? <Repeat1 size={16}/> : <ListMusic size={16}/>}</button>
+    <input type="range" min="0" max="1" step="0.01" value={s.volume} onChange={e => amb.setVolume(Number(e.target.value))} aria-label="Helitugevus" aria-valuetext={`${Math.round(s.volume * 100)}%`}/>
+    {s.error && <small role="alert">{s.error}</small>}
   </div>;
 }

@@ -126,7 +126,7 @@ test('brine temperatures from the pump reach the live state, and demo heating ke
   assert.equal(real.compressor, false, 'kompressori olek tuleb pumbalt');
   assert.match(buildLiveState({ ...base, lux: { data: { ...lux.data, outputs: { compressor: true, brinePump: true } } } }).compressor.toString(), /true/);
   const demo = buildLiveState({ ...base, lux, demo: 'heat' });
-  assert.ok(demo.brine.in - demo.brine.out >= 3.2 - 1e-9, 'töötades on alkohol maasse külmem kui maast');
+  assert.ok(demo.brine.in - demo.brine.out >= 3.2 - 1e-9, 'töötades on soojakandja maasse külmem kui maast');
   assert.equal(demo.compressor, true);
   assert.equal(buildLiveState({ ...base }).brine.present, false);
   assert.equal(buildLiveState({ ...base, lux: { data: { outputs: {}, inputs: {}, temperatures: { brineIn: null, brineOut: 5 } } } }).brine.present, false);

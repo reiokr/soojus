@@ -149,7 +149,7 @@ function Control({ ctx, water }) {
   const group = water ? 'Tarbevesi' : 'Küte';
   const writable = points.filter(p => p.group === group && p.writable);
   const readings = points.filter(p => p.group === group && !p.writable);
-  const lt = ctx.lux?.view?.data?.temperatures, cl = ctx.climate, extra = water ? [] : [lt?.brineIn != null && { label: 'Alkohol maast', value: `${number(lt.brineIn, 1)} °C` }, lt?.brineOut != null && { label: 'Alkohol maasse', value: `${number(lt.brineOut, 1)} °C` }, lt?.hotGas != null && { label: 'Kuumgaas', value: `${number(lt.hotGas, 1)} °C` }, cl.indoor != null && { label: 'Sisetemperatuur (ventilatsioon)', value: `${number(cl.indoor, 1)} °C` }, cl.outdoor != null && { label: `Välisõhk (${cl.outdoorSource})`, value: `${number(cl.outdoor, 1)} °C` }].filter(Boolean);
+  const lt = ctx.lux?.view?.data?.temperatures, cl = ctx.climate, extra = water ? [] : [lt?.brineIn != null && { label: 'Soojakandja maast', value: `${number(lt.brineIn, 1)} °C` }, lt?.brineOut != null && { label: 'Soojakandja maasse', value: `${number(lt.brineOut, 1)} °C` }, lt?.hotGas != null && { label: 'Kuumgaas', value: `${number(lt.hotGas, 1)} °C` }, cl.indoor != null && { label: 'Sisetemperatuur (ventilatsioon)', value: `${number(cl.indoor, 1)} °C` }, cl.outdoor != null && { label: `Välisõhk (${cl.outdoorSource})`, value: `${number(cl.outdoor, 1)} °C` }].filter(Boolean);
   const waterZones = water ? zones : [];
   const state = pumpState(m);
   return <>

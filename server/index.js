@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS samples (device TEXT, point TEXT, time TEXT, value RE
 CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, time TEXT, device TEXT, action TEXT, detail TEXT);
 CREATE INDEX IF NOT EXISTS samples_time ON samples(time);
 CREATE TABLE IF NOT EXISTS pump_errors (time TEXT NOT NULL, code INTEGER NOT NULL, seen TEXT NOT NULL, PRIMARY KEY(time, code));`);
+// Maakontuuri vedelikku kutsutakse neutraalselt soojakandjaks: ümbernimeta ka varem salvestatud mõõtepunktide sildid.
+db.exec(`UPDATE samples SET label = REPLACE(REPLACE(REPLACE(REPLACE(label, 'Alkoholi', 'Soojakandja'), 'alkoholi', 'soojakandja'), 'Alkohol', 'Soojakandja'), 'alkohol', 'soojakandja') WHERE label LIKE '%lkohol%';
+UPDATE samples SET label = REPLACE(label, 'Soojakandjai', 'Soojakandja') WHERE label LIKE '%Soojakandjai%'`);
 const getSetting = key => { const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key); return row ? JSON.parse(row.value) : null; };
 const setSetting = (key, value) => db.prepare('INSERT OR REPLACE INTO settings VALUES(?,?)').run(key, JSON.stringify(value));
 const audit = (device, action, detail) => db.prepare('INSERT INTO audit(time,device,action,detail) VALUES(?,?,?,?)').run(new Date().toISOString(), device, action, JSON.stringify(detail));
@@ -125,7 +128,7 @@ const airobotView = () => {
     mode: d ? effectiveMode(d) : null, modeText: d ? MODE_TEXT[effectiveMode(d)] : null, errors: d ? decodeErrors(d.errorFlags) : [],
     points: airobotState.values.map(v => ({ parameterId: v.id, label: v.label, parameterUnit: v.unit, value: v.value })) };
 };
-// Soojuspumba kohtvõrguliides (Luxtronik, ainult lugemine): alkoholi temperatuurid, mida myUplinki API ei avalda.
+// Soojuspumba kohtvõrguliides (Luxtronik, ainult lugemine): soojakandja temperatuurid, mida myUplinki API ei avalda.
 const luxConfig = () => getSetting('luxtronik');
 const luxState = { data: null, values: [], time: null, error: null, readAt: null, recordTime: null, verified: getSetting('luxVerified') && getSetting('luxVerified') === getSetting('luxtronik')?.host ? true : null };
 let luxBusy = false;

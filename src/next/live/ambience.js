@@ -6,7 +6,7 @@ export const TRACKS = [
   { id: 'kitarriohtu', title: 'Kitarriõhtu', url: '/audio/kitarriohtu.mp3' },
   { id: 'puhapaeva-hommik', title: 'Pühapäeva hommik', url: '/audio/puhapaeva-hommik.mp3' }
 ];
-const VOLUME_KEY = 'soojus.sound.volume', TRACK_KEY = 'soojus.sound.track', MODE_KEY = 'soojus.sound.mode', FADE = 0.45, CROSS = 3;
+const VOLUME_KEY = 'soojus.sound.volume', TRACK_KEY = 'soojus.sound.track', MODE_KEY = 'soojus.sound.mode', ON_KEY = 'soojus.sound.on', PAUSED_KEY = 'soojus.sound.paused', POS_KEY = 'soojus.sound.pos', FADE = 0.45, CROSS = 3, LEAVE_GRACE = 1500;
 
 export const volumeGain = v => Math.max(0, Math.min(1, v)) ** 2;
 export function loadVolume(storage = globalThis.localStorage) {
@@ -39,6 +39,17 @@ export function buildTracks(files) {
   return [...builtIn, ...own];
 }
 
+// Mängimise seis jääb brauserisse meelde: kas muusika oli sees, kas oli pausil ja kus kohas lugu oli.
+export function loadPlayback(storage = globalThis.localStorage) {
+  try {
+    const on = storage?.getItem(ON_KEY) === '1', paused = on && storage?.getItem(PAUSED_KEY) === '1';
+    let pos = null; try { const p = JSON.parse(storage?.getItem(POS_KEY) ?? 'null'); if (p && typeof p.id === 'string' && Number.isFinite(p.t) && p.t >= 0) pos = { id: p.id, t: p.t }; } catch { /* rikutud väärtus */ }
+    return { on, paused, pos };
+  } catch { return { on: false, paused: false, pos: null }; }
+}
+export function savePlayback({ on, paused }, storage = globalThis.localStorage) { try { storage?.setItem(ON_KEY, on ? '1' : '0'); storage?.setItem(PAUSED_KEY, on && paused ? '1' : '0'); } catch { /* privaatne režiim */ } }
+export function savePosition(id, t, storage = globalThis.localStorage) { try { storage?.setItem(POS_KEY, JSON.stringify({ id, t: Math.round(t * 10) / 10 })); } catch { /* privaatne režiim */ } }
+
 const buffers = new Map();
 const loadBuffer = (ctx, track) => {
   if (!buffers.has(track.id)) buffers.set(track.id, fetch(track.url).then(r => { if (!r.ok) throw new Error(`Heli laadimine ebaõnnestus (${r.status})`); return r.arrayBuffer(); }).then(b => ctx.decodeAudioData(b)).catch(e => { buffers.delete(track.id); throw e; }));
@@ -47,20 +58,69 @@ const loadBuffer = (ctx, track) => {
 
 // Üks silmus korraga: AudioBufferSourceNode.loop on näidistäpne ja sisseehitatud lugudes on kaja saba algusesse tagasi keeratud.
 // Iga lugu mängib oma helitugevuse sõlmega, nii saab lugude vahel sujuvalt üle minna.
+// Heli on kogu rakenduse peale üks ühine objekt (getAmbience): lehtede vahel liikudes (Plaan ⇄ Elav kodu) muusika ei katke ega alga otsast.
+// Kui ühelgi lehel pole enam muusikanuppu, jääb muusika pausile ja jätkub samast kohast, kui nupp tagasi tuleb.
 export class Ambience {
-  constructor() { this.ctx = null; this.master = null; this.voice = null; this.volume = loadVolume(); this.trackId = loadTrack(); this.mode = loadMode(); this.token = 0; this.playing = false; this.timer = 0; this.onTrack = null; this.onError = null; this.onTracks = null; this.tracks = TRACKS; }
+  constructor(storage = globalThis.localStorage) {
+    this.storage = storage;
+    this.ctx = null; this.master = null; this.voice = null; this.tracks = TRACKS;
+    this.volume = loadVolume(storage); this.trackId = loadTrack(storage); this.mode = loadMode(storage);
+    const pb = loadPlayback(storage);
+    this.want = pb.on; this.paused = pb.paused; this.savedPos = pb.pos;
+    this.busy = false; this.error = ''; this.held = false; this.mounts = 0; this.restored = false;
+    this.token = 0; this.timer = 0; this.pauseTimer = 0; this.leaveTimer = 0; this.posTimer = 0; this.lastRefresh = 0;
+    this.listeners = new Set(); this.snap = null; this.gestureBound = false;
+    this.subscribe = fn => { this.listeners.add(fn); return () => this.listeners.delete(fn); };
+    this.getSnapshot = () => this.snap ??= this.makeSnapshot();
+    this.onGesture = () => {
+      for (const ev of ['pointerdown', 'keydown', 'touchend']) document.removeEventListener(ev, this.onGesture, true);
+      this.gestureBound = false;
+      if (this.ctx && this.want && !this.paused && !this.held) this.ctx.resume().catch(() => {});
+    };
+    this.savePos = () => { if (this.voice) { this.savedPos = { id: this.trackId, t: this.position() }; savePosition(this.savedPos.id, this.savedPos.t, this.storage); } };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pagehide', this.savePos);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) this.savePos(); });
+    }
+  }
+
   get track() { return this.tracks.find(t => t.id === this.trackId) ?? this.tracks[0]; }
+  get playing() { return this.want && !this.paused; }
+  makeSnapshot() {
+    const blocked = Boolean(this.ctx && this.ctx.state !== 'running' && this.playing && !this.held && !this.busy && this.voice);
+    return { on: this.want, paused: this.paused, busy: this.busy, error: this.error, blocked, trackId: this.track.id, tracks: this.tracks, mode: this.mode, volume: this.volume };
+  }
+  emit() { this.snap = null; for (const fn of this.listeners) fn(); }
+  persist() { savePlayback({ on: this.want, paused: this.paused }, this.storage); }
+  position() { const v = this.voice; return v && this.ctx ? (v.offset + (this.ctx.currentTime - v.t0)) % v.duration : 0; }
+
   setTracks(list) {
     if (!list.length) return;
     this.tracks = list;
     if (!list.some(t => t.id === this.trackId) && !this.playing) this.trackId = list[0].id;
-    this.onTracks?.(list);
+    this.emit();
   }
   async refresh() {
-    if (Date.now() - (this.lastRefresh ?? 0) < 1500) return;
+    if (Date.now() - this.lastRefresh < 1500) return;
     this.lastRefresh = Date.now();
     try { const r = await fetch('/api/audio'); if (!r.ok) return; const { files } = await r.json(); this.setTracks(buildTracks(files)); } catch { /* ei ole serverit või kataloogi: sisseehitatud lood jäävad */ }
   }
+
+  // Muusikanupp ilmus lehele / kadus lehelt. Esimesel ilmumisel taastatakse eelmine seis (kui muusika oli sees, algab see uuesti samast kohast).
+  attach() {
+    this.mounts++; clearTimeout(this.leaveTimer);
+    this.refresh();
+    if (!this.restored) { this.restored = true; if (this.playing) this.begin(FADE, this.resumeOffset(), false); }
+    else if (this.held) { this.held = false; this.resumeAudio(); }
+    return () => this.detach();
+  }
+  detach() {
+    this.mounts = Math.max(0, this.mounts - 1);
+    if (this.mounts) return;
+    this.leaveTimer = setTimeout(() => { if (this.mounts === 0 && this.voice && this.playing && !this.held) { this.savePos(); this.held = true; this.fadeAndSuspend(); this.emit(); } }, LEAVE_GRACE);
+  }
+  resumeOffset() { return this.savedPos && this.savedPos.id === this.track.id ? this.savedPos.t : 0; }
+
   retire(voice, fade = FADE) {
     if (!voice) return;
     voice.gain.gain.cancelScheduledValues(this.ctx.currentTime);
@@ -71,8 +131,8 @@ export class Ambience {
   schedule() {
     clearTimeout(this.timer);
     const v = this.voice;
-    if (!v || !this.playing || this.mode !== 'all') return;
-    const remaining = v.ended ? 0 : v.duration - (this.ctx.currentTime - v.t0) % v.duration;
+    if (!v || !this.playing || this.held || this.mode !== 'all') return;
+    const remaining = v.ended ? 0 : v.duration - (v.offset + (this.ctx.currentTime - v.t0)) % v.duration;
     this.timer = setTimeout(() => this.advance(), Math.max(0, remaining - CROSS) * 1000);
   }
   async advance() {
@@ -80,54 +140,116 @@ export class Ambience {
     await this.refresh();
     let error = null;
     for (let i = 0; i < this.tracks.length; i++) {
-      this.trackId = nextTrackId(this.trackId, this.tracks); saveTrack(this.trackId); this.onTrack?.(this.trackId);
-      try { await this.start(CROSS); return; } catch (e) { error = e; }
+      this.trackId = nextTrackId(this.trackId, this.tracks); saveTrack(this.trackId, this.storage); this.savedPos = { id: this.trackId, t: 0 };
+      try { await this.begin(CROSS, 0, true); return; } catch (e) { error = e; }
     }
-    this.onError?.(error);
+    this.error = error?.message || 'Järgmist lugu ei õnnestunud laadida.'; this.emit();
   }
-  async start(fade = FADE) {
+
+  // blocking=false: taastamisel pärast lehe uuesti laadimist ei oota brauser veel kasutaja klõpsu; heli algab esimese klõpsu/klahvivajutusega.
+  async begin(fade = FADE, offset = 0, blocking = true) {
     const token = ++this.token;
+    clearTimeout(this.pauseTimer);
     const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!AC) throw new Error('See brauser ei toeta heli esitamist.');
-    if (!this.ctx) { this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.gain.value = volumeGain(this.volume); this.master.connect(this.ctx.destination); }
-    await this.ctx.resume();
-    const track = this.track, buffer = await loadBuffer(this.ctx, track);
+    if (!this.ctx) {
+      this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.gain.value = volumeGain(this.volume); this.master.connect(this.ctx.destination);
+      this.ctx.onstatechange = () => this.emit();
+    }
+    this.held = false;
+    if (blocking) await this.ctx.resume();
+    else { this.ctx.resume().catch(() => {}); if (this.ctx.state !== 'running' && !this.gestureBound && typeof document !== 'undefined') { this.gestureBound = true; for (const ev of ['pointerdown', 'keydown', 'touchend']) document.addEventListener(ev, this.onGesture, true); } }
+    let buffer;
+    try { buffer = await loadBuffer(this.ctx, this.track); } catch (e) { if (!blocking) { this.error = e.message; this.emit(); return; } throw e; }
     if (token !== this.token) return;
-    const source = this.ctx.createBufferSource(), gain = this.ctx.createGain();
-    const duration = buffer.duration;
+    const source = this.ctx.createBufferSource(), gain = this.ctx.createGain(), duration = buffer.duration;
+    const start = duration > 1 ? offset % duration : 0;
     source.buffer = buffer; source.loop = this.mode === 'one'; source.loopStart = 0; source.loopEnd = duration;
-    gain.gain.value = 0; source.connect(gain); gain.connect(this.master); source.start(0, 0);
+    gain.gain.value = 0; source.connect(gain); gain.connect(this.master); source.start(0, start);
     gain.gain.setTargetAtTime(1, this.ctx.currentTime, fade / 3);
     this.retire(this.voice, fade);
-    const voice = this.voice = { source, gain, duration, t0: this.ctx.currentTime, ended: false };
+    const voice = this.voice = { source, gain, duration, offset: start, t0: this.ctx.currentTime, ended: false };
     source.onended = () => { voice.ended = true; if (this.voice === voice && this.playing && this.mode === 'all') this.advance(); };
-    this.playing = true;
-    this.schedule();
+    this.want = true; this.paused = false; this.persist();
+    clearInterval(this.posTimer); this.posTimer = setInterval(this.savePos, 3000);
+    if (!this.mounts) { this.held = true; this.fadeAndSuspend(); }
+    else this.schedule();
     if (this.mode === 'all') loadBuffer(this.ctx, this.tracks.find(t => t.id === nextTrackId(this.trackId, this.tracks))).catch(() => {});
+    this.emit();
+  }
+
+  async toggle() {
+    this.error = '';
+    if (this.want) { this.stop(); return; }
+    this.busy = true; this.emit();
+    try { this.want = true; await this.begin(FADE, 0, true); } catch (e) { this.want = false; this.persist(); this.error = e.message || 'Heli ei käivitunud.'; } finally { this.busy = false; this.emit(); }
   }
   stop() {
     const token = ++this.token;
-    this.playing = false;
-    clearTimeout(this.timer);
-    if (!this.ctx) return;
-    const { ctx } = this;
-    this.retire(this.voice); this.voice = null;
-    setTimeout(() => { if (token === this.token) ctx.suspend?.().catch(() => {}); }, FADE * 1000 * 2.2);
+    this.want = false; this.paused = false; this.held = false; this.persist();
+    clearTimeout(this.timer); clearTimeout(this.pauseTimer); clearInterval(this.posTimer);
+    this.savedPos = { id: this.trackId, t: 0 }; savePosition(this.trackId, 0, this.storage);
+    if (this.ctx) {
+      const { ctx } = this;
+      if (this.ctx.state !== 'running') { try { this.voice?.source.stop(); } catch { /* juba peatatud */ } this.voice?.source.disconnect(); }
+      else this.retire(this.voice);
+      this.voice = null;
+      setTimeout(() => { if (token === this.token && !this.want) ctx.suspend?.().catch(() => {}); }, FADE * 1000 * 2.2);
+    }
+    this.emit();
   }
+  // Paus peatab kogu helikonteksti (ka selle kella), seega jätkub lugu täpselt samast kohast ja järjestikuse režiimi taimer jääb õigeks.
+  fadeAndSuspend() {
+    clearTimeout(this.timer); clearTimeout(this.pauseTimer);
+    const { ctx, voice } = this;
+    voice.gain.gain.cancelScheduledValues(ctx.currentTime);
+    voice.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.06);
+    this.pauseTimer = setTimeout(() => ctx.suspend?.().catch(() => {}), 350);
+  }
+  async resumeAudio() {
+    clearTimeout(this.pauseTimer);
+    const { ctx, voice } = this;
+    await ctx.resume();
+    voice.gain.gain.cancelScheduledValues(ctx.currentTime);
+    voice.gain.gain.setTargetAtTime(1, ctx.currentTime, 0.1);
+    this.schedule();
+  }
+  pause() {
+    if (!this.want || this.paused) return;
+    this.paused = true; this.persist();
+    clearInterval(this.posTimer);
+    if (this.voice) { this.savePos(); this.fadeAndSuspend(); }
+    this.emit();
+  }
+  async resume() {
+    if (!this.want || !this.paused) return;
+    this.paused = false; this.persist(); this.error = '';
+    if (this.voice) { this.posTimer = setInterval(this.savePos, 3000); await this.resumeAudio(); this.emit(); return; }
+    this.busy = true; this.emit();
+    try { await this.begin(FADE, this.resumeOffset(), true); } catch (e) { this.paused = true; this.persist(); this.error = e.message || 'Heli ei käivitunud.'; } finally { this.busy = false; this.emit(); }
+  }
+  togglePause() { return this.paused ? this.resume() : this.pause(); }
+
   async setTrack(id) {
     if (!this.tracks.some(t => t.id === id) || id === this.trackId) return;
-    this.trackId = id; saveTrack(id);
-    if (this.playing) await this.start();
+    this.trackId = id; saveTrack(id, this.storage); this.savedPos = { id, t: 0 }; this.error = '';
+    if (!this.want) { this.emit(); return; }
+    this.busy = true; this.emit();
+    try { await this.begin(FADE, 0, true); } catch (e) { this.error = e.message || 'Lugu ei õnnestunud laadida.'; } finally { this.busy = false; this.emit(); }
   }
   setMode(mode) {
     if (!MODES.includes(mode)) return;
-    this.mode = mode; saveMode(mode);
+    this.mode = mode; saveMode(mode, this.storage);
     if (this.voice) { this.voice.source.loop = mode === 'one'; this.schedule(); }
+    this.emit();
   }
   setVolume(v) {
     this.volume = Math.max(0, Math.min(1, v));
-    saveVolume(this.volume);
+    saveVolume(this.volume, this.storage);
     if (this.ctx) { this.master.gain.cancelScheduledValues(this.ctx.currentTime); this.master.gain.setTargetAtTime(volumeGain(this.volume), this.ctx.currentTime, 0.04); }
+    this.emit();
   }
-  destroy() { this.token++; this.playing = false; clearTimeout(this.timer); try { this.voice?.source.stop(); } catch { /* juba peatatud */ } this.ctx?.close?.().catch(() => {}); this.ctx = this.master = this.voice = null; }
 }
+
+let shared = null;
+export const getAmbience = () => shared ??= new Ambience();

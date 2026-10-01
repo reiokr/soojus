@@ -36,6 +36,8 @@ export default function LiveHome({ ctx, embedded = false }) {
     return () => { ro.disconnect(); io.disconnect(); reduce?.removeEventListener?.('change', onMotion); scene.destroy(); };
   }, []);
   useEffect(() => { sceneRef.current?.setHover(hot); }, [hot]);
+  // Täisekraanil hotspot-nupud eemaldatakse, mistõttu hiirest lahkumise sündmust ei tule: ilma selleta jääks viimane esiletõst (nt maakontuur) kinni.
+  useEffect(() => { setHot(null); }, [full]);
   useEffect(() => { sceneRef.current?.setState(live); if (sceneRef.current?.reduced) sceneRef.current.frame(performance.now()); }, [live]);
   useEffect(() => {
     const onChange = () => setFull(document.fullscreenElement === stageRef.current);
@@ -59,7 +61,7 @@ export default function LiveHome({ ctx, embedded = false }) {
   const kw = v => `${number(v, 1)} kW`;
   const nowText = {
     pump: live.hwOn && live.heatOn ? `Kütab maja ja tarbevett · ${kw(live.powerKw)}` : live.hwOn ? `Soojendab tarbevett · ${kw(live.powerKw)}` : live.heatOn ? `Kütab maja · ${kw(live.powerKw)}` : live.compressor ? `Kompressor töötab · ${kw(live.powerKw)}` : live.heatDemand || live.hwDemand ? 'Ootab käivitamist' : 'Puhkab',
-    ground: live.brine.present ? `Alkohol maast ${number(live.brine.in, 1)} °C, maasse ${number(live.brine.out, 1)} °C${live.compressor ? ` · maa andis ${number(live.brine.in - live.brine.out, 1)} K soojust` : ' · kompressor seisab'}` : live.compressor ? 'Kompressor töötab, alkohol võtab maast soojust' : 'Kompressor seisab',
+    ground: live.brine.present ? `Soojakandja maast ${number(live.brine.in, 1)} °C, maasse ${number(live.brine.out, 1)} °C${live.compressor ? ` · maa andis ${number(live.brine.in - live.brine.out, 1)} K soojust` : ' · kompressor seisab'}` : live.compressor ? 'Kompressor töötab, soojakandja võtab maast soojust' : 'Kompressor seisab',
     vent: live.vent.running ? `${live.vent.modeText || 'Töötab'} · kiirus ${live.vent.level}/10 · CO₂ ${live.vent.co2} ppm` : 'Seisab',
     boiler: live.water == null ? '' : `${number(live.water, 1)} °C${live.waterTarget != null ? ` (siht ${number(live.waterTarget, 0)} °C)` : ''}${live.hwOn ? ' · soojeneb' : ''}`
   };
@@ -73,8 +75,8 @@ export default function LiveHome({ ctx, embedded = false }) {
       {fitScale > 0 && !full && <div className="live-hotspots">{targets.map(([id, h]) => {
         const flip = id === 'boiler';
         return <button key={id} type="button" className={`live-hot ${hot === id ? 'hot' : ''} ${flip ? 'flip' : ''}`} style={{ left: `${(offX + h.x * fitScale) / size.w * 100}%`, top: `${(offY + h.y * fitScale) / size.h * 100}%`, width: `${h.w * fitScale / size.w * 100}%`, height: `${h.h * fitScale / size.h * 100}%`, borderRadius: `${h.r * fitScale / zoomFactor}px`, '--hot': h.color }}
-          aria-label={`${h.label}. ${nowText[id]}. ${id === 'ground' && live.brine.present ? 'Alkoholi temperatuurid soojuspumbalt.' : h.info} Ava leht ${h.go}.`} onClick={() => ctx.navigate(h.page)} onMouseEnter={() => setHot(id)} onMouseLeave={() => setHot(null)} onFocus={e => e.currentTarget.matches(':focus-visible') && setHot(id)} onBlur={() => setHot(null)}>
-          <span className="live-hot-label" role="tooltip"><b>{h.label}</b><em>{nowText[id]}</em><span>{id === 'ground' && live.brine.present ? 'Toru maa sees, kus alkohol võtab maapinnast soojust ja viib selle pumbani. Temperatuurid tulevad soojuspumba enda kohtvõrguliidesest.' : h.info}</span><i>Ava leht: {h.go} <ArrowRight size={12}/></i></span>
+          aria-label={`${h.label}. ${nowText[id]}. ${id === 'ground' && live.brine.present ? 'Soojakandja temperatuurid soojuspumbalt.' : h.info} Ava leht ${h.go}.`} onClick={() => ctx.navigate(h.page)} onMouseEnter={() => !full && setHot(id)} onMouseLeave={() => setHot(null)} onFocus={e => e.currentTarget.matches(':focus-visible') && setHot(id)} onBlur={() => setHot(null)}>
+          <span className="live-hot-label" role="tooltip"><b>{h.label}</b><em>{nowText[id]}</em><span>{id === 'ground' && live.brine.present ? 'Toru maa sees, kus soojakandja võtab maapinnast soojust ja viib selle pumbani. Temperatuurid tulevad soojuspumba enda kohtvõrguliidesest.' : h.info}</span><i>Ava leht: {h.go} <ArrowRight size={12}/></i></span>
         </button>; })}</div>}
       <div className="live-hud live-clock">
         <b>{time(live.time)}</b>

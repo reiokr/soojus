@@ -3,7 +3,7 @@ import net from 'node:net';
 // Alpha Innotec / Luxtronik 2.x juhtimise kohtvõrguliides (TCP 8889, binaarprotokoll).
 // Kasutame AINULT lugemiskäsku 3004 ("calculations"). Kirjutamiskäske (3002/3003) ei implementeerita.
 // Väljade järjekord on kogukonna dokumentatsioonist (python-luxtronik); esimesed väljad (10–18) on seadmega
-// võrreldes kinnitatud myUplinki väärtustega, alkoholi väljad (19, 20) järgivad sama järjestust.
+// võrreldes kinnitatud myUplinki väärtustega, soojakandja väljad (19, 20) järgivad sama järjestust.
 export class LuxtronikError extends Error {}
 
 const READ_CALCULATIONS = 3004;
@@ -49,7 +49,7 @@ export function decodeLuxtronik(v) {
     compressorImpulses: Number.isInteger(v[57]) ? v[57] : null,
     // Võimsused vattides (indeksid 268 ja 257 kogukonna definitsioonist); kumb vastab myUplinki "Hetkevõimsusele", selgub võrdlusest (votePower).
     power: { acInput: watts(v[268]), heatOutput: watts(v[257]) },
-    // Külmaaine- ja alkoholiringi diagnostika (vea 765 "ülekuumenemine" uurimiseks): imemistemperatuur, rõhud, alkoholi vahe ja selle siht
+    // Külmaaine- ja soojakandjaringi diagnostika (vea 765 "ülekuumenemine" uurimiseks): imemistemperatuur, rõhud, soojakandja vahe ja selle siht
     diagnostics: { suctionCompressor: temp(v[176]), highPressure: bar(v[180]), lowPressure: bar(v[181]), spread: kelvin(v[240]), spreadSet: kelvin(v[239]) },
     // Pumba enda vigade mälu (5 viimast); aeg on sekundites, nagu väljalülituste logis
     errors: [0, 1, 2, 3, 4].map(i => ({ code: v[100 + i], time: v[95 + i] })).filter(e => Number.isInteger(e.code) && e.code > 0 && Number.isInteger(e.time) && e.time > 1e9).map(e => ({ code: e.code, time: new Date(e.time * 1000).toISOString() }))
@@ -60,14 +60,14 @@ export async function readLuxtronik(options) { return decodeLuxtronik(await read
 
 export const LUX_ID = 'luxtronik';
 export const LUX_POINTS = [
-  ['brine_in', 'Alkohol maast (sisse pumpa)', '°C', d => d.temperatures.brineIn],
-  ['brine_out', 'Alkohol maasse (pumbast välja)', '°C', d => d.temperatures.brineOut],
+  ['brine_in', 'Soojakandja maast (sisse pumpa)', '°C', d => d.temperatures.brineIn],
+  ['brine_out', 'Soojakandja maasse (pumbast välja)', '°C', d => d.temperatures.brineOut],
   ['hot_gas', 'Kuumgaas', '°C', d => d.temperatures.hotGas],
   ['suction_comp', 'Imemistemperatuur kompressorisse', '°C', d => d.diagnostics.suctionCompressor],
   ['pressure_high', 'Kõrgrõhk', 'bar', d => d.diagnostics.highPressure],
   ['pressure_low', 'Madalrõhk', 'bar', d => d.diagnostics.lowPressure],
-  ['brine_spread', 'Alkoholi temperatuuride vahe', 'K', d => d.diagnostics.spread],
-  ['brine_spread_set', 'Alkoholi vahe siht', 'K', d => d.diagnostics.spreadSet],
+  ['brine_spread', 'Soojakandja temperatuuride vahe', 'K', d => d.diagnostics.spread],
+  ['brine_spread_set', 'Soojakandja vahe siht', 'K', d => d.diagnostics.spreadSet],
   ['power_ac', 'Elektrivõimsus (pump otse)', 'kW', d => d.power.acInput],
   ['power_heat', 'Soojusvõimsus (pump otse)', 'kW', d => d.power.heatOutput]
 ];
@@ -145,10 +145,10 @@ export const isUsable = (state, now = Date.now()) => Boolean(state?.data && stat
 
 // Veakoodide eestikeelsed nimed (Luxtroniku veatabel); tundmatu kood jääb koodiks.
 const ERROR_NAMES = {
-  701: 'Madalrõhu viga', 702: 'Madalrõhu blokeering', 703: 'Külmumiskaitse', 704: 'Kuumgaasi viga', 705: 'Kompressori mootorikaitse', 706: 'Alkoholipumba mootorikaitse',
+  701: 'Madalrõhu viga', 702: 'Madalrõhu blokeering', 703: 'Külmumiskaitse', 704: 'Kuumgaasi viga', 705: 'Kompressori mootorikaitse', 706: 'Soojakandjapumba mootorikaitse',
   707: 'Soojuspumba kodeering', 708: 'Tagasivoolu andur', 709: 'Pealevoolu andur', 710: 'Kuumgaasi andur', 711: 'Välisõhu andur', 712: 'Tarbevee andur', 713: 'Soojusallika sisendi andur',
   715: 'Kõrgrõhulüliti väljalülitus', 716: 'Kõrgrõhu viga', 717: 'Vooluhulk', 718: 'Maksimaalne välistemperatuur', 719: 'Minimaalne välistemperatuur', 720: 'Soojusallika minimaalne temperatuur',
-  721: 'Madalrõhu väljalülitus', 722: 'Temperatuuride vahe (küte)', 723: 'Temperatuuride vahe (tarbevesi)', 727: 'Alkoholiringi rõhk', 728: 'Soojusallika väljundi andur', 729: 'Faasijärjestuse viga',
+  721: 'Madalrõhu väljalülitus', 722: 'Temperatuuride vahe (küte)', 723: 'Temperatuuride vahe (tarbevesi)', 727: 'Soojakandjaringi rõhk', 728: 'Soojusallika väljundi andur', 729: 'Faasijärjestuse viga',
   751: 'Faasijärjestuse jälgimine', 752: 'Toide / voolutugevus', 762: 'Imemisandur (kompressor)', 763: 'Imemisandur (aurusti)', 764: 'Kompressori kütte andur',
   765: 'Külmaaine ülekuumenemine liiga madal (SSH alla 2 K üle 5 min)', 766: 'Kompressori töövahemiku piir', 770: 'Madal ülekuumenemine', 771: 'Kõrge ülekuumenemine', 776: 'Kompressori töövahemiku piir'
 };

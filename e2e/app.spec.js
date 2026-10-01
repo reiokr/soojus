@@ -332,12 +332,22 @@ test('Elav kodu taustamuusika: sisse/välja nupp, helitugevus ja 60 s pausita si
   await toggle.click();
   const off = page.getByRole('button', { name: 'Lülita taustamuusika välja' });
   await expect(off).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(1);
   const info = await page.evaluate(() => { const s = window.__sources[0]; return { loop: s.loop, seconds: s.buffer.duration, end: s.loopEnd }; });
   expect(info.loop).toBe(true); expect(info.seconds).toBeGreaterThan(59.9); expect(info.seconds).toBeLessThan(60.1);
   await page.getByLabel('Lugu').selectOption('kitarriohtu');
   await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(2);
   const second = await page.evaluate(() => { const s = window.__sources[1]; return { loop: s.loop, seconds: s.buffer.duration }; });
   expect(second.loop).toBe(true); expect(second.seconds).toBeGreaterThan(59.9); expect(second.seconds).toBeLessThan(60.1);
+  const pauseBtn = page.getByRole('button', { name: 'Peata muusika pausile' });
+  await pauseBtn.click();
+  await expect.poll(() => page.evaluate(() => window.__sources.at(-1).context.state)).toBe('suspended');
+  const frozen = await page.evaluate(() => window.__sources.at(-1).context.currentTime);
+  await page.waitForTimeout(600);
+  expect(await page.evaluate(() => window.__sources.at(-1).context.currentTime)).toBe(frozen);
+  await page.getByRole('button', { name: 'Jätka muusikat' }).click();
+  await expect.poll(() => page.evaluate(() => window.__sources.at(-1).context.state)).toBe('running');
+  expect(await page.evaluate(() => window.__sources.length)).toBe(2);
   const mode = page.locator('.live-sound-mode');
   await expect(mode).toHaveAttribute('data-mode', 'one');
   await mode.click();
@@ -368,6 +378,60 @@ test('Elav kodu taustamuusika leiab dist/audio kataloogi lisatud failid', async 
     await page.getByLabel('Lugu', { exact: true }).focus();
     await expect(page.getByLabel('Lugu', { exact: true }).locator('option', { hasText: 'E2e oma lugu' })).toHaveCount(0, { timeout: 8000 });
   } finally { fs.rmSync(file, { force: true }); }
+});
+
+const soundSpy = () => {
+  localStorage.setItem('soojus.ui', 'next'); window.__sources = []; window.__starts = [];
+  const make = AudioContext.prototype.createBufferSource;
+  AudioContext.prototype.createBufferSource = function () { const s = make.call(this); window.__sources.push(s); const st = s.start; s.start = function (...a) { window.__starts.push(a[1] ?? 0); return st.apply(this, a); }; return s; };
+};
+
+test('muusika ei katke Plaani ja Elava kodu lehe vahel liikudes ning sama muusikanupp näitab sama seisu', async ({ page }) => {
+  await page.addInitScript(() => { if (!sessionStorage.getItem('fresh')) { sessionStorage.setItem('fresh', '1'); localStorage.clear(); } });
+  await page.addInitScript(soundSpy);
+  await page.goto('/');
+  await page.getByRole('button', { name: /taustamuusika sisse/ }).click();
+  await expect(page.getByRole('button', { name: /taustamuusika välja/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForTimeout(1200);
+  const before = await page.evaluate(() => window.__sources[0].context.currentTime);
+  await page.getByRole('button', { name: 'Demo ja ilmaprognoos' }).click();
+  await expect(page.locator('.live-modes')).toBeVisible();
+  await expect(page.getByRole('button', { name: /taustamuusika välja/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForTimeout(2500);
+  const after = await page.evaluate(() => ({ n: window.__sources.length, state: window.__sources[0].context.state, t: window.__sources[0].context.currentTime }));
+  expect(after.n).toBe(1); expect(after.state).toBe('running'); expect(after.t).toBeGreaterThan(before + 2);
+});
+
+test('muusika sees/pausil seis, koht loos ja helitugevus jäävad lehe uuesti laadimisel meelde', async ({ page }) => {
+  await page.addInitScript(() => { if (!sessionStorage.getItem('fresh')) { sessionStorage.setItem('fresh', '1'); localStorage.clear(); } });
+  await page.addInitScript(soundSpy);
+  await page.goto('/?page=live');
+  await page.getByRole('button', { name: /taustamuusika sisse/ }).click();
+  await expect(page.getByRole('button', { name: 'Peata muusika pausile' })).toBeVisible();
+  await page.getByLabel('Helitugevus').fill('0.35');
+  await page.waitForTimeout(2300);
+  await page.getByRole('button', { name: 'Peata muusika pausile' }).click();
+  await expect(page.getByRole('button', { name: 'Jätka muusikat' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.live-sound-btn')).toContainText('Pausil');
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Jätka muusikat' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('Helitugevus')).toHaveValue('0.35');
+  expect(await page.evaluate(() => window.__sources.length), 'pausil muusika ei hakka ise mängima').toBe(0);
+  await page.getByRole('button', { name: 'Jätka muusikat' }).click();
+  await expect(page.getByRole('button', { name: 'Peata muusika pausile' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__starts.length)).toBe(1);
+  const starts = await page.evaluate(() => window.__starts);
+  expect(starts.length).toBe(1); expect(starts[0]).toBeGreaterThan(1.5); expect(starts[0]).toBeLessThan(6);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => window.__sources.length), { timeout: 8000 }).toBe(1);
+  await expect(page.getByRole('button', { name: /taustamuusika välja/ })).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.__starts[0])).toBeGreaterThan(1.5);
+  await page.mouse.click(5, 5);
+  await expect.poll(() => page.evaluate(() => window.__sources[0].context.state)).toBe('running');
+  await page.getByRole('button', { name: /taustamuusika välja/ }).click();
+  await page.reload();
+  await expect(page.getByRole('button', { name: /taustamuusika sisse/ })).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.__sources.length)).toBe(0);
 });
 
 test('Elav kodu respects reduced motion by painting a still frame', async ({ browser }) => {
@@ -511,23 +575,23 @@ test('heat pump local link can be connected in settings and brine values show up
   const data = { temperatures: { brineIn: 9.4, brineOut: 6.1, hotGas: 71.2, flow: 35, return: 30 }, inputs: { brineFlow: true, evu: true, motorProtection: true }, outputs: { compressor: true, brinePump: true, heatingPump: true, hotWaterPump: false } };
   await page.route('**/api/luxtronik', async route => {
     const r = route.request();
-    if (r.method() === 'POST') { expect(r.postDataJSON()).toEqual({ host: '192.168.100.171' }); view = { configured: true, host: '192.168.100.171', time: new Date().toISOString(), error: null, data, points: [{ parameterId: 'brine_in', label: 'Alkohol maast (sisse pumpa)', parameterUnit: '°C', value: 9.4 }, { parameterId: 'brine_out', label: 'Alkohol maasse (pumbast välja)', parameterUnit: '°C', value: 6.1 }] }; return route.fulfill({ json: view }); }
+    if (r.method() === 'POST') { expect(r.postDataJSON()).toEqual({ host: '192.168.100.171' }); view = { configured: true, host: '192.168.100.171', time: new Date().toISOString(), error: null, data, points: [{ parameterId: 'brine_in', label: 'Soojakandja maast (sisse pumpa)', parameterUnit: '°C', value: 9.4 }, { parameterId: 'brine_out', label: 'Soojakandja maasse (pumbast välja)', parameterUnit: '°C', value: 6.1 }] }; return route.fulfill({ json: view }); }
     return route.fulfill({ json: view });
   });
   await page.goto('/?page=settings');
   await expect(page.getByText('Soojuspumba kohtvõrguliides')).toBeVisible();
   await page.getByLabel('Soojuspumba IP-aadress').fill('192.168.100.171');
   await page.getByRole('button', { name: 'Ühenda ja testi' }).click();
-  await expect(page.getByText(/Alkohol maast 9,4 °C, maasse 6,1 °C/)).toBeVisible();
+  await expect(page.getByText(/Soojakandja maast 9,4 °C, maasse 6,1 °C/)).toBeVisible();
   await page.addInitScript(() => localStorage.setItem('soojus.ui', 'next'));
   await page.goto('/?page=live');
   const ground = page.getByRole('button', { name: /^Maakontuur\./ });
   await ground.hover();
-  await expect(ground.locator('.live-hot-label')).toContainText('Alkohol maast 9,4 °C, maasse 6,1 °C');
+  await expect(ground.locator('.live-hot-label')).toContainText('Soojakandja maast 9,4 °C, maasse 6,1 °C');
   await expect(ground.locator('.live-hot-label')).toContainText('maa andis 3,3 K soojust');
   await page.goto('/?page=history');
-  await expect(page.getByText('Soojuspump, kohtvõrk (alkohol)', { exact: true })).toBeVisible();
-  await expect(page.locator('.point-picker button', { hasText: /^Alkohol maast/ })).toBeVisible();
+  await expect(page.getByText('Soojuspump, kohtvõrk (soojakandja)', { exact: true })).toBeVisible();
+  await expect(page.locator('.point-picker button', { hasText: /^Soojakandja maast/ })).toBeVisible();
 });
 
 test('server validates the heat pump link input and never accepts public addresses', async ({ request }) => {

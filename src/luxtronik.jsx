@@ -10,7 +10,7 @@ export function useLuxtronik(tick) {
   return { view, error, reload: load, setView };
 }
 
-// Soojuspumba kohtvõrguliides: alkoholi temperatuurid, mida myUplinki API ei avalda. Ainult lugemine.
+// Soojuspumba kohtvõrguliides: soojakandja temperatuurid, mida myUplinki API ei avalda. Ainult lugemine.
 export function LuxtronikPanel({ lux, notify }) {
   const view = lux?.view;
   const [host, setHost] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(null);
@@ -31,10 +31,10 @@ export function LuxtronikPanel({ lux, notify }) {
       <div>
         <h3>Soojuspumba kohtvõrguliides</h3>
         <p>{view.configured ? <>Ühendatud: <b>{view.host}</b>{view.time && <> · viimane lugemine {time(view.time)}</>}</> : 'Pole ühendatud'}</p>
-        <small>{view.primary ? `Põhiallikas: pump otse (${view.mapped} näitu, värskendus iga 10 s). Võimsus (kW): ${view.powerSource ? 'loetakse otse pumbalt' : 'tuleb praegu myUplinkist, otseväärtuse kinnitan pumba järgmisel töötsüklil'}. myUplink on varuks ja annab ülejäänud näidud, seaded ja häired.` : view.mismatch ? 'Otseandmete väljad ei klapi myUplinki omadega, seepärast kasutatakse myUplinki. Alkoholi temperatuure näidatakse siiski.' : view.configured ? 'Otseandmed ootavad esimest lugemist või on vananenud; praegu kasutatakse myUplinki.' : ''} myUplinki API ei anna alkoholi temperatuure. Pump (Alpha Innotec / Luxtronik) pakub neid kohtvõrgus pordil 8889. Ühendus on ainult lugemiseks ja töötab ainult sama võrgu aadressidega.</small>
+        <small>{view.primary ? `Põhiallikas: pump otse (${view.mapped} näitu, värskendus iga 10 s). Võimsus (kW): ${view.powerSource ? 'loetakse otse pumbalt' : 'tuleb praegu myUplinkist, otseväärtuse kinnitan pumba järgmisel töötsüklil'}. myUplink on varuks ja annab ülejäänud näidud, seaded ja häired.` : view.mismatch ? 'Otseandmete väljad ei klapi myUplinki omadega, seepärast kasutatakse myUplinki. Soojakandja temperatuure näidatakse siiski.' : view.configured ? 'Otseandmed ootavad esimest lugemist või on vananenud; praegu kasutatakse myUplinki.' : ''} myUplinki API ei anna soojakandja temperatuure. Pump (Alpha Innotec / Luxtronik) pakub neid kohtvõrgus pordil 8889. Ühendus on ainult lugemiseks ja töötab ainult sama võrgu aadressidega.</small>
       </div>
     </div>
-    {view.configured && t && <p className="location-now"><Thermometer size={16}/> Alkohol maast {number(t.brineIn, 1)} °C, maasse {number(t.brineOut, 1)} °C · kuumgaas {number(t.hotGas, 1)} °C</p>}
+    {view.configured && t && <p className="location-now"><Thermometer size={16}/> Soojakandja maast {number(t.brineIn, 1)} °C, maasse {number(t.brineOut, 1)} °C · kuumgaas {number(t.hotGas, 1)} °C</p>}
     {view.configured && !t && view.error && <p className="inline-error" role="alert">{view.error}</p>}
     <form className="location-search" onSubmit={connect}>
       <label className="search-input"><Link2 size={17}/><input value={host} onChange={e => setHost(e.target.value)} placeholder="Soojuspumba IP-aadress, nt 192.168.100.171" aria-label="Soojuspumba IP-aadress" inputMode="decimal" autoComplete="off"/></label>

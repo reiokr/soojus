@@ -240,9 +240,9 @@ html[data-ui="next"] .nx-liide .segmented { margin-top: 10px; }
 .live-sound-btn:hover:not(:disabled) { background: rgba(255, 255, 255, .16); }
 .live-sound-btn:disabled { opacity: .6; cursor: progress; }
 .live-sound.is-on .live-sound-btn { background: #fff; color: #10203a; }
-.live-sound-mode { display: inline-flex; align-items: center; padding: 7px; border-radius: 9px; background: transparent; color: #fff; }
-.live-sound-mode:hover { background: rgba(255, 255, 255, .16); }
-.live-sound-mode[data-mode="all"] { color: #ffb347; }
+.live-sound-mode, .live-sound-pause { display: inline-flex; align-items: center; padding: 7px; border-radius: 9px; background: transparent; color: #fff; }
+.live-sound-mode:hover, .live-sound-pause:hover { background: rgba(255, 255, 255, .16); }
+.live-sound-mode[data-mode="all"], .live-sound-pause[aria-pressed="true"] { color: #ffb347; }
 .live-sound select { padding: 6px 8px; border-radius: 8px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .22); color: #fff; font: inherit; max-width: 150px; }
 .live-sound select option { color: #10203a; }
 .live-sound input { width: 96px; accent-color: #ffb347; }

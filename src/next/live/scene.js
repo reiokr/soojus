@@ -10,6 +10,8 @@ const TAU = Math.PI * 2;
 const ROOF = { apexX: 810, apexY: 232, slope: 0.3957, thick: 26, x0: 290, x1: 1330 };
 const roofTop = x => ROOF.apexY + Math.abs(x - ROOF.apexX) * ROOF.slope;
 const HOUSE_X0 = 320, HOUSE_X1 = 1300, FOUNDATION_BOTTOM = 764;
+// Maja sisemus (läbilõige): seinte vahe ja pööning; udu jääb sellest välja.
+const HOUSE_SHELL = { L: 360, R: 1260, TOP: 440, FLOOR: 700 };
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, k) => a + (b - a) * k;
 const smooth = k => k * k * (3 - 2 * k);
@@ -31,6 +33,55 @@ function rr(ctx, x, y, w, h, r) {
   ctx.beginPath();
   if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
   else { ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+}
+
+// Eesti mets horisondil: kolm kihti kuuski (kaugem on väiksem ja uduvinelisem) ning siin-seal mänd. Kujud on Path2D-d, mille alus on y = 0.
+function buildForest(rng) {
+  const spruce = (path, x, h, w, snow) => {
+    const n = Math.max(5, Math.round(h / 24)), step = h / n, side = [];
+    for (let i = 1; i <= n; i++) {
+      const y = -h + (i / n) * h, hw = (w / 2) * Math.pow(i / n, 0.92) * (0.92 + rng() * 0.16);
+      side.push([hw * 0.46, y - step * (0.42 + rng() * 0.1)], [hw, y + (i < n ? step * 0.04 : 0)]);
+    }
+    // lumi okste peal: iga oksakorruse ülemisel nõlval lai sälk ning latva kübar
+    for (let i = 0; i < side.length; i += 2) {
+      const [nx, ny] = side[i], [tx, ty] = side[i + 1], ex = nx + (tx - nx) * 0.82, ey = ny + (ty - ny) * 0.82, th = step * (0.2 + rng() * 0.08);
+      for (const sg of [-1, 1]) { snow.moveTo(x + sg * nx, ny); snow.lineTo(x + sg * ex, ey); snow.lineTo(x + sg * (ex - 1.5), ey + th * 0.6); snow.lineTo(x + sg * (nx * 0.55), ny + th); snow.closePath(); }
+    }
+    snow.moveTo(x, -h - 1); snow.lineTo(x - side[1][0] * 0.9, -h + step * 0.72); snow.lineTo(x + side[1][0] * 0.9, -h + step * 0.72); snow.closePath();
+    path.moveTo(x, -h);
+    for (const [dx, y] of side) path.lineTo(x - dx, y);
+    path.lineTo(x - side.at(-1)[0] * 0.55, 2);
+    path.lineTo(x + side.at(-1)[0] * 0.55, 2);
+    for (let i = side.length - 1; i >= 0; i--) path.lineTo(x + side[i][0], side[i][1]);
+    path.closePath();
+  };
+  const pine = (trunk, crown, x, h, snow) => {
+    const top = -h * 0.8, lean = (rng() - 0.5) * 6;
+    trunk.moveTo(x - 3.4, 2); trunk.lineTo(x - 2 + lean * 0.4, top * 0.55); trunk.lineTo(x - 1.4 + lean, top + 6); trunk.lineTo(x + 1.6 + lean, top + 6); trunk.lineTo(x + 2.4 + lean * 0.4, top * 0.55); trunk.lineTo(x + 3.6, 2); trunk.closePath();
+    for (let i = 0; i < 4; i++) {
+      const cxp = x + lean + (rng() - 0.5) * h * 0.2, cyp = top - h * 0.03 * i + (rng() - 0.4) * h * 0.1, rx = h * (0.1 + rng() * 0.07), ry = rx * (0.4 + rng() * 0.15);
+      const tilt = (rng() - 0.5) * 0.3;
+      crown.moveTo(cxp + rx, cyp); crown.ellipse(cxp, cyp, rx, ry, tilt, 0, TAU);
+      snow.moveTo(cxp - rx * 0.92, cyp - ry * 0.28); snow.ellipse(cxp, cyp - ry * 0.22, rx * 0.92, ry * 0.7, tilt, Math.PI, TAU); snow.closePath();
+    }
+    // sirge külgoks krooni all, nagu männil
+    crown.moveTo(x + lean - 1, top + 4); crown.lineTo(x + lean - h * 0.14, top + h * 0.1); crown.lineTo(x + lean - h * 0.12, top + h * 0.075); crown.lineTo(x + lean, top + 2); crown.closePath();
+  };
+  const layers = [
+    { gap: [14, 26], h: [78, 128], k: 0.4, pines: 0.03 },
+    { gap: [20, 36], h: [118, 190], k: 0.4, pines: 0.07 },
+    { gap: [28, 48], h: [150, 238], k: 0.38, pines: 0.09 }
+  ];
+  return layers.map(L => {
+    const sp = new Path2D(), trunk = new Path2D(), crown = new Path2D(), snow = new Path2D();
+    for (let x = -420 + rng() * 20; x < W + 420; x += L.gap[0] + rng() * (L.gap[1] - L.gap[0])) {
+      if (rng() < 0.05) { x += 18 + rng() * 26; continue; }
+      const h = L.h[0] + Math.pow(rng(), 1.3) * (L.h[1] - L.h[0]);
+      if (rng() < L.pines) pine(trunk, crown, x, h * 1.25, snow); else spruce(sp, x, h, h * L.k, snow);
+    }
+    return { spruce: sp, trunk, crown, snow, h: L.h[1] * 1.3 };
+  });
 }
 
 function makePath(pts) {
@@ -62,7 +113,7 @@ const PATHS = {
 const HOT = '#ff6a2a', COLD = '#2e9bff';
 const brineHex = t => mix('#58b6ff', '#ffc27d', clamp((t - 2) / 22));
 
-// Maakontuur: alkohol väljub pumbast (x=484), käib läbi maa serpentiinina ja naaseb pumba juurde (x=448).
+// Maakontuur: soojakandja väljub pumbast (x=484), käib läbi maa serpentiinina ja naaseb pumba juurde (x=448).
 function groundLoopPoints() {
   const pts = [[484, 704], [484, 812], [640, 812]], rows = [812, 846, 880, 914], xl = 640, xr = 1250, r = 17;
   rows.forEach((y, i) => {
@@ -77,8 +128,8 @@ export const GROUND_LOOP = makePath(groundLoopPoints());
 
 // Klõpsatavad seadmed (maailmakoordinaadid): lehele viiv sihtkoht, silt ja esiletõstu värv.
 export const HOTSPOTS = {
-  pump: { x: 392, y: 520, w: 148, h: 180, r: 14, color: '#ffb347', page: 'heating', label: 'Maasoojuspump', go: 'Küte', info: 'Võtab soojust maapinnast (maakontuuri alkoholist), tõstab selle kompressoriga kõrgemale temperatuurile ja annab majale ning tarbeveele. Ekraanil on hetkevõimsus, klaasi taga pöörleb kompressor.' },
-  ground: { x: 600, y: 790, w: 690, h: 150, r: 12, color: '#7fd4ff', page: 'heating', label: 'Maakontuur', go: 'Küte', info: 'Toru maa sees, kus alkohol võtab maapinnast soojust ja viib selle pumbani. myUplink ei anna alkoholi temperatuure; need saab nähtavale, kui ühendad pumba kohtvõrguliidese (Seaded ja ühendus).' },
+  pump: { x: 392, y: 520, w: 148, h: 180, r: 14, color: '#ffb347', page: 'heating', label: 'Maasoojuspump', go: 'Küte', info: 'Võtab soojust maapinnast (maakontuuri soojakandjast), tõstab selle kompressoriga kõrgemale temperatuurile ja annab majale ning tarbeveele. Ekraanil on hetkevõimsus, klaasi taga pöörleb kompressor.' },
+  ground: { x: 600, y: 790, w: 690, h: 150, r: 12, color: '#7fd4ff', page: 'heating', label: 'Maakontuur', go: 'Küte', info: 'Toru maa sees, kus soojakandja võtab maapinnast soojust ja viib selle pumbani. myUplink ei anna soojakandja temperatuure; need saab nähtavale, kui ühendad pumba kohtvõrguliidese (Seaded ja ühendus).' },
   vent: { x: 738, y: 326, w: 154, h: 76, r: 11, color: '#7fd4ff', page: 'ventilation', label: 'Ventilatsioon', go: 'Ventilatsioon', info: 'Vahetab toaõhu värske vastu ja soojendab sissepuhutavat õhku väljatõmbeõhu soojusega. Kiirus ja režiim sõltuvad CO₂ tasemest.' },
   boiler: { x: 1125, y: 495, w: 90, h: 195, r: 30, color: '#ff9b6a', page: 'water', label: 'Veeboiler', go: 'Tarbevesi', info: 'Hoiab sooja tarbevett dušši ja kraanide jaoks. Pump soojendab selle sihttemperatuurini, termomeeter näitab hetketaset.' }
 };
@@ -102,7 +153,7 @@ export class LiveScene {
     this.a = { comp: 0, scroll: 0, drift: 0, cloud: 0.15, rain: 0, snow: 0, fog: 0, wind: 0.15, snowCover: 0, storm: 0, flash: 0, heat: 0, hw: 0, power: 0, air: 0, fan: 0, pumpFan: 0, co2: 0, glow: 0.2, recovery: 0, water: 40, buffer: 30, indoor: 21, outdoor: 10, level: 0 };
     this.stars = Array.from({ length: 240 }, () => ({ x: rng() * W, y: rng() * (GROUND - 90), r: 0.4 + rng() * 1.3, p: rng() * TAU, s: 0.6 + rng() * 2 }));
     this.clouds = Array.from({ length: 13 }, (_, i) => ({ x: rng() * W * 1.4 - 100, y: 70 + rng() * 260, s: 0.7 + rng() * 1.1, v: 5 + rng() * 9, seed: i }));
-    this.hills = [0, 1].map(l => Array.from({ length: 9 }, () => ({ a: rng() * 0.012 + 0.004 + l * 0.004, p: rng() * TAU, h: 40 + rng() * 60 + l * 30 })));
+    this.forest = buildForest(mulberry32(5150));
     this.grass = Array.from({ length: 170 }, () => ({ x: rng() * (W + 400) - 200, h: 10 + rng() * 26, p: rng() * TAU, l: rng() }));
     this.canopy = Array.from({ length: 70 }, () => { const a = rng() * TAU, d = Math.sqrt(rng()) * 92; return { x: Math.cos(a) * d, y: Math.sin(a) * d * 0.8, r: 12 + rng() * 15, c: rng(), p: rng() * TAU }; });
     this.leaves = Array.from({ length: 16 }, () => this.newLeaf(rng, true));
@@ -198,12 +249,13 @@ export class LiveScene {
     if (dayKey !== this.dayKey) { this.dayKey = dayKey; this.maxElev = sunMaxElevation(s.time, place); }
     const env = { sun, moon, phase, dark, sky, ground, glow, scale, ox, oy, season: season(s.time), maxElev: this.maxElev, cloud: a.cloud, snowLvl };
     this.env = env;
+    this.catPose = this.reduced ? restPose() : this.cat.update(this.t);
     ctx.save();
     this.drawBackdrop(ctx, env);
     ctx.translate(ox, oy); ctx.scale(scale, scale);
     this.drawSkyBodies(ctx, env, dt);
     this.drawClouds(ctx, env, dt);
-    this.drawHills(ctx, env);
+    this.drawForest(ctx, env);
     this.drawTree(ctx, env, dt);
     this.drawHouse(ctx, env, dt);
     this.drawUnderground(ctx, env, dt);
@@ -296,12 +348,21 @@ export class LiveScene {
     });
   }
 
-  drawHills(ctx, { sky, ground, dark }) {
-    [0, 1].forEach(l => {
-      const col = mix(mix(ground.bottom, sky.horizon, l === 0 ? 0.55 : 0.3), '#0a1222', dark * (l === 0 ? 0.55 : 0.7));
-      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-400, GROUND + 4);
-      for (let x = -400; x <= W + 400; x += 20) { let y = 0; for (const h of this.hills[l]) y += Math.sin(x * h.a + h.p) * h.h * 0.5; ctx.lineTo(x, GROUND - 52 - l * 14 - Math.abs(y) * 0.7 - 18); }
-      ctx.lineTo(W + 400, GROUND + 4); ctx.closePath(); ctx.fill();
+  // ---- taustamets: kuused ja mõned männid, kaugemad kihid uduvinelised; öösel tumenevad, lumega saavad valged latvad, tuul kallutab lähimat kihti
+  drawForest(ctx, { sky, ground, dark, snowLvl }) {
+    const haze = [0.62, 0.4, 0.17], night = [0.55, 0.7, 0.82], day = ['#46705f', '#32604b', '#214a38'];
+    const cover = clamp(Math.max(this.a.snowCover, this.a.drift * 0.6)), snowTop = mix('#eef4fa', '#3a4660', dark * 0.75), snowA = clamp(snowLvl * 1.8);
+    this.forest.forEach((f, l) => {
+      const base = mix(mix(day[l], sky.horizon, haze[l]), '#0a1222', dark * night[l]);
+      const top = mix(base, snowTop, cover * (0.38 + l * 0.08));
+      const g = ctx.createLinearGradient(0, -f.h, 0, 0); g.addColorStop(0, top); g.addColorStop(0.5, mix(top, base, 0.6)); g.addColorStop(1, base);
+      const sway = this.reduced ? 0 : Math.sin(this.t * (0.5 + l * 0.12) + l * 2) * 0.0045 * (0.3 + this.a.wind * 3) * l;
+      ctx.save(); ctx.translate(0, GROUND + 4); ctx.transform(1, 0, -sway, 1, 0, 0);
+      ctx.fillStyle = mix(mix('#7a4d32', base, 0.45), '#0a1222', dark * 0.3); ctx.fill(f.trunk);
+      ctx.fillStyle = g; ctx.fill(f.spruce);
+      ctx.fillStyle = mix(mix(base, '#6a8f4c', 0.16 * (1 - dark)), top, cover * 0.2); ctx.fill(f.crown);
+      if (snowA > 0.03) { ctx.globalAlpha = snowA * (0.8 + l * 0.1); ctx.fillStyle = mix(snowTop, sky.horizon, haze[l] * 0.45); ctx.fill(f.snow); ctx.globalAlpha = 1; }
+      ctx.restore();
     });
     const g = ctx.createLinearGradient(0, GROUND - 6, 0, GROUND + 4);
     g.addColorStop(0, rgba(mix(ground.top, sky.horizon, 0.2), 0)); g.addColorStop(1, rgba(ground.top, 1));
@@ -389,7 +450,7 @@ export class LiveScene {
   // ---- maja
   drawHouse(ctx, env, dt) {
     const { dark, glow, sky } = env, a = this.a, s = this.state;
-    const L = 360, R = 1260, TOP = 440, FLOOR = 700;
+    const { L, R, TOP, FLOOR } = HOUSE_SHELL;
     // vari maja all
     const sh = ctx.createRadialGradient(810, GROUND + 26, 40, 810, GROUND + 26, 560);
     sh.addColorStop(0, `rgba(0,0,0,${0.3 + dark * 0.15})`); sh.addColorStop(1, 'rgba(0,0,0,0)');
@@ -397,7 +458,8 @@ export class LiveScene {
     // pööning
     const attic = ctx.createLinearGradient(0, 260, 0, TOP);
     attic.addColorStop(0, mix('#3a3145', '#0d101c', dark * 0.6)); attic.addColorStop(1, mix('#2a2733', '#0a0d18', dark * 0.5));
-    ctx.fillStyle = attic; ctx.beginPath(); ctx.moveTo(L - 20, TOP + 6); ctx.lineTo(810, ROOF.apexY + ROOF.thick - 4); ctx.lineTo(R + 20, TOP + 6); ctx.closePath(); ctx.fill();
+    // pööningu täide järgib katuse alapinda täpselt sama kaldega (4 px katuse alla peidus) ja lõpeb seina välisservas, nii et vahele ei jää taevariba ega väljaulatuvat nurka
+    ctx.fillStyle = attic; ctx.beginPath(); ctx.moveTo(L - 10, TOP + 6); ctx.lineTo(L - 10, roofTop(L - 10) + ROOF.thick - 4); ctx.lineTo(ROOF.apexX, ROOF.apexY + ROOF.thick - 4); ctx.lineTo(R + 10, roofTop(R + 10) + ROOF.thick - 4); ctx.lineTo(R + 10, TOP + 6); ctx.closePath(); ctx.fill();
     // toad
     const wall = mix('#f4ecdd', '#3c3746', dark * 0.72), wall2 = mix('#eadfcb', '#2f2b3a', dark * 0.72);
     [[L, 730, wall2], [730, 1040, wall], [1040, R, wall2]].forEach(([x0, x1, c]) => { const g = ctx.createLinearGradient(0, TOP, 0, FLOOR); g.addColorStop(0, c); g.addColorStop(1, mix(c, '#b9a98e', 0.35 - dark * 0.2)); ctx.fillStyle = g; ctx.fillRect(x0, TOP, x1 - x0, FLOOR - TOP); });
@@ -405,6 +467,15 @@ export class LiveScene {
     ctx.fillStyle = mix('#c8bfae', '#2a2935', dark * 0.65); ctx.fillRect(L - 30, FLOOR, R - L + 60, 46);
     ctx.fillStyle = mix('#a99f8e', '#1f1e29', dark * 0.65); ctx.fillRect(L - 30, FLOOR + 46, R - L + 60, 6);
     ctx.strokeStyle = rgba('#2b3542', 0.35); ctx.lineWidth = 1.2; for (let x = L - 20; x < R + 30; x += 14) { ctx.beginPath(); ctx.moveTo(x, FLOOR + 46); ctx.lineTo(x + 14, FLOOR); ctx.stroke(); }
+    // vaheseinad: korralik paksus (12 px, välisseinast veidi õhemad ja heledamad), servadel tumedam joon; torud ja seadmed jäävad nende ette
+    for (const px of [730, 1040]) {
+      const w = 12, g = ctx.createLinearGradient(px - w / 2, 0, px + w / 2, 0);
+      g.addColorStop(0, mix('#8c97a6', '#2b303f', dark * 0.7)); g.addColorStop(0.5, mix('#76818f', '#23283a', dark * 0.7)); g.addColorStop(1, mix('#5d6876', '#1b1f2d', dark * 0.7));
+      ctx.fillStyle = g; ctx.fillRect(px - w / 2, TOP, w, FLOOR - TOP);
+      ctx.fillStyle = mix('#3a4454', '#0c0f1a', dark * 0.5); ctx.fillRect(px - w / 2 - 1, TOP, 1.8, FLOOR - TOP); ctx.fillRect(px + w / 2 - 0.8, TOP, 1.8, FLOOR - TOP);
+      ctx.fillStyle = rgba('#000000', 0.1 + dark * 0.08); ctx.fillRect(px + w / 2 + 1, TOP, 8, FLOOR - TOP);
+      ctx.fillStyle = mix('#59636f', '#14171f', dark * 0.5); ctx.fillRect(px - w / 2 - 2, FLOOR - 7, w + 4, 7);
+    }
     this.drawWindows(ctx, env);
     this.drawAtticVent(ctx, env, dt);
     this.drawPipes(ctx, env, dt);
@@ -416,7 +487,6 @@ export class LiveScene {
     // seinad ja katus
     ctx.fillStyle = mix('#3a4454', '#0c0f1a', dark * 0.5);
     ctx.fillRect(L - 10, TOP, 14, FLOOR - TOP); ctx.fillRect(R - 4, TOP, 14, FLOOR - TOP); ctx.fillRect(L - 10, TOP - 6, R - L + 20, 12);
-    ctx.fillStyle = rgba('#3a4454', 0.55); ctx.fillRect(730 - 2, TOP, 4, FLOOR - TOP); ctx.fillRect(1040 - 2, TOP, 4, FLOOR - TOP);
     this.drawRoof(ctx, env);
   }
 
@@ -475,21 +545,39 @@ export class LiveScene {
   }
 
   drawWindows(ctx, { glow, dark, sky }) {
-    const pane = (x, y, w, h) => {
+    const pane = (x, y, w, h, inside) => {
       ctx.save(); rr(ctx, x, y, w, h, 4); ctx.clip();
       const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, sky.mid); g.addColorStop(1, sky.horizon); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
       const inner = ctx.createRadialGradient(x + w / 2, y + h * 0.7, 6, x + w / 2, y + h * 0.7, Math.max(w, h) * 0.85);
       inner.addColorStop(0, rgba(glow.color, 0.35 + 0.6 * glow.strength * (0.4 + dark * 0.6))); inner.addColorStop(1, rgba(glow.color, 0.1 + 0.3 * dark)); ctx.fillStyle = inner; ctx.fillRect(x, y, w, h);
+      inside?.();
       ctx.restore();
       ctx.strokeStyle = mix('#ffffff', '#1a1c28', dark * 0.75); ctx.lineWidth = 6; rr(ctx, x, y, w, h, 4); ctx.stroke();
       ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y + h); ctx.moveTo(x, y + h / 2); ctx.lineTo(x + w, y + h / 2); ctx.stroke();
     };
-    pane(800, 495, 180, 115); pane(1062, 482, 56, 46);
+    pane(800, 495, 180, 115, () => this.drawBird(ctx, dark)); pane(1062, 482, 56, 46);
     if (dark > 0.05) { // valgus langeb õue (maja sees hõõgub, aknast väljas ei ole valgust, seega valgus langeb ainult maale)
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       const spill = ctx.createRadialGradient(890, GROUND + 8, 10, 890, GROUND + 8, 260); spill.addColorStop(0, rgba(glow.color, 0.22 * dark * glow.strength)); spill.addColorStop(1, rgba(glow.color, 0));
       ctx.save(); ctx.scale(1, 0.22); ctx.translate(0, (GROUND + 8) / 0.22 - (GROUND + 8)); ctx.fillStyle = spill; ctx.fillRect(630, GROUND + 8 - 260, 520, 520); ctx.restore(); ctx.restore();
     }
+  }
+
+  // aknast mööda lendav tihane (ilmub ainult siis, kui kass aknast välja vaatab); öösel ei lenda
+  drawBird(ctx, dark) {
+    const b = this.catPose?.bird, vis = clamp(1 - dark / 0.7);
+    if (!b || vis <= 0.02) return;
+    const u = b.u, x = 786 + 208 * (b.dir > 0 ? u : 1 - u), y = b.y0 + Math.sin(u * 9) * 7 - Math.sin(u * Math.PI) * 14, flap = Math.sin(this.t * 38);
+    ctx.save(); ctx.translate(x, y); ctx.scale(b.dir, 1); ctx.rotate(Math.cos(u * 9) * 0.12 - 0.08); ctx.globalAlpha = vis;
+    const back = mix('#5f86b4', '#26344b', dark), belly = mix('#f0d450', '#7a6b30', dark), cap = mix('#26364d', '#101722', dark);
+    ctx.fillStyle = back; ctx.beginPath(); ctx.moveTo(-7, 0.5); ctx.lineTo(-16, -1.5 + flap * 1.2); ctx.lineTo(-15, 2.8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(0, 0, 8.5, 4.6, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = back; ctx.beginPath(); ctx.ellipse(-0.5, -1.6, 8, 3.2, 0, Math.PI, TAU); ctx.fill();
+    ctx.fillStyle = cap; ctx.beginPath(); ctx.arc(7.2, -1.8, 3.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f4f4ee'; ctx.beginPath(); ctx.ellipse(7.8, -0.4, 2.2, 1.5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.moveTo(10.2, -2); ctx.lineTo(13.4, -1.2); ctx.lineTo(10.2, -0.6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = back; ctx.beginPath(); ctx.moveTo(-2, -2); ctx.quadraticCurveTo(-5, -9 * flap - 2, -11, -7 * flap + 1); ctx.quadraticCurveTo(-6, -1, 2, -0.5); ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
 
   // ---- ventilatsioon pööningul
@@ -577,7 +665,7 @@ export class LiveScene {
     go(this.flows.hwSupply, a.hw, hotC, 1.1); go(this.flows.hwReturn, a.hw, coldC, 1.1); go(this.flows.showerFeed, a.hw * 0.8, hotC, 0.9);
   }
 
-  // Maasoojuspump on sisetingimuste kapp: ekraan, uks klaasaknaga (selle taga pöörleb kompressor) ja alkoholi ühendused põranda all.
+  // Maasoojuspump on sisetingimuste kapp: ekraan, uks klaasaknaga (selle taga pöörleb kompressor) ja soojakandja ühendused põranda all.
   drawPump(ctx, { dark }) {
     const a = this.a, s = this.state, x = 392, y = 520, w = 148, h = 180, running = a.comp > 0.05 || a.power > 0.03;
     const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, mix('#f6f8fa', '#566072', dark * 0.6)); g.addColorStop(0.5, mix('#e4e9ef', '#434c5e', dark * 0.6)); g.addColorStop(1, mix('#b9c2ce', '#323a4a', dark * 0.6));
@@ -606,12 +694,12 @@ export class LiveScene {
     // led
     const pulse = running ? 0.6 + 0.4 * Math.sin(this.t * 4) : 0.85;
     ctx.fillStyle = running ? rgba('#ffb347', pulse) : rgba('#5be3a0', pulse); ctx.beginPath(); ctx.arc(x + w - 17, y + h - 12, 4, 0, TAU); ctx.fill();
-    // alkoholi ühendused ja jalad
+    // soojakandja ühendused ja jalad
     ctx.fillStyle = mix('#8fb7d6', '#3c5670', dark * 0.5); ctx.fillRect(443, y + h - 2, 10, 8); ctx.fillRect(479, y + h - 2, 10, 8);
     ctx.fillStyle = mix('#3a4454', '#0c0f1a', dark * 0.5); ctx.fillRect(x + 14, y + h, 16, 6); ctx.fillRect(x + w - 30, y + h, 16, 6);
   }
 
-  // Maa lõige: mullakihid, kivid, puujuured ja alkoholikontuur, milles osakesed liiguvad kompressori töötamise ajal.
+  // Maa lõige: mullakihid, kivid, puujuured ja soojakandja kontuur, milles osakesed liiguvad kompressori töötamise ajal.
   drawUnderground(ctx, { dark, ground }, dt) {
     const a = this.a, top = SOIL_TOP, bottom = 1140, night = dark * 0.62;
     const g = ctx.createLinearGradient(0, top, 0, bottom);
@@ -634,13 +722,13 @@ export class LiveScene {
     // külmumispiir
     const cold = clamp(((0 - (this.a.outdoor ?? 5)) / 12)), frost = Math.max(cold, this.a.snowCover * 0.4);
     if (frost > 0.02) { const fg = ctx.createLinearGradient(0, top, 0, top + 46); fg.addColorStop(0, rgba('#cfe6f7', 0.42 * frost)); fg.addColorStop(1, rgba('#cfe6f7', 0)); ctx.fillStyle = fg; ctx.fillRect(-400, top, W + 800, 46); }
-    // alkoholikontuur
+    // soojakandja kontuur
     const pts = GROUND_LOOP.pts, trace = () => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); };
     if (a.comp > 0.05) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = rgba('#4fb8ff', 0.09 * a.comp); ctx.lineWidth = 40; trace(); ctx.stroke(); ctx.lineWidth = 22; ctx.strokeStyle = rgba('#7fd4ff', 0.08 * a.comp); trace(); ctx.stroke(); ctx.restore(); }
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.strokeStyle = rgba('#0a1018', 0.55); ctx.lineWidth = 12; trace(); ctx.stroke();
     ctx.strokeStyle = mix('#b9d3ea', '#3f5670', dark * 0.6); ctx.lineWidth = 8; trace(); ctx.stroke();
-    // osakesed: külm alkohol väljub pumbast ja soojeneb maa sees
+    // osakesed: külm soojakandja väljub pumbast ja soojeneb maa sees
     this.brine.advance(dt, 0.02 * a.comp);
     const p = this.tmp, n = this.brine.n, alpha = 0.16 + 0.8 * a.comp;
     for (let i = 0; i < n; i++) {
@@ -657,8 +745,8 @@ export class LiveScene {
         ctx.fillStyle = rgba('#ffffff', 0.7); ctx.font = '700 10.5px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(title, x + 12, y + 14);
         ctx.fillStyle = '#fff'; ctx.font = '700 19px Manrope, sans-serif'; ctx.fillText(`${value.toFixed(1).replace('.', ',')} °C`, x + 12, y + 33); ctx.restore();
       };
-      tag(930, 944, 'ALKOHOL MAASSE', br.out, brineHex(br.out));
-      tag(1100, 944, 'ALKOHOL MAAST', br.in, brineHex(br.in));
+      tag(930, 944, 'SOOJAKANDJA MAASSE', br.out, brineHex(br.out));
+      tag(1100, 944, 'SOOJAKANDJA MAAST', br.in, brineHex(br.in));
     }
     ctx.fillStyle = rgba('#ffffff', 0.5 - dark * 0.1); ctx.font = '700 13px Manrope, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; if ('letterSpacing' in ctx) ctx.letterSpacing = '4px';
     ctx.fillText('MAAKONTUUR', 420, 880); if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
@@ -707,21 +795,67 @@ export class LiveScene {
 
   // Magav triibuline (punakas tabby) kass: hingab koos radiaatori soojusega ning teeb juhuslikke liigutusi (cat.js).
   drawCat(ctx, dark, heat) {
-    const pose = this.reduced ? restPose() : this.cat.update(this.t);
-    const cx = 972, cy = 690, night = dark * 0.55;
+    const pose = this.catPose;
+    const cx = 972 + pose.x, cy = 690 + pose.y, night = dark * 0.55;
     const fur = mix('#d9924e', '#5b3e24', night), stripe = mix('#8d5024', '#2e1d10', night), light = mix('#f4e4c4', '#85755d', night), inner = mix('#f2a9a0', '#7a5456', night);
     const breath = 1 + Math.sin(this.t * (1.3 + heat * 0.4)) * 0.035 + pose.breath * 0.07;
+    // keha pööre ümber püstsuunalise telje (cat.js: yaw): c = külgvaate koosinus, k = kui külili kass on (1 külg, 0 nägu/tagumik vaataja poole)
+    const raise = pose.raise, sit = pose.sit, c = Math.cos(pose.yaw), sn = Math.sin(pose.yaw), k = Math.abs(c), sgn = c < 0 ? -1 : 1, kb = 0.36 + 0.64 * k;
+    // pea pöörab lisaks kehale (headYaw): >0 nägu vaataja poole, <0 vaatab vaataja eest ära (näha on kõrvad ja kukal, nägu peidus)
+    const hy = pose.yaw + pose.headYaw, ch = Math.cos(hy), kh = Math.abs(ch), sgnH = ch < 0 ? -1 : 1, fvis = clamp((Math.sin(hy) + 1) / 0.4);
+    const headX = 14 * c + 10 * ch;
+    const L = (prof, front) => front + (prof - front) * kh;
+    const poly = pts => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill(); };
     if (pose.sleeping && !this.reduced) this.drawZzz(ctx, cx + pose.dir * 28, cy - 22, dark);
-    ctx.save(); ctx.translate(cx, cy - pose.lift); ctx.scale(pose.flip, 1);
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(pose.flip, 1);
+    const floorY = 10.6 + raise;
+    // ringutades tagajalad (tagumik üleval) põrandast puusani
+    const stretchLegs = () => {
+      const st = pose.stretch, sx = 1 + 0.12 * st, th = 0.2 * st, cs = Math.cos(th), sn2 = Math.sin(th);
+      const hipAt = (px, py) => { const dx = (px - 30) * sx, dy = py - 10; return [30 + dx * cs - dy * sn2, 10 + dx * sn2 + dy * cs]; };
+      const shown = clamp((st - 0.05) / 0.25), legs = [[-21, 4, -3, mix(fur, stripe, 0.5), 5.2], [-15, 5, 0, fur, 5.8]];
+      ctx.save(); ctx.globalAlpha = shown; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const [px, py, dx, col, w] of legs) {
+        const [hx, hy2] = hipAt(px, py), fx = hx - 3 - 2 * st + dx * 0.4, fy = 10.6;
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(hx, hy2); ctx.quadraticCurveTo((hx + fx) / 2 - 3.5 * st, (hy2 + fy) / 2 + 1, fx, fy - 1); ctx.stroke();
+        ctx.fillStyle = mix(light, stripe, col === fur ? 0 : 0.25); ctx.beginPath(); ctx.ellipse(fx + 1.2, fy, 4.2, 2.6, 0, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    };
+    if (pose.stretch > 0.05) stretchLegs();
+    ctx.translate(0, -raise);
+    ctx.translate(0, -2); ctx.rotate(-pose.tilt); ctx.translate(0, 2);
     // ringutamine: tagumik tõuseb, keha pikeneb, esiosa jääb põrandale
     ctx.translate(30, 10); ctx.rotate(0.2 * pose.stretch); ctx.scale(1 + 0.12 * pose.stretch, 1); ctx.translate(-30, -10);
-    // saba: värvitud ja tumedate rõngastega
+    // istumine: keha tõuseb tagumiku ümber püsti, pea püsib sirge
+    const sitAngle = 0.8 * sit, sitScale = 1 - 0.14 * sit;
+    const sitT = () => { ctx.translate(-14, 8); ctx.rotate(-sitAngle); ctx.scale(sitScale, 1 + 0.05 * sit); ctx.translate(14, -8); };
+    const sitMap = (px, py) => { const dx = (px + 14) * sitScale, dy = (py - 8) * (1 + 0.05 * sit); return [-14 + dx * Math.cos(sitAngle) + dy * Math.sin(sitAngle), 8 - dx * Math.sin(sitAngle) + dy * Math.cos(sitAngle)]; };
+    // püstijalad (seistes ja kõndides): neli jalga, pööratult kolmemõõtmeliselt; õhus sirutatud, kõndides astuvad diagonaalis
+    const legsA = (1 - sit) * clamp(raise / 1.5);
+    const standing = [[-15, -4.5, 0, false], [14, -4.5, Math.PI, true], [-15, 4.5, Math.PI, false], [14, 4.5, 0, true]].map(([x, z, ph, front]) => {
+      const lift = Math.max(0, Math.sin(pose.stepPhase + ph)) * 2.4 * pose.walk + (front ? 7 : 6) * pose.air;
+      return { x: x * c - z * sn, dx: (front ? 9 : -9) * pose.air, depth: x * sn + z * c, lift, far: z < 0 };
+    });
+    const drawLeg = leg => {
+      const foot = floorY - leg.lift;
+      ctx.save(); ctx.globalAlpha = legsA; ctx.lineCap = 'round';
+      ctx.strokeStyle = leg.far ? mix(fur, stripe, 0.35) : fur; ctx.lineWidth = 5.2; ctx.beginPath(); ctx.moveTo(leg.x, 6); ctx.lineTo(leg.x + leg.dx, foot - 1); ctx.stroke();
+      ctx.fillStyle = leg.far ? mix(light, stripe, 0.2) : light; ctx.beginPath(); ctx.ellipse(leg.x + leg.dx + 0.8 * sgn * k, foot, 3.9, 2.5, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    };
+    // saba (alati keha taga): värvitud ja tumedate rõngastega; pöörde ajal kahaneb ja liigub teisele poole, istudes lebab põrandal
+    ctx.save(); ctx.scale(sgn * Math.max(k, 0.12), 1);
     const a = (Math.sin(pose.tailPhase) * 0.5 + 0.5) * pose.tail * 16;
-    const tail = () => { ctx.beginPath(); ctx.moveTo(-24, 4); ctx.quadraticCurveTo(-46, 8 - a * 0.55, -32, 12 - a * 1.1); };
+    const tailP = [[-24, 4, -22, 9], [-46, 8 - a * 0.55, -42, 13.6], [-32, 12 - a * 1.1, -51, 12 - a * 1.05]].map(([x0, y0, x1, y1]) => [lerp(x0, x1, sit), lerp(y0, y1, sit)]);
+    const tail = () => { ctx.beginPath(); ctx.moveTo(...tailP[0]); ctx.quadraticCurveTo(...tailP[1], ...tailP[2]); };
     ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.strokeStyle = fur; tail(); ctx.stroke();
     ctx.save(); ctx.lineCap = 'butt'; ctx.setLineDash([2.4, 5]); ctx.strokeStyle = stripe; tail(); ctx.stroke(); ctx.restore();
-    ctx.fillStyle = stripe; ctx.beginPath(); ctx.arc(-32, 12 - a * 1.1, 3, 0, TAU); ctx.fill();
-    // keha ja selja triibud
+    ctx.fillStyle = stripe; ctx.beginPath(); ctx.arc(tailP[2][0], tailP[2][1], 3, 0, TAU); ctx.fill();
+    ctx.restore();
+    if (legsA > 0.01) standing.filter(l => l.depth < 0).forEach(drawLeg);
+    // keha ja selja triibud (pöörates kitsamaks)
+    ctx.save(); sitT(); ctx.scale(kb, 1);
     const ry = 13 * breath;
     ctx.fillStyle = fur; ctx.beginPath(); ctx.ellipse(0, -2, 26, ry, 0, 0, TAU); ctx.fill();
     ctx.save(); ctx.beginPath(); ctx.ellipse(0, -2, 26, ry, 0, 0, TAU); ctx.clip();
@@ -729,38 +863,64 @@ export class LiveScene {
     for (let i = 0; i < 6; i++) { const x = -19 + i * 7.2; ctx.beginPath(); ctx.moveTo(x, -2 - ry - 1); ctx.quadraticCurveTo(x + 2.5, -6, x + 0.5, 3 - i % 2 * 2); ctx.stroke(); }
     ctx.fillStyle = light; ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.ellipse(2, 10, 20, 5, 0, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
     ctx.restore();
-    // käpad: puhkeasendis lõua all, ringutades ette sirutatud
+    // käpad: puhkeasendis lõua all, ringutades ette sirutatud, jalgadel seistes ja istudes asendavad neid jalad
     if (pose.stretch > 0.05) {
       const ex = 26 + 24 * pose.stretch, ey = 9.5 - 5 * pose.stretch;
       ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.strokeStyle = fur; ctx.beginPath(); ctx.moveTo(16, 8); ctx.lineTo(ex, ey); ctx.stroke();
       ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(ex, ey, 4, 3, 0, 0, TAU); ctx.fill();
     }
-    ctx.globalAlpha = 1 - clamp(pose.stretch * 1.6); ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(27, 9, 8, 4, 0, 0, TAU); ctx.fill();
+    ctx.globalAlpha = (1 - clamp(pose.stretch * 1.6)) * (1 - clamp(raise / 2.5)) * (1 - clamp(sit * 3)); ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(27, 9, 8, 4, 0, 0, TAU); ctx.fill();
     ctx.strokeStyle = stripe; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(24, 6.5); ctx.lineTo(24, 9.5); ctx.moveTo(29, 6.2); ctx.lineTo(29, 9.5); ctx.stroke(); ctx.globalAlpha = 1;
-    // pea
-    ctx.save(); ctx.translate(16, -4); ctx.rotate(pose.head); ctx.translate(-16, 4);
-    const back = pose.earBack * 4;
-    ctx.fillStyle = fur; ctx.beginPath(); ctx.arc(24, -6, 10, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(18, -13); ctx.lineTo(20 - back, -24 + back * 0.8); ctx.lineTo(26, -14); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = inner; ctx.beginPath(); ctx.moveTo(20, -14.5); ctx.lineTo(21 - back * 0.8, -21 + back * 0.6); ctx.lineTo(24.2, -14.8); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    if (legsA > 0.01) standing.filter(l => l.depth >= 0).forEach(drawLeg);
+    if (sit > 0.02) {
+      // istudes: tagumine reis ja tagakäpp põrandal, esijalad sirged rinnast alla
+      ctx.save(); ctx.globalAlpha = clamp(sit * 4);
+      ctx.fillStyle = fur; ctx.beginPath(); ctx.ellipse(-13, 3, 12.5, 10.5, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = stripe; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+      for (const [x, y] of [[-20, -3], [-14, -5], [-8, -2]]) { ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 2, y + 5, x - 0.5, y + 10); ctx.stroke(); }
+      ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(-1.5, floorY, 6.5, 2.6, 0, 0, TAU); ctx.fill();
+      const [fx, fy] = sitMap(14, 7);
+      for (const [dx, col, pawCol] of [[3.4, mix(fur, stripe, 0.35), mix(light, stripe, 0.2)], [-0.6, fur, light]]) {
+        ctx.strokeStyle = col; ctx.lineWidth = 5.2; ctx.beginPath(); ctx.moveTo(fx + dx, fy); ctx.lineTo(fx + dx + 0.6, floorY - 1); ctx.stroke();
+        ctx.fillStyle = pawCol; ctx.beginPath(); ctx.ellipse(fx + dx + 1.8, floorY, 4.2, 2.5, 0, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    }
+    // pea (alati keha ees): kuju liigub külgvaatest esiküljele; vasakule vaadates peegeldub; kehaga koos tõusev ja sirge
+    ctx.save(); sitT(); ctx.scale(sgnH, 1); ctx.translate(sgnH * headX - 24, 0);
+    ctx.save(); ctx.translate(16, -4); ctx.rotate(pose.head + 0.8 * sit * 1.0); ctx.translate(-16, 4);
+    const back = pose.earBack * 4, lerpPts = (pp, ff) => pp.map(([x, y], i) => [L(x, ff[i][0]), L(y, ff[i][1])]);
+    ctx.fillStyle = fur; ctx.beginPath(); ctx.ellipse(24, -6, L(10, 11.3), 10, 0, 0, TAU); ctx.fill();
+    poly(lerpPts([[18, -13], [20 - back, -24 + back * 0.8], [26, -14]], [[15, -10], [17 - back * 0.5, -23 + back * 0.6], [23, -14]]));
+    ctx.fillStyle = inner; ctx.globalAlpha = 0.35 + 0.65 * fvis; poly(lerpPts([[20, -14.5], [21 - back * 0.8, -21 + back * 0.6], [24.2, -14.8]], [[17.5, -12.5], [18.5 - back * 0.4, -20.5 + back * 0.5], [22, -14.5]])); ctx.globalAlpha = 1;
     ctx.save(); ctx.translate(29, -13); ctx.rotate(-pose.ear * 0.5 + pose.earBack * 0.3); ctx.translate(-29, 13);
-    ctx.fillStyle = fur; ctx.beginPath(); ctx.moveTo(26, -14); ctx.lineTo(32 - back * 0.5, -23 + back * 0.8); ctx.lineTo(33, -10); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = inner; ctx.beginPath(); ctx.moveTo(27.6, -14.6); ctx.lineTo(31.4 - back * 0.4, -21 + back * 0.6); ctx.lineTo(32, -12); ctx.closePath(); ctx.fill(); ctx.restore();
-    // otsa "M" ja põsetriibud
+    ctx.fillStyle = fur; poly(lerpPts([[26, -14], [32 - back * 0.5, -23 + back * 0.8], [33, -10]], [[25, -14], [31 - back * 0.5, -23 + back * 0.6], [33, -10]]));
+    ctx.fillStyle = inner; ctx.globalAlpha = 0.35 + 0.65 * fvis; poly(lerpPts([[27.6, -14.6], [31.4 - back * 0.4, -21 + back * 0.6], [32, -12]], [[26.2, -14.5], [29.6 - back * 0.3, -20.5 + back * 0.5], [31.4, -11.5]])); ctx.globalAlpha = 1; ctx.restore();
+    // otsa "M" ja põsetriibud (esiküljel mõlemal põsel); eest ära vaadates triibud jäävad, nägu kaob
     ctx.strokeStyle = stripe; ctx.lineWidth = 1.7; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(21, -15.4); ctx.lineTo(21.8, -11); ctx.moveTo(25, -16); ctx.lineTo(25, -11.2); ctx.moveTo(29, -15.2); ctx.lineTo(28.2, -11); ctx.stroke();
+    ctx.save(); ctx.globalAlpha = fvis;
     ctx.beginPath(); ctx.moveTo(15.2, -4.5); ctx.lineTo(19.6, -4); ctx.moveTo(15.4, -1); ctx.lineTo(19.4, -1.6); ctx.stroke();
-    // hele koon, nina, silm
-    ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(30.6, -2.6, 4.6, 3.6, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#e07a85'; ctx.beginPath(); ctx.moveTo(32.6, -5.6); ctx.lineTo(35.2, -5.4); ctx.lineTo(34, -3.6); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = mix('#3a2412', '#120b05', night); ctx.lineWidth = 1.5 + pose.squeeze * 0.8;
-    ctx.beginPath(); if (pose.squeeze > 0.35) { ctx.moveTo(25.5, -9.6); ctx.lineTo(28.5, -7); ctx.lineTo(31.5, -9.6); } else { ctx.moveTo(26, -8); ctx.quadraticCurveTo(28.5, -6.6, 31, -8); } ctx.stroke();
+    if (kh < 0.99) { ctx.save(); ctx.globalAlpha = fvis * (1 - kh); ctx.beginPath(); ctx.moveTo(32.8, -4.5); ctx.lineTo(28.4, -4); ctx.moveTo(32.6, -1); ctx.lineTo(28.6, -1.6); ctx.stroke(); ctx.restore(); }
+    // hele koon, nina, silmad
+    ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(L(30.6, 24), L(-2.6, -2), L(4.6, 6), L(3.6, 4.2), 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#e07a85'; poly(lerpPts([[32.6, -5.6], [35.2, -5.4], [34, -3.6]], [[22.4, -4.8], [25.6, -4.8], [24, -2.8]]));
+    const eyeInk = mix('#3a2412', '#120b05', night), open = pose.eyes > 0.5 && pose.squeeze < 0.35;
+    const eye = (ex, alpha) => {
+      ctx.save(); ctx.globalAlpha *= alpha;
+      if (open) { ctx.fillStyle = mix('#d7b43c', '#8a7430', night); ctx.beginPath(); ctx.ellipse(ex, -8, 2.3, 2.7, 0, 0, TAU); ctx.fill(); ctx.fillStyle = eyeInk; ctx.beginPath(); ctx.ellipse(ex + 0.2, -8, 0.9, 2.3, 0, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(ex - 0.5, -8.9, 0.55, 0, TAU); ctx.fill(); }
+      else { ctx.strokeStyle = eyeInk; ctx.lineWidth = 1.5 + pose.squeeze * 0.8; ctx.beginPath(); if (pose.squeeze > 0.35) { ctx.moveTo(ex - 3, -9.6); ctx.lineTo(ex, -7); ctx.lineTo(ex + 3, -9.6); } else { ctx.moveTo(ex - 2.5, -8); ctx.quadraticCurveTo(ex, -6.6, ex + 2.5, -8); } ctx.stroke(); }
+      ctx.restore();
+    };
+    eye(L(28.5, 28), 1);
+    if (kh < 0.85) eye(L(35.5, 20), clamp((0.85 - kh) / 0.35));
     if (pose.mouth > 0.03) {
       ctx.fillStyle = '#2a0f16'; ctx.beginPath(); ctx.ellipse(32, -1.2, 1.6 + pose.mouth * 3, 0.8 + pose.mouth * 5.4, 0, 0, TAU); ctx.fill();
       if (pose.mouth > 0.4) { ctx.fillStyle = '#e0707f'; ctx.beginPath(); ctx.ellipse(32.4, 0.6 + pose.mouth, 1.9, 2.4, 0, 0, TAU); ctx.fill(); }
     }
     if (pose.tongue > 0.05) { ctx.fillStyle = '#ff8fa3'; ctx.beginPath(); ctx.ellipse(33, 0.8 + pose.tongue, 1.9, 1 + pose.tongue * 3, 0, 0, TAU); ctx.fill(); }
-    ctx.restore();
+    ctx.restore(); ctx.restore(); ctx.restore();
     ctx.restore();
   }
 
@@ -782,6 +942,8 @@ export class LiveScene {
       const k = st.p, sx = st.x + Math.sin(k * 6 + st.o * 9) * 16, sy = 690 - k * 190, al = Math.sin(k * Math.PI) * 0.22 * a.hw, r = st.r * (0.6 + k * 1.6);
       const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r); g.addColorStop(0, `rgba(255,255,255,${al})`); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
     }
+    // goblin tuleb boileri tagant ja läheb sinna tagasi, seepärast joonistatakse ta enne boilerit
+    this.drawGoblin(ctx, dark, dt);
     // boiler
     ctx.save(); rr(ctx, x, y, w, h, 28); ctx.clip();
     const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, heatHex(t + 3)); g.addColorStop(0.55, heatHex(t)); g.addColorStop(1, heatHex(t - 14)); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
@@ -815,6 +977,87 @@ export class LiveScene {
       }
       for (const sp of this.splashes) { if (sp.a > 0.02) { sp.r += dt * 26; sp.a *= 1 - dt * 3.2; ctx.strokeStyle = `rgba(170,225,255,${sp.a})`; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(sp.x, 698, sp.r, sp.r * 0.3, 0, 0, TAU); ctx.stroke(); } }
     }
+  }
+
+  // Nalja pärast: kui dušš jookseb, ilmub selle alla irvitav roheline goblin, kes end käsnaga küürib ja vahtu täis saab.
+  drawGoblin(ctx, dark, dt) {
+    const g = this.goblin ??= { pos: 0, foam: 0, walk: 0, dirn: -1 }, on = this.a.hw > 0.45, target = on ? 1 : 0;
+    if (this.reduced) { g.pos = target; g.walk = 0; }
+    else {
+      const d = target - g.pos, moving = Math.abs(d) > 1e-4;
+      if (moving) { g.dirn = d > 0 ? -1 : 1; g.pos = clamp(g.pos + Math.sign(d) * Math.min(Math.abs(d), dt * 0.7)); }
+      g.walk += ((moving ? 1 : 0) - g.walk) * Math.min(1, dt * 8);
+    }
+    if (g.pos <= 0.001) { g.foam = 0; return; }
+    const arr = smooth(clamp((g.pos - 0.88) / 0.12));
+    if (!this.reduced) g.foam = Math.min(1, g.foam + dt * 0.045 * arr);
+    const e = arr, t = this.reduced ? 0 : this.t, k = dark * 0.45;
+    const skin = mix('#86c552', '#33521f', k), skinD = mix('#5e9a34', '#243a15', k), belly = mix('#a8da72', '#45662b', k), pink = mix('#e8a095', '#6a4a44', k), foam = mix('#ffffff', '#b8c4d6', dark * 0.5);
+    const sway = Math.sin(t * 3.1) * 1.3 * (1 - g.walk), scrub = Math.sin(t * 9) * arr, bob = Math.sin(t * 14) * 0.5, chuckle = 0.5 + 0.5 * Math.sin(t * 14 + 1);
+    const wph = t * 11, liftL = Math.max(0, Math.sin(wph)) * 2.6 * g.walk, liftR = Math.max(0, -Math.sin(wph)) * 2.6 * g.walk, bobW = -Math.abs(Math.sin(wph)) * 1.3 * g.walk;
+    // asukoht: boileri taga (x≈1162) → duši all (x=1090)
+    ctx.save(); ctx.translate(1162 - 72 * smooth(g.pos), 697); ctx.rotate(g.dirn * 0.07 * g.walk); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // jalad ja suured lamedad jalalabad (kõndides tõstavad jalgu vaheldumisi)
+    ctx.strokeStyle = skinD; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-6 + sway * 0.3, -14); ctx.lineTo(-7.5, -3 - liftL); ctx.moveTo(6 + sway * 0.3, -14); ctx.lineTo(7.5, -3 - liftR); ctx.stroke();
+    ctx.fillStyle = skinD; for (const sx of [-1, 1]) { const lf = sx < 0 ? liftL : liftR; ctx.beginPath(); ctx.ellipse(sx * 9.5, -1.6 - lf, 6.8, 2.7, sx * 0.08, 0, TAU); ctx.fill(); for (const tx of [-3.5, 0, 3.5]) { ctx.beginPath(); ctx.arc(sx * 9.5 + sx * 4 + tx * 0.4, -1.4 - lf + Math.abs(tx) * 0.15, 1.5, 0, TAU); ctx.fill(); } }
+    ctx.translate(0, bobW);
+    // keha: ümar kõht
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(sway * 0.35, -27, 12.5, 14, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(sway * 0.35, -24, 8, 9.5, 0, 0, TAU); ctx.fill();
+    // vasak käsi kaenla all kratsimas
+    ctx.strokeStyle = skin; ctx.lineWidth = 4.2; ctx.beginPath(); ctx.moveTo(-10 + sway * 0.4, -36); ctx.quadraticCurveTo(-17, -31, -9 + Math.sin(t * 6) * 2, -29 + Math.sin(t * 6) * 1.5); ctx.stroke();
+    // parem käsi käsnaga kõhul edasi-tagasi
+    const sx = 2 + scrub * 6.5, sy = -25 + Math.sin(t * 18) * 1.4 * arr;
+    ctx.beginPath(); ctx.moveTo(10 + sway * 0.4, -36); ctx.quadraticCurveTo(17, -30, sx + 4, sy - 1); ctx.stroke();
+    // vaht kõhul, puusadel ja käsna ümber (kasvab dušši all)
+    ctx.fillStyle = foam;
+    for (const [fx, fy, fr] of [[-8, -18, 4.6], [-3, -14, 4], [5, -16, 4.8], [10, -22, 3.6], [-11, -26, 3.4], [0, -20, 3.8], [8, -30, 3], [-6, -32, 3.2]]) { const r = fr * (0.25 + 0.75 * g.foam); ctx.beginPath(); ctx.arc(fx + sway * 0.35 + Math.sin(t * 2 + fx) * 0.4, fy, r, 0, TAU); ctx.fill(); }
+    // käsn
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(scrub * 0.25);
+    ctx.fillStyle = mix('#f2d44a', '#7a6a28', k); rr(ctx, -5.2, -3.6, 10.4, 7.2, 3); ctx.fill();
+    ctx.fillStyle = mix('#c9a626', '#5a4b1a', k); for (const [px, py] of [[-2.4, -1], [1.8, 1.2], [2.6, -1.6], [-1, 1.6]]) { ctx.beginPath(); ctx.arc(px, py, 0.9, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = foam; ctx.beginPath(); ctx.arc(-4.5, -3, 2.2, 0, TAU); ctx.arc(4.8, 3.2, 2, 0, TAU); ctx.arc(0.5, 4, 1.8, 0, TAU); ctx.fill();
+    ctx.restore();
+    // pea: suured kõrvad, kaldus kulmud, irve hammastega
+    ctx.save(); ctx.translate(sway * 0.6, -47 + bob);
+    ctx.fillStyle = skin;
+    for (const sg of [-1, 1]) {
+      const flap = Math.sin(t * 8 + sg) * 1.2;
+      ctx.beginPath(); ctx.moveTo(sg * 10.5, -4); ctx.quadraticCurveTo(sg * 20, -9 + flap, sg * 28, -10 + flap * 1.3); ctx.quadraticCurveTo(sg * 20, 0, sg * 11, 4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = pink; ctx.beginPath(); ctx.moveTo(sg * 12.5, -2); ctx.quadraticCurveTo(sg * 20, -6 + flap, sg * 24.5, -8 + flap * 1.2); ctx.quadraticCurveTo(sg * 19, -1, sg * 12.5, 2); ctx.closePath(); ctx.fill(); ctx.fillStyle = skin;
+    }
+    ctx.beginPath(); ctx.ellipse(0, 0, 13, 10.5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = skinD; for (const hx of [-3.5, 0, 3.5]) { ctx.beginPath(); ctx.moveTo(hx - 1.6, -9.5); ctx.lineTo(hx + hx * 0.3, -15.5 + Math.abs(hx) * 0.3); ctx.lineTo(hx + 1.6, -9.5); ctx.closePath(); ctx.fill(); }
+    // silmad: kollased, püstise pupilliga, pooleldi pilukil (kaval)
+    for (const sg of [-1, 1]) {
+      ctx.fillStyle = mix('#ffe34d', '#8a7a2a', k); ctx.beginPath(); ctx.ellipse(sg * 5.2, -1.2, 3.5, 2.8, sg * -0.15, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#1a2a10'; ctx.beginPath(); ctx.ellipse(sg * 5.2 - sg * 0.4 + g.dirn * 0.9 * g.walk, -1, 0.85, 2.3, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = skinD; ctx.beginPath(); ctx.ellipse(sg * 5.2, -3.1, 3.9, 1.7, sg * -0.15, Math.PI, TAU); ctx.fill();
+      ctx.strokeStyle = skinD; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sg * 9.6, -6.4); ctx.lineTo(sg * 1.6, -3.4); ctx.stroke();
+    }
+    // suur konksus nina
+    ctx.fillStyle = skinD; ctx.beginPath(); ctx.moveTo(-2, -2.6); ctx.quadraticCurveTo(0.6, 3.8, 3.2, 1.2); ctx.quadraticCurveTo(1.2, 0.8, 1.6, -2.6); ctx.closePath(); ctx.fill();
+    // irve: lai suu, ülemised hambad ja kaks alumist kihvakat
+    const open = 2.2 + chuckle * 2.4;
+    ctx.fillStyle = '#3a1020'; ctx.beginPath(); ctx.moveTo(-9, 3.4); ctx.quadraticCurveTo(0, 3.2 + open * 2.2, 9, 3.4); ctx.quadraticCurveTo(0, 3.6 - 1.2, -9, 3.4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#e0707f'; ctx.beginPath(); ctx.ellipse(0, 3.4 + open * 1.5, 3.6, 1.2 + open * 0.3, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff8e6'; for (let i = 0; i < 6; i++) { const x = -7 + i * 2.8; ctx.beginPath(); ctx.moveTo(x - 1.1, 3.5 - 0.5 * Math.abs(x) / 8); ctx.lineTo(x, 5.6 + (i === 1 || i === 4 ? 1.1 : 0)); ctx.lineTo(x + 1.1, 3.5 - 0.5 * Math.abs(x) / 8); ctx.closePath(); ctx.fill(); }
+    for (const x of [-4.2, 4.2]) { ctx.beginPath(); ctx.moveTo(x - 1, 3 + open * 1.9); ctx.lineTo(x, 3 + open * 1.9 - 3); ctx.lineTo(x + 1, 3 + open * 1.9); ctx.closePath(); ctx.fill(); }
+    // vahumüts peas
+    ctx.fillStyle = foam; for (const [fx, fy, fr] of [[-5, -10, 4.4], [1, -12.5, 5], [6.5, -9.6, 3.8], [-1, -8.6, 3.4]]) { const r = fr * (0.2 + 0.8 * g.foam); ctx.beginPath(); ctx.arc(fx, fy - r * 0.35, r, 0, TAU); ctx.fill(); }
+    ctx.restore();
+    // vahumullid tõusevad ülespoole
+    if (!this.reduced) {
+      ctx.strokeStyle = rgba(foam, 0.8); ctx.lineWidth = 1;
+      for (let i = 0; i < 7; i++) { const u = (t * 0.28 + i / 7) % 1; ctx.globalAlpha = e * Math.sin(Math.PI * u) * 0.8; ctx.beginPath(); ctx.arc(Math.sin(i * 2.1 + t) * 16 + (i - 3) * 2.6, -30 - u * 46, 1.6 + (i % 3) * 0.9, 0, TAU); ctx.stroke(); }
+      // vahel itsitab
+      const lk = (t % 7) / 7;
+      if (lk < 0.24) {
+        ctx.globalAlpha = e * Math.sin(lk / 0.24 * Math.PI); ctx.fillStyle = mix('#2f7a2a', '#a8e08a', dark); ctx.font = "italic 800 10px 'Plus Jakarta Sans', sans-serif"; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.fillText('hihii!', 16, -62 - lk * 30);
+      }
+    }
+    ctx.restore();
   }
 
   // ---- toaõhk: tolmukesed ja CO₂ udu
@@ -936,7 +1179,11 @@ export class LiveScene {
     const a = this.a; if (a.fog < 0.02) return;
     const tone = mix('#dfe6ee', '#3a4458', dark * 0.85);
     ctx.save();
-    ctx.beginPath(); ctx.rect(-400, -400, W + 800, GROUND + 404); ctx.clip();
+    // udu ainult maja väljas: kärbi välja pööning ja tubade ristlõige
+    const { L, R, TOP, FLOOR } = HOUSE_SHELL;
+    ctx.beginPath(); ctx.rect(-400, -400, W + 800, GROUND + 404);
+    ctx.moveTo(L - 10, FLOOR); ctx.lineTo(L - 10, roofTop(L - 10) + ROOF.thick - 4); ctx.lineTo(ROOF.apexX, ROOF.apexY + ROOF.thick - 4); ctx.lineTo(R + 10, roofTop(R + 10) + ROOF.thick - 4); ctx.lineTo(R + 10, FLOOR); ctx.closePath();
+    ctx.clip('evenodd');
     for (const b of this.fogBlobs) {
       if (!this.reduced) { b.x += b.v * dt; if (b.x > W + 400) b.x = -400; }
       const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r); g.addColorStop(0, rgba(tone, 0.34 * a.fog)); g.addColorStop(1, rgba(tone, 0));

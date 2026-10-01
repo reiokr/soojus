@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TRACKS, MODES, loadMode, saveMode, nextTrackId, loadTrack, saveTrack, loadVolume, saveVolume, volumeGain } from '../src/next/live/ambience.js';
+import { TRACKS, MODES, loadPlayback, savePlayback, savePosition, loadMode, saveMode, nextTrackId, loadTrack, saveTrack, loadVolume, saveVolume, volumeGain } from '../src/next/live/ambience.js';
 
 const store = () => { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, v) }; };
 
@@ -37,6 +37,18 @@ test('esitusrežiim: vaikimisi ühe loo kordamine, valik salvestub ja "kõik jä
   assert.equal(nextTrackId(TRACKS[0].id), TRACKS[1].id);
   assert.equal(nextTrackId(TRACKS.at(-1).id), TRACKS[0].id);
   assert.equal(nextTrackId('tundmatu'), TRACKS[0].id);
+});
+
+test('mängimise seis (sees / pausil / koht loos) salvestub ja rikutud väärtused ei sega', () => {
+  const s = store();
+  assert.deepEqual(loadPlayback(s), { on: false, paused: false, pos: null });
+  savePlayback({ on: true, paused: false }, s); savePosition('kitarriohtu', 12.34, s);
+  assert.deepEqual(loadPlayback(s), { on: true, paused: false, pos: { id: 'kitarriohtu', t: 12.3 } });
+  savePlayback({ on: true, paused: true }, s); assert.equal(loadPlayback(s).paused, true);
+  savePlayback({ on: false, paused: true }, s); assert.deepEqual([loadPlayback(s).on, loadPlayback(s).paused], [false, false], 'väljas lülitatud muusika ei ole pausil');
+  s.setItem('soojus.sound.pos', '{rikutud'); assert.equal(loadPlayback(s).pos, null);
+  s.setItem('soojus.sound.pos', JSON.stringify({ id: 'x', t: -5 })); assert.equal(loadPlayback(s).pos, null);
+  assert.deepEqual(loadPlayback(null), { on: false, paused: false, pos: null });
 });
 
 test('iga lugu on olemas ja on MP3', async () => {

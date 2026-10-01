@@ -1,24 +1,37 @@
-// Magava kassi juhuslik käitumine "Elav kodu" stseenis. Loogika on lõuendist sõltumatu: update(t) tagastab poosi, mida scene.js joonistab.
+// Kassi juhuslik käitumine "Elav kodu" stseenis. Loogika on lõuendist sõltumatu: update(t) tagastab poosi, mida scene.js joonistab.
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const smooth = k => k * k * (3 - 2 * k);
+const lerp = (a, b, k) => a + (b - a) * k;
 // 0 → 1 sissetulek (kestab osa 'up'), hoidmine, väljumine alates 'down'.
 const envelope = (p, up = 0.2, down = 0.8) => smooth(clamp(p / up)) * smooth(clamp((1 - p) / (1 - down)));
 
 export const CAT_ACTIONS = {
   tail: { label: 'liigutab saba', duration: 2.6, weight: 3 },
   ears: { label: 'liigutab kõrva', duration: 0.7, weight: 3 },
-  turn: { label: 'keerab ennast', duration: 2.8, weight: 1.5 },
+  turn: { label: 'keerab ennast', duration: 4.6, weight: 1.5 },
   stretch: { label: 'ringutab', duration: 3.8, weight: 1.5 },
   yawn: { label: 'haigutab', duration: 3, weight: 2 },
-  lick: { label: 'lakub ennast', duration: 5.5, weight: 2 }
+  lick: { label: 'lakub ennast', duration: 5.5, weight: 2 },
+  sit: { label: 'istub ja vaatab ringi', duration: 10, weight: 2 },
+  walk: { label: 'kõnnib teise kohta', duration: 8, weight: 2 },
+  window: { label: 'hüppab radiaatorile akent vaatama', duration: 28, weight: 1.5 }
 };
 
+// Kassi kohad põrandal (nihe kodukohast, px) ja radiaator, kuhu ta aknast välja vaatama hüppab (radiaatori pealmine serv on 82 px põrandast kõrgemal).
+export const SPOTS = [0, -70, -135];
+export const RADIATOR = { x: -82, h: 82 };
+const WALK_SPEED = 42, STAND = 7;
+
 // Puhkeposi: kõik 0, suund 1 (nägu paremale).
-export const restPose = () => ({ act: null, dir: 1, flip: 1, tail: 0.08, tailPhase: 0, head: 0, mouth: 0, squeeze: 0, ear: 0, earBack: 0, stretch: 0, lift: 0, breath: 0, tongue: 0, sleeping: true });
+// x, y: asukoht kodukoha suhtes (px, y<0 on kõrgemal); yaw: kogu keha pööre ümber püstsuunalise telje 0 → π (0 = külg samas suunas, π/2 = nägu vaataja poole);
+// headYaw: ainult pea pööre keha suhtes (>0 vaataja poole, <0 vaataja eest ära); raise: kui kõrgele keha jalgadel tõuseb (px); crouch: kägarasend;
+// bird: aknast mööda lendav lind {u, dir, y0} või null; sit: istumine 0–1; air: õhus sirutatud jalad; tilt: nina üles (rad); walk/stepPhase: jalgade sammuamplituud (0–1) ja faas; eyes: 0 suletud, 1 lahti.
+export const restPose = () => ({ act: null, dir: 1, flip: 1, x: 0, y: 0, tail: 0.08, tailPhase: 0, head: 0, headYaw: 0, mouth: 0, squeeze: 0, ear: 0, earBack: 0, stretch: 0, lift: 0, yaw: 0, raise: 0, crouch: 0, sit: 0, air: 0, tilt: 0, walk: 0, stepPhase: 0, eyes: 0, bird: null, breath: 0, tongue: 0, sleeping: true });
 
 export class CatBrain {
   constructor(rand = Math.random, t = 0) {
-    this.rand = rand; this.t = t; this.act = null; this.start = 0; this.dir = 1; this.last = null; this.queue = null;
+    this.rand = rand; this.t = t; this.act = null; this.start = 0; this.dir = 1; this.pos = 0; this.last = null; this.queue = null;
+    this.script = null; this.dur = 0;
     this.next = t + 3 + rand() * 5;
   }
 
@@ -29,12 +42,56 @@ export class CatBrain {
     return names[0];
   }
 
-  begin(t, name) { this.act = name; this.start = t; this.last = name; }
+  // Käsikirja tegevused (istumine, kõndimine, aken) on jadad lõikudest; iga lõik liigub algseisust (s0) lõppseisu (s1).
+  plan(name) {
+    const r = this.rand, segs = [], st = { x: this.pos, y: 0, r: 0, s: 0, c: 0 };
+    let dir = this.dir;
+    const seg = (kind, d, to = {}, extra = {}) => { const s0 = { ...st }, s1 = { ...st, ...to }; Object.assign(st, s1); segs.push({ kind, d, dir, s0, s1, ...extra }); };
+    const face = x => { const want = x > st.x ? 1 : -1; if (want !== dir) { seg('turn', 1.6); dir = want; } };
+    const walkTo = x => { if (Math.abs(x - st.x) < 6) return; face(x); seg('walk', Math.abs(x - st.x) / WALK_SPEED, { x }); };
+    const spot = () => { const far = SPOTS.filter(s => Math.abs(s - st.x) > 40); return far[Math.floor(r() * far.length)]; };
+    if (name === 'sit') {
+      seg('sitdown', 1.2, { s: 1 });
+      seg('gaze', 6 + r() * 3, {}, { look: true });
+      seg('situp', 1.2, { s: 0 });
+    } else if (name === 'walk') {
+      seg('rise', 0.8, { r: STAND });
+      walkTo(spot());
+      seg('fall', 0.8, { r: 0 });
+    } else if (name === 'window') {
+      seg('rise', 0.8, { r: STAND });
+      walkTo(RADIATOR.x + (st.x > RADIATOR.x ? 28 : -28));
+      face(RADIATOR.x);
+      const hop = dir * 28;
+      seg('crouch', 0.5, { r: 2.5, c: 1 });
+      seg('jump', 0.9, { x: RADIATOR.x, y: -RADIATOR.h, r: STAND, c: 0 }, { arc: 22, air: true });
+      seg('land', 0.35, { r: 3.5, c: 0.6 });
+      seg('sitdown', 1.1, { r: 0, s: 1, c: 0 });
+      const gaze = 9 + r() * 4, n = gaze > 11 ? 3 : 2, flights = Array.from({ length: n }, (_, i) => ({ t0: 1.2 + i * (gaze - 3.4) / n + r() * 0.9, d: 2.3 + r() * 0.5, dirX: r() < 0.5 ? 1 : -1, y0: 520 + r() * 55 }));
+      seg('gaze', gaze, {}, { window: true, flights });
+      seg('situp', 1.1, { r: STAND, s: 0 });
+      seg('crouch', 0.45, { r: 2.5, c: 1 });
+      seg('jump', 0.85, { x: RADIATOR.x + hop, y: 0, r: STAND, c: 0 }, { arc: 10, air: true });
+      seg('land', 0.35, { r: 3.5, c: 0.6 });
+      seg('rise', 0.35, { r: STAND, c: 0 });
+      walkTo(spot());
+      seg('fall', 0.8, { r: 0 });
+    }
+    this.script = { segs, end: { x: st.x, dir } };
+    return segs.reduce((s, g) => s + g.d, 0);
+  }
+
+  begin(t, name) {
+    this.act = name; this.start = t; this.last = name; this.script = null;
+    this.dur = this.plan(name) || CAT_ACTIONS[name].duration;
+    if (!this.script?.segs.length) this.dur = CAT_ACTIONS[name].duration;
+  }
 
   finish(t) {
     if (this.act === 'turn') this.dir = -this.dir;
+    if (this.script?.segs.length) { this.pos = this.script.end.x; this.dir = this.script.end.dir; }
     const was = this.act;
-    this.act = null;
+    this.act = null; this.script = null;
     if (was === 'stretch' && this.rand() < 0.45) { this.begin(t, 'yawn'); return; }
     const quick = was === 'ears';
     this.next = t + (quick ? 2 + this.rand() * 4 : 6 + this.rand() * 14);
@@ -43,21 +100,64 @@ export class CatBrain {
   update(t) {
     if (!this.act && t >= this.next) this.begin(t, this.pick());
     let p = 0;
-    if (this.act) { p = (t - this.start) / CAT_ACTIONS[this.act].duration; if (p >= 1) { this.finish(t); p = 0; } }
+    if (this.act) { const dur = this.script?.segs.length ? this.dur : CAT_ACTIONS[this.act].duration; p = (t - this.start) / dur; if (p >= 1) { this.finish(t); p = 0; } }
     return this.pose(t, p);
+  }
+
+  scripted(o, t, local) {
+    let acc = 0, seg = this.script.segs.at(-1), u = 1;
+    for (const g of this.script.segs) { if (local < acc + g.d) { seg = g; u = (local - acc) / g.d; break; } acc += g.d; }
+    const e = smooth(clamp(u)), { s0, s1, kind } = seg, mix = key => lerp(s0[key], s1[key], e);
+    o.dir = o.flip = seg.dir; o.sleeping = false; o.eyes = 1;
+    o.x = kind === 'walk' ? lerp(s0.x, s1.x, u) : mix('x');
+    o.y = mix('y') - (seg.arc ?? 0) * Math.sin(Math.PI * u);
+    o.raise = mix('r'); o.sit = mix('s'); o.crouch = mix('c');
+    o.tail = 0.08; o.tailPhase = t * 0.9;
+    if (kind === 'turn') { o.yaw = Math.PI * e; o.walk = 0.7; o.stepPhase = t * 7; o.tail = 0.35; o.tailPhase = t * 2.4; o.eyes = 0; }
+    else if (kind === 'walk') {
+      o.walk = 1; o.stepPhase = Math.abs(o.x - s0.x) * 0.285; o.tail = 0.4; o.tailPhase = t * 2;
+      o.head = Math.sin(o.stepPhase) * 0.04; o.ear = Math.max(0, Math.sin(t * 5)) * 0.2 * (Math.sin(t * 0.7) > 0.8 ? 1 : 0);
+    } else if (seg.air) {
+      o.air = Math.sin(Math.PI * clamp(u * 1.05)) ** 0.6; o.walk = 0;
+      o.tilt = (s1.y < s0.y ? 0.5 : -0.35) * Math.cos(Math.PI * u) * clamp(Math.sin(Math.PI * u) * 2.2);
+    } else if (kind === 'crouch' || kind === 'land') { o.tilt = -0.1 * o.crouch; o.tail = 0.3; o.tailPhase = t * 4; }
+    else if (kind === 'gaze') {
+      o.tail = seg.window ? 0.95 : 0.55; o.tailPhase = t * 1.8;
+      const fade = envelope(u, 0.08, 0.92);
+      if (seg.window) {
+        // aknast välja: nägu jääb nähtavale, pea on kergelt üles tõstetud akna poole ja jälgib mööda lendavat lindu; lindu nähes ärkab kass: kõrvad ette, saba virvendab
+        const lt = u * seg.d, fl = seg.flights.find(f => lt >= f.t0 && lt <= f.t0 + f.d);
+        let watch = 0;
+        if (fl) {
+          const fu = (lt - fl.t0) / fl.d;
+          o.bird = { u: fu, dir: fl.dirX, y0: fl.y0 };
+          const birdX = 800 + 180 * (fl.dirX > 0 ? fu : 1 - fu), ahead = clamp(((birdX - (972 + o.x)) / 90) * seg.dir, -1, 1);
+          watch = envelope(fu, 0.15, 0.85); o.head = -(0.34 + 0.2 * ahead * watch) * fade; o.headYaw = -0.25 * Math.max(0, -ahead) * watch * fade;
+        } else { o.head = -(0.3 + 0.05 * Math.sin(t * 0.8)) * fade; o.headYaw = -0.1 * fade; }
+        o.ear = (0.2 + 0.5 * watch + 0.2 * Math.max(0, Math.sin(t * 2.3))) * fade; o.tailPhase = t * (3.3 + 5 * watch); o.tail = (0.75 + 0.25 * watch); o.breath = 0.1 * fade;
+      } else {
+        // ringivaatamine: pea pöördub vaataja poole ja tagasi, nägu jääb alati nähtavale
+        const look = Math.sin(t * 0.8) * 0.5 + Math.sin(t * 0.37 + 1) * 0.5;
+        o.headYaw = (look > 0 ? 1.2 : 0.25) * look * fade; o.head = -0.08 * fade; o.ear = Math.max(0, Math.sin(t * 1.9)) * 0.4 * fade;
+      }
+    } else if (kind === 'sitdown' || kind === 'situp') { o.tail = 0.3; o.tailPhase = t * 1.4; }
+    return o;
   }
 
   pose(t, p) {
     const o = restPose(), act = this.act;
-    o.act = act; o.dir = this.dir; o.flip = this.dir; o.tailPhase = t * 0.9;
+    o.act = act; o.dir = this.dir; o.flip = this.dir; o.tailPhase = t * 0.9; o.x = this.pos;
     if (!act) return o;
+    if (this.script?.segs.length) return this.scripted(o, t, p * this.dur);
     if (act === 'tail') { const e = envelope(p, 0.15, 0.82); o.tail = 0.08 + 0.92 * e; o.tailPhase = t * 7.5; }
     else if (act === 'ears') { o.ear = Math.sin(Math.PI * p) * (0.6 + 0.4 * Math.sin(p * 18)); }
     else if (act === 'turn') {
-      const roll = smooth(clamp((p - 0.28) / 0.44));
-      o.flip = this.dir * Math.cos(Math.PI * roll);
-      o.lift = Math.sin(Math.PI * clamp((p - 0.18) / 0.64)) * 11;
-      o.head = -0.28 * envelope(p, 0.2, 0.55);
+      // tõuseb jalgadele, pöörab sammudega 180° ümber püstsuunalise telje ja heidab uuesti pikali (suund vahetub lõpus)
+      const stand = envelope(p, 0.2, 0.8), turning = smooth(clamp((p - 0.22) / 0.56));
+      o.raise = 7 * stand; o.yaw = Math.PI * turning;
+      o.walk = Math.sin(Math.PI * clamp((p - 0.2) / 0.6)); o.stepPhase = t * 7;
+      o.tail = 0.08 + 0.45 * stand; o.tailPhase = t * 2.4;
+      o.head = -0.2 * envelope(p, 0.2, 0.55);
       o.sleeping = false;
     } else if (act === 'stretch') {
       const e = envelope(p, 0.34, 0.74);
