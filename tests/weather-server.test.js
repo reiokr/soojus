@@ -10,6 +10,7 @@ test('forecast url carries only rounded coordinates and metric units', () => {
   const u = new URL(forecastUrl(place));
   assert.equal(u.searchParams.get('latitude'), '58.38'); assert.equal(u.searchParams.get('longitude'), '26.73'); assert.equal(u.searchParams.get('wind_speed_unit'), 'ms');
   assert.ok(!u.search.includes('Tartu'));
+  assert.equal(u.searchParams.get('forecast_days'), '7'); assert.match(u.searchParams.get('hourly'), /precipitation_probability/); assert.match(u.searchParams.get('daily'), /sunrise/); assert.match(u.searchParams.get('current'), /pressure_msl/);
 });
 
 test('weather is cached for ten minutes and falls back to stale data when the service is down', async () => {

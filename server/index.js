@@ -8,6 +8,7 @@ import { readLuxtronik, luxValues, errorName, LUX_ID, LUX_MAP, overlayDirect, ve
 import { createWeather, searchPlaces, WeatherError } from './weather.js';
 import { validatePlace, DEFAULT_PLACE } from '../src/weather-logic.js';
 import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, effectiveMode, MODE_TEXT, parseControl, applyControl, parseSettings, applySettings, ControlError } from './airobot.js';
+import { listAudio } from './audio.js';
 import { AppError, validatePoint, validateZone, pointResults, csvCell } from './domain.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -194,6 +195,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '32kb' }));
+app.get('/api/audio', (req, res) => res.json({ files: listAudio(path.join(root, process.argv.includes('--production') ? 'dist/audio' : 'public/audio')) }));
 app.get('/api/status', (req, res) => { const c = credentials(); const t = getSetting('token'); res.json({ configured: Boolean(c.clientId && c.clientSecret), connected: Boolean(t && !getSetting('disconnected')), callbackUrl: `${origin}/auth/callback`, pollSeconds: 60, collectorError, lastCollected, appVersion: '1.0.0' }); });
 app.post('/api/connect', async (req, res) => {
   if (req.body.clientId || req.body.clientSecret) {

@@ -38,3 +38,7 @@ Kontol tuvastatud seade väljastab 56 parameetrit, 12 neist muudetavad; täpne a
 `PATCH points` võib tagastada osalise tulemuse (207). Iga parameetri vastus peab olema `modified`; puuduvaid/veaga tulemusi ei esitata õnnestumisena. Isegi kinnitatud käsk võib füüsilisele seadmele jõuda viivitusega. Kasutajaliides ei asenda mõõdetud väärtusi optimistlike väljamõeldud väärtustega.
 
 Kuumaveetsooni sihtväärtuse jaoks on olemas eraldi tsooni muutmise dialoog, mis kasutab /zones meetodit. Mõne tootja tsooni siht ei rakendu üldise /points meetodi kaudu (jaroschek/home-assistant-myuplink #222).
+
+## GET /api/audio
+
+Elav kodu taustamuusika failid: `{ files: [{ name, url, size }] }`. Loetakse kataloogist `dist/audio` (tootmisrežiim) või `public/audio` (arendus); ainult tavalised helifailid (mp3, ogg, oga, opus, m4a, aac, wav, flac, webm), peidetud failid ja alamkaustad jäetakse välja. Järjestus on tähestikuline.

@@ -23,14 +23,68 @@ const num = v => { const n = v == null || v === '' ? NaN : Number(v); return Num
 export function normalizeForecast(raw) {
   const c = raw?.current;
   if (!c || num(c.temperature_2m) == null) throw new Error('Ilmateenuse vastus ei sisaldanud hetkeilma.');
-  const d = raw.daily, days = Array.isArray(d?.time) ? d.time.map((date, i) => ({ date, code: num(d.weather_code?.[i]), max: num(d.temperature_2m_max?.[i]), min: num(d.temperature_2m_min?.[i]), precipitation: num(d.precipitation_sum?.[i]) })) : [];
+  const d = raw.daily, days = Array.isArray(d?.time) ? d.time.map((date, i) => ({
+    date, code: num(d.weather_code?.[i]), max: num(d.temperature_2m_max?.[i]), min: num(d.temperature_2m_min?.[i]), precipitation: num(d.precipitation_sum?.[i]),
+    rainChance: num(d.precipitation_probability_max?.[i]), wind: num(d.wind_speed_10m_max?.[i]), gust: num(d.wind_gusts_10m_max?.[i]),
+    sunrise: localTime(d.sunrise?.[i]), sunset: localTime(d.sunset?.[i]), uv: num(d.uv_index_max?.[i])
+  })) : [];
+  const h = raw.hourly, nowHour = localTime(c.time)?.slice(0, 13) ?? null;
+  const hourly = Array.isArray(h?.time) ? h.time.map((t, i) => ({
+    time: localTime(t), temperature: num(h.temperature_2m?.[i]), code: num(h.weather_code?.[i]), rainChance: num(h.precipitation_probability?.[i]),
+    precipitation: num(h.precipitation?.[i]) ?? 0, wind: num(h.wind_speed_10m?.[i]), isDay: h.is_day?.[i] == null ? null : Boolean(Number(h.is_day[i]))
+  })).filter(x => x.time && x.temperature != null && (nowHour == null || x.time.slice(0, 13) >= nowHour)).slice(0, 24) : [];
   return {
     time: c.time ?? null, temperature: num(c.temperature_2m), feelsLike: num(c.apparent_temperature), humidity: num(c.relative_humidity_2m),
-    code: num(c.weather_code) ?? 0, cloud: num(c.cloud_cover), wind: num(c.wind_speed_10m), windDirection: num(c.wind_direction_10m),
+    code: num(c.weather_code) ?? 0, cloud: num(c.cloud_cover), wind: num(c.wind_speed_10m), windDirection: num(c.wind_direction_10m), gust: num(c.wind_gusts_10m),
+    pressure: num(c.pressure_msl), visibility: num(c.visibility),
     precipitation: num(c.precipitation) ?? 0, rain: num(c.rain) ?? 0, showers: num(c.showers) ?? 0, snowfall: num(c.snowfall) ?? 0,
-    snowDepth: num(c.snow_depth), isDay: c.is_day == null ? null : Boolean(Number(c.is_day)), days
+    snowDepth: num(c.snow_depth), isDay: c.is_day == null ? null : Boolean(Number(c.is_day)), days, hourly
   };
 }
+
+// Open-Meteo kohalik aeg "2026-10-01T07:12" (ilma ajavööndita); muu jääb null.
+const localTime = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) ? v.slice(0, 16) : null;
+
+// Ikooni liik ilmakoodi järgi (sama liigid kui weatherScene'il, lisaks uduvihm).
+export function weatherKind(code) {
+  if (code == null) return 'cloudy';
+  if (code >= 95) return 'storm';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow';
+  if ([51, 53, 55, 56, 57].includes(code)) return 'drizzle';
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rain';
+  if (code === 45 || code === 48) return 'fog';
+  if (code === 3) return 'cloudy';
+  if (code === 2) return 'partly';
+  return 'clear';
+}
+
+// Kastepunkt (Magnuse valem), °C.
+export function dewPoint(temp, humidity) {
+  if (temp == null || humidity == null || !(humidity > 0)) return null;
+  const a = 17.62, b = 243.12, g = Math.log(humidity / 100) + (a * temp) / (b + temp);
+  return (b * g) / (a - g);
+}
+
+export const windLabel = ms => ms == null ? '' : ms < 0.5 ? 'tuulevaikus' : ms < 3.4 ? 'nõrk tuul' : ms < 8 ? 'mõõdukas tuul' : ms < 13.9 ? 'tugev tuul' : ms < 20.8 ? 'väga tugev tuul' : 'torm';
+export const pressureLabel = hpa => hpa == null ? '' : hpa < 1000 ? 'madal' : hpa <= 1020 ? 'normaalne' : 'kõrge';
+export const uvLabel = uv => uv == null ? '' : uv < 3 ? 'madal' : uv < 6 ? 'mõõdukas' : uv < 8 ? 'kõrge' : uv < 11 ? 'väga kõrge' : 'äärmuslik';
+export const visibilityLabel = m => m == null ? '' : m >= 10000 ? 'väga hea' : m >= 4000 ? 'hea' : m >= 1000 ? 'kehv' : 'väga kehv';
+
+// Järgmiste tundide kokkuvõte: külmim ja soojim hetk, sademete algus ja kogus.
+export function outlook(hourly) {
+  const rows = (hourly ?? []).filter(x => x?.temperature != null);
+  if (!rows.length) return null;
+  let min = rows[0], max = rows[0], total = 0;
+  for (const r of rows) { if (r.temperature < min.temperature) min = r; if (r.temperature > max.temperature) max = r; total += r.precipitation ?? 0; }
+  const wet = rows.find(r => (r.precipitation ?? 0) >= 0.1 || (r.rainChance ?? 0) >= 60);
+  return { min: { temperature: min.temperature, time: min.time }, max: { temperature: max.temperature, time: max.time }, rainStart: wet?.time ?? null, rainTotal: Math.round(total * 10) / 10 };
+}
+
+export const daylight = (sunrise, sunset) => {
+  if (!sunrise || !sunset) return null;
+  const min = (Date.parse(`${sunset}:00Z`) - Date.parse(`${sunrise}:00Z`)) / 60000;
+  return Number.isFinite(min) && min > 0 ? min : null;
+};
 
 const LABELS = {
   0: 'selge', 1: 'peamiselt selge', 2: 'vahelduva pilvisusega', 3: 'pilves', 45: 'udu', 48: 'härmatisudu',

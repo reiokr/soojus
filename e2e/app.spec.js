@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 
 test.beforeEach(async ({ page }) => {
   // No browser test can mutate the physical heat pump, even if a selector is wrong.
@@ -314,6 +316,58 @@ test('Elav kodu renders a live canvas, reacts to demo modes and the clock slider
   await page.getByRole('button', { name: 'Päris andmed' }).click();
   await expect(page.getByText('DEMO', { exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test('Elav kodu taustamuusika: sisse/välja nupp, helitugevus ja 60 s pausita silmus', async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await page.addInitScript(() => {
+    localStorage.setItem('soojus.ui', 'next'); if (!sessionStorage.getItem('fresh')) { localStorage.removeItem('soojus.sound.volume'); localStorage.removeItem('soojus.sound.track'); localStorage.removeItem('soojus.sound.mode'); sessionStorage.setItem('fresh', '1'); } window.__sources = [];
+    const make = AudioContext.prototype.createBufferSource;
+    AudioContext.prototype.createBufferSource = function () { const s = make.call(this); window.__sources.push(s); return s; };
+  });
+  await page.goto('/?page=live');
+  const toggle = page.getByRole('button', { name: /taustamuusika sisse/ }), volume = page.getByLabel('Helitugevus');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.__sources.length)).toBe(0);
+  await toggle.click();
+  const off = page.getByRole('button', { name: 'Lülita taustamuusika välja' });
+  await expect(off).toHaveAttribute('aria-pressed', 'true');
+  const info = await page.evaluate(() => { const s = window.__sources[0]; return { loop: s.loop, seconds: s.buffer.duration, end: s.loopEnd }; });
+  expect(info.loop).toBe(true); expect(info.seconds).toBeGreaterThan(59.9); expect(info.seconds).toBeLessThan(60.1);
+  await page.getByLabel('Lugu').selectOption('kitarriohtu');
+  await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(2);
+  const second = await page.evaluate(() => { const s = window.__sources[1]; return { loop: s.loop, seconds: s.buffer.duration }; });
+  expect(second.loop).toBe(true); expect(second.seconds).toBeGreaterThan(59.9); expect(second.seconds).toBeLessThan(60.1);
+  const mode = page.locator('.live-sound-mode');
+  await expect(mode).toHaveAttribute('data-mode', 'one');
+  await mode.click();
+  await expect(mode).toHaveAttribute('data-mode', 'all');
+  expect(await page.evaluate(() => window.__sources.at(-1).loop)).toBe(false);
+  await mode.click();
+  expect(await page.evaluate(() => window.__sources.at(-1).loop)).toBe(true);
+  await volume.fill('0.25');
+  expect(await page.evaluate(() => localStorage.getItem('soojus.sound.volume'))).toBe('0.25');
+  await off.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await page.reload();
+  await expect(page.getByLabel('Helitugevus')).toHaveValue('0.25');
+  await expect(page.getByLabel('Lugu')).toHaveValue('kitarriohtu');
+  expect(await page.evaluate(() => window.__sources.length)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('Elav kodu taustamuusika leiab dist/audio kataloogi lisatud failid', async ({ page }) => {
+  const dir = path.join(process.cwd(), 'dist/audio'), file = path.join(dir, 'e2e-oma_lugu.mp3');
+  fs.copyFileSync(path.join(dir, 'hubane-lounge.mp3'), file);
+  try {
+    await page.addInitScript(() => localStorage.setItem('soojus.ui', 'next'));
+    await page.goto('/?page=live');
+    await expect(page.getByLabel('Lugu', { exact: true }).locator('option', { hasText: 'E2e oma lugu' })).toHaveCount(1);
+    fs.rmSync(file);
+    await page.waitForTimeout(1700);
+    await page.getByLabel('Lugu', { exact: true }).focus();
+    await expect(page.getByLabel('Lugu', { exact: true }).locator('option', { hasText: 'E2e oma lugu' })).toHaveCount(0, { timeout: 8000 });
+  } finally { fs.rmSync(file, { force: true }); }
 });
 
 test('Elav kodu respects reduced motion by painting a still frame', async ({ browser }) => {

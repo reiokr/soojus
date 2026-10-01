@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, CloudRain, Droplets, Fan, Flame, Home as HomeIcon, MapPin, Maximize2, Minimize2, Moon, Sparkles, Sunrise, Sunset, Thermometer, Wind } from 'lucide-react';
+import { ArrowRight, CloudRain, Droplets, Fan, Flame, Home as HomeIcon, MapPin, Maximize2, Minimize2, Moon, Sparkles, Sunrise, Sunset, Thermometer } from 'lucide-react';
 import { number, time } from '../../lib.js';
 import { pumpState } from '../logic.js';
 import { LiveScene, season, HOTSPOTS, W, VIEW } from './scene.js';
 import { buildLiveState, liveSummary, DEMOS } from './state.js';
 import { moonName, moonPhase, sunTimes } from './sky.js';
-import { compassName, weatherLabel, WEATHER_DEMOS } from '../../weather-logic.js';
+import { WEATHER_DEMOS } from '../../weather-logic.js';
+import WeatherPanel from './WeatherPanel.jsx';
+import SoundControl from './SoundControl.jsx';
 import { LocationPanel } from '../../location.jsx';
 
 const dayName = new Intl.DateTimeFormat('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -109,14 +111,12 @@ export default function LiveHome({ ctx, embedded = false }) {
         <button type="button" className="live-loc" onClick={() => setShowLoc(!showLoc)} aria-expanded={showLoc}><MapPin size={14}/>{live.place.name}</button>
         </>}
         {embedded && <button type="button" className="live-loc" onClick={() => ctx.navigate('live')}><Sparkles size={14}/>Demo ja ilmaprognoos</button>}
+        <SoundControl/>
         <button type="button" className="live-full" onClick={toggleFull} aria-label={full ? 'Välju täisekraanist' : 'Täisekraan'} title={full ? 'Välju täisekraanist' : 'Täisekraan'}>{full ? <Minimize2 size={17}/> : <Maximize2 size={17}/>}</button>
       </div>
       </div>
     </div>
-    {!embedded && w && <div className="live-forecast" aria-label="Ilm ja prognoos">
-      <div className="live-now-weather"><b>{t(w.temperature)}</b><span>{w.label}{w.feelsLike != null && ` · tuntub nagu ${t(w.feelsLike)}`}</span><small><Wind size={13}/> {number(w.windMs, 1)} m/s {compassName(forecast?.windDirection)}{w.humidity != null && ` · niiskus ${Math.round(w.humidity)} %`}{w.demo && ' · DEMO'}</small>{live.outdoor != null && forecast?.temperature != null && Math.abs(live.outdoor - forecast.temperature) >= 3 && !w.demo && <small>Soojuspumba välisandur näitab {t(live.outdoor)} (ilmateenus {t(forecast.temperature)}).</small>}</div>
-      {days.slice(0, 4).map((d, i) => <div key={d.date} className="live-day"><small>{i === 0 ? 'Täna' : new Intl.DateTimeFormat('et-EE', { weekday: 'short' }).format(new Date(`${d.date}T12:00:00`))}</small><span>{weatherLabel(d.code)}</span><b>{d.max == null ? '—' : Math.round(d.max)}° <i>{d.min == null ? '' : `${Math.round(d.min)}°`}</i></b>{d.precipitation > 0.2 && <em>{number(d.precipitation, 1)} mm</em>}</div>)}
-    </div>}
+    {!embedded && w && <WeatherPanel scene={w} forecast={forecast} place={live.place} sensor={live.outdoor}/>}
     {!embedded && showLoc && ctx.weather && <LocationPanel weather={ctx.weather} notify={ctx.notify} compact/>}
     {!embedded && ctx.weather?.view?.error && !forecast && <p className="live-note" role="status">Ilmaandmeid ei õnnestunud laadida ({ctx.weather.view.error}). Vaade töötab ilma ilmata edasi.</p>}
     {!embedded && <p className="live-note">Taevas, päike ja kuu järgivad päris kellaaega sinu asukoha ({live.place.name}) kohal. Akende hõõgus tuleb toatemperatuurist, torude voolud soojuspumba olekust ja võimsusest, õhuvool ventilatsiooni pööretest ning tolm toas CO₂ tasemest. Pilv, vihm, lumi, udu, äike ja tuul tulevad ilmateenusest Open-Meteo sinu asukoha järgi. Demo-nupud, ilma valik ja kellaaja liugur muudavad ainult pilti, mitte seadmeid.</p>}

@@ -63,12 +63,12 @@ export default function HousePlan({ view = 'full', supply, returnT, returnTarget
         <path d="M310 292H345M409 292H480V315H535" className="nx-pipe heat"/>
         <path d="M535 368H505V390H310" className="nx-pipe cold"/>
         <path d="M310 352H326V409H815V400" className="nx-pipe heat"/>
-        <path d="M310 372H318V415H845V400" className="nx-pipe cold"/>
+        <path d="M845 400V415H318V372H310" className="nx-pipe cold"/>
         <path d="M825 262V244H735V250" className="nx-pipe heat"/>
         <path d="M310 292H345M409 292H480V315H535" className={`${pipeClass(heatOn, heatDemand)} heat`}/>
         <path d="M535 368H505V390H310" className={`${pipeClass(heatOn, heatDemand)} cold`}/>
         <path d="M310 352H326V409H815V400" className={`${pipeClass(hwOn, hwDemand)} heat`}/>
-        <path d="M310 372H318V415H845V400" className={`${pipeClass(hwOn, hwDemand)} cold`}/>
+        <path d="M845 400V415H318V372H310" className={`${pipeClass(hwOn, hwDemand)} cold`}/>
       </g>
 
       {view === 'full' && vent && <g className={`nx-vent-unit ${vd ? '' : 'off'}`} stroke="var(--nx-ink)" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -122,7 +122,7 @@ export default function HousePlan({ view = 'full', supply, returnT, returnTarget
       <g className="nx-bath" stroke="var(--nx-ink)" strokeWidth="2.2" fill="none" strokeLinejoin="round" strokeLinecap="round">
         <rect x="790" y="262" width="70" height="138" rx="18" fill={`url(#nx-boiler-${view})`}/>
         <path d="M802 282v96" stroke="var(--surface)" strokeWidth="4" opacity=".4"/>
-        <path d="M803 400v0M847 400v0" strokeWidth="3"/>
+        <circle cx="803" cy="400" r="1.6" fill="var(--nx-ink)" stroke="none"/><circle cx="847" cy="400" r="1.6" fill="var(--nx-ink)" stroke="none"/>
         <path d="M720 250h30l-6 13h-18z" fill="var(--surface)"/>
         {hwOn && <g className="nx-drops" fill="var(--nx-water)" stroke="none">
           {[726, 735, 744].map((x, i) => <circle key={x} cx={x} cy="270" r="2.3" style={{ animationDelay: `${i * .28}s` }}/>)}

@@ -1,8 +1,9 @@
 import { normalizeForecast, publicCoordinates } from '../src/weather-logic.js';
 
 const FORECAST = 'https://api.open-meteo.com/v1/forecast', GEOCODING = 'https://geocoding-api.open-meteo.com/v1/search';
-const CURRENT = 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,showers,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,is_day,snow_depth';
-const DAILY = 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum';
+const CURRENT = 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,showers,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,visibility,is_day,snow_depth';
+const HOURLY = 'temperature_2m,weather_code,precipitation_probability,precipitation,wind_speed_10m,is_day';
+const DAILY = 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,sunrise,sunset,uv_index_max';
 const TTL = 10 * 60000, STALE = 3 * 3600000;
 
 export class WeatherError extends Error {}
@@ -17,7 +18,7 @@ async function getJson(url, fetchImpl, timeout = 8000) {
 
 export function forecastUrl(place) {
   const { latitude, longitude } = publicCoordinates(place);
-  return `${FORECAST}?latitude=${latitude}&longitude=${longitude}&current=${CURRENT}&daily=${DAILY}&forecast_days=4&timezone=auto&wind_speed_unit=ms`;
+  return `${FORECAST}?latitude=${latitude}&longitude=${longitude}&current=${CURRENT}&hourly=${HOURLY}&daily=${DAILY}&forecast_days=7&timezone=auto&wind_speed_unit=ms`;
 }
 
 // Ilm vahemäluga: sama koht 10 minutit; kui teenus ei vasta, kasutatakse kuni 3 tundi vana vastust ja märgitakse see aegunuks.
