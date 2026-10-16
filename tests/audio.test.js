@@ -28,11 +28,11 @@ test('titleFromFile teeb failinimest ilusa pealkirja', () => {
 test('buildTracks: sisseehitatud lood oma järjekorras ees, uued failid järel; tühi vastus jätab sisseehitatud', () => {
   assert.equal(buildTracks([]), TRACKS);
   assert.equal(buildTracks(null), TRACKS);
-  const file = t => ({ name: t.url.split('/').pop(), url: t.url });
-  const list = buildTracks([{ name: 'a-lugu.mp3', url: '/audio/a-lugu.mp3' }, file(TRACKS[1]), file(TRACKS[0])]);
-  assert.deepEqual(list.map(t => t.id), [TRACKS[0].id, TRACKS[1].id, 'file:a-lugu.mp3']);
-  assert.equal(list[0].title, TRACKS[0].title);
-  assert.equal(list[2].title, 'A lugu');
+  const builtIn = TRACKS[0];
+  const list = buildTracks([{ name: 'a-lugu.mp3', url: '/audio/a-lugu.mp3' }, { name: builtIn.url.split('/').pop(), url: builtIn.url }]);
+  assert.deepEqual(list.map(t => t.id), [builtIn.id, 'file:a-lugu.mp3']);
+  assert.equal(list[0].title, builtIn.title);
+  assert.equal(list[1].title, 'A lugu');
   const onlyMine = buildTracks([{ name: 'minu.mp3', url: '/audio/minu.mp3' }]);
   assert.deepEqual(onlyMine.map(t => t.id), ['file:minu.mp3']);
 });

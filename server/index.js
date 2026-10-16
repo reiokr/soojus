@@ -1,6 +1,6 @@
 import express from 'express';
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, chmodSync } from 'node:fs';
+import { mkdirSync, chmodSync, readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +10,7 @@ import { validatePlace, DEFAULT_PLACE } from '../src/weather-logic.js';
 import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, effectiveMode, MODE_TEXT, parseControl, applyControl, parseSettings, applySettings, ControlError } from './airobot.js';
 import { listAudio } from './audio.js';
 import { AppError, validatePoint, validateZone, pointResults, csvCell } from './domain.js';
+import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './store.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT || 3210);
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS pump_errors (time TEXT NOT NULL, code INTEGER NOT NUL
 // Maakontuuri vedelikku kutsutakse neutraalselt soojakandjaks: ümbernimeta ka varem salvestatud mõõtepunktide sildid.
 db.exec(`UPDATE samples SET label = REPLACE(REPLACE(REPLACE(REPLACE(label, 'Alkoholi', 'Soojakandja'), 'alkoholi', 'soojakandja'), 'Alkohol', 'Soojakandja'), 'alkohol', 'soojakandja') WHERE label LIKE '%lkohol%';
 UPDATE samples SET label = REPLACE(label, 'Soojakandjai', 'Soojakandja') WHERE label LIKE '%Soojakandjai%'`);
+const { compact, archiveSamples } = createStore(db, root);
 const getSetting = key => { const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key); return row ? JSON.parse(row.value) : null; };
 const setSetting = (key, value) => db.prepare('INSERT OR REPLACE INTO settings VALUES(?,?)').run(key, JSON.stringify(value));
 const audit = (device, action, detail) => db.prepare('INSERT INTO audit(time,device,action,detail) VALUES(?,?,?,?)').run(new Date().toISOString(), device, action, JSON.stringify(detail));
@@ -280,13 +282,13 @@ app.get('/api/systems/:id/notifications', async (req, res) => {
 // Ajavahemik: kas ?from=&to= (ISO, 1 min – 1 aasta) või ?hours= (viimased tunnid).
 function historyWindow(query) {
   const from = Date.parse(query.from), to = Date.parse(query.to);
-  if (Number.isFinite(from) && Number.isFinite(to) && to - from >= 60000 && to - from <= 365 * 86400000) return { since: new Date(from).toISOString(), until: new Date(to).toISOString(), hours: (to - from) / 3600000 };
-  const hours = Math.min(24 * 365, Math.max(1, Number(query.hours) || 24));
+  if (Number.isFinite(from) && Number.isFinite(to) && to - from >= 60000 && to - from <= RETENTION_DAYS * 86400000) return { since: new Date(from).toISOString(), until: new Date(to).toISOString(), hours: (to - from) / 3600000 };
+  const hours = Math.min(24 * RETENTION_DAYS, Math.max(1, Number(query.hours) || 24));
   return { since: new Date(Date.now() - hours * 3600000).toISOString(), until: '9999-12-31T00:00:00.000Z', hours };
 }
 // Andmeta vahemikud: kohad, kus ühegi antud seadme näitu ei salvestatud (üle 30 min), sh perioodi alguse ja lõpu puudujäägid.
-function dataGaps(devices, since, until) {
-  const slot = 600, gapAfter = 30 * 60000;
+function dataGaps(devices, since, until, slot = 600) {
+  const gapAfter = Math.max(30 * 60000, slot * 2000);
   const times = db.prepare(`SELECT DISTINCT CAST(unixepoch(time)/? AS INTEGER)*? AS s FROM samples WHERE device IN (${devices.map(() => '?').join(',')}) AND time>=? AND time<? ORDER BY s`).all(slot, slot, ...devices, since, until).map(r => r.s * 1000);
   const gaps = [], edges = [Date.parse(since) - slot * 1000, ...times, Math.min(Date.parse(until), Date.now()) + slot * 1000];
   for (let i = 1; i < edges.length; i++) if (edges[i] - edges[i - 1] > gapAfter + slot * 1000) gaps.push({ from: new Date(edges[i - 1] + slot * 1000).toISOString(), to: new Date(edges[i] - (i === edges.length - 1 ? slot * 1000 : 0)).toISOString() });
@@ -301,7 +303,7 @@ async function climateHistory(req, res) {
   const { since, until, hours } = historyWindow(req.query), bucketSeconds = hours <= 24 ? 60 : hours <= 168 ? 600 : hours <= 720 ? 3600 : 86400;
   const query = db.prepare(`SELECT ? AS point, strftime('%Y-%m-%dT%H:%M:%fZ', CAST(unixepoch(time)/? AS INTEGER)*?, 'unixepoch') AS time, AVG(value) AS value FROM samples WHERE device=? AND point=? AND time>=? AND time<? GROUP BY CAST(unixepoch(time)/? AS INTEGER) ORDER BY time`);
   const rows = [['outdoor', pump, outdoor], ['indoor', AIROBOT_ID, 'extract_temp']].flatMap(([alias, device, point]) => query.all(alias, bucketSeconds, bucketSeconds, device, point, since, until, bucketSeconds));
-  res.json({ rows, count: rows.length, limited: false, bucketSeconds, source: 'local', since, gaps: dataGaps([pump, AIROBOT_ID], since, until) });
+  res.json({ rows, count: rows.length, limited: false, bucketSeconds, source: 'local', since, gaps: dataGaps([pump, AIROBOT_ID], since, until, bucketSeconds) });
 }
 // Ühendatud ajalugu: ?pump=<seadme id>&s=p:<näit>,a:<ventilatsiooni näit>,... (p = soojuspump, a = Airobot). Ühikute ühtsuse eest vastutab klient.
 function parseMixSources(query) {
@@ -335,7 +337,7 @@ async function mixHistory(req, res) {
   const bucketSeconds = hours <= 24 ? 60 : hours <= 168 ? 600 : hours <= 720 ? 3600 : 86400;
   const query = db.prepare(`SELECT ? AS point, strftime('%Y-%m-%dT%H:%M:%fZ', CAST(unixepoch(time)/? AS INTEGER)*?, 'unixepoch') AS time, AVG(value) AS value FROM samples WHERE device=? AND point=? AND time>=? AND time<? GROUP BY CAST(unixepoch(time)/? AS INTEGER) ORDER BY time`);
   const rows = sources.flatMap(x => query.all(x.token, bucketSeconds, bucketSeconds, deviceOf(x), x.point, since, until, bucketSeconds));
-  res.json({ rows, count: rows.length, limited: false, bucketSeconds, source: 'local', since, gaps: dataGaps([...new Set(sources.map(deviceOf))], since, until) });
+  res.json({ rows, count: rows.length, limited: false, bucketSeconds, source: 'local', since, gaps: dataGaps([...new Set(sources.map(deviceOf))], since, until, bucketSeconds) });
 }
 app.get('/api/history/:id', async (req, res) => {
   if (req.params.id === 'climate') return climateHistory(req, res);
@@ -365,11 +367,78 @@ app.get('/api/history/:id', async (req, res) => {
   const bucketSeconds = hours <= 24 ? 60 : hours <= 168 ? 600 : hours <= 720 ? 3600 : 86400;
   const rows = db.prepare(`SELECT point, strftime('%Y-%m-%dT%H:%M:%fZ', CAST(unixepoch(time)/? AS INTEGER)*?, 'unixepoch') AS time,
     AVG(value) AS value, label, unit FROM samples WHERE device=? AND time>=? AND time<? AND (?='' OR point=?) GROUP BY point, CAST(unixepoch(time)/? AS INTEGER) ORDER BY time`).all(bucketSeconds,bucketSeconds,...params,bucketSeconds);
-  const gaps = dataGaps([req.params.id], since, until);
+  const gaps = dataGaps([req.params.id], since, until, bucketSeconds);
   res.json({ rows, count: rows.length, limited: false, bucketSeconds, source: 'local', since, gaps });
 });
-const weatherFor = createWeather();
-const currentPlace = () => { const saved = getSetting('location'); try { return saved ? validatePlace(saved) : DEFAULT_PLACE; } catch { return DEFAULT_PLACE; } };
+// Arhiveeri kõik andmed, mis on valitud kuupäevast vanemad: ekspordi CSV-faili ja eemalda
+// aktiivsest andmebaasist. Uuemaid kui ARCHIVE_MIN_AGE_DAYS (365) päeva arhiveerida ei saa.
+app.post('/api/archive', (req, res) => {
+  const before = req.body?.before ? Date.parse(req.body.before) : NaN;
+  if (!Number.isFinite(before)) throw new AppError('Vali arhiveerimise kuupäev.', 400);
+  const limit = Date.now() - ARCHIVE_MIN_AGE_DAYS * DAY_MS;
+  if (before > limit) throw new AppError(`Arhiveerida saab ainult andmeid, mis on vanemad kui ${ARCHIVE_MIN_AGE_DAYS} päeva.`, 400);
+  const iso = new Date(before).toISOString();
+  const result = archiveSamples({ from: '0000', to: iso, remove: true });
+  audit('local', 'archive', { before: iso, ...result });
+  res.json(result);
+});
+// Arhiivivaatur (ainult lugemine): failide loend, seeriate loend ja ajalugu otse CSV-failist.
+const ARCHIVE_FILE_RE = /^[A-Za-z0-9._-]+\.csv$/;
+function parseCsvLine(line) {
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ';') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur); return out;
+}
+function readArchiveRows(name) {
+  if (!ARCHIVE_FILE_RE.test(name)) throw new AppError('Vale arhiivifaili nimi.', 400);
+  const file = path.join(root, 'data/archive', name);
+  if (!existsSync(file)) throw new AppError('Arhiivifaili ei leitud.', 404);
+  const rows = [];
+  for (const line of readFileSync(file, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    if (!line) continue;
+    const f = parseCsvLine(line);
+    if (f.length < 6 || f[0] === 'Aeg') continue;
+    const value = Number(f[4]);
+    if (Number.isFinite(value)) rows.push({ time: f[0], device: f[1], point: f[2], label: f[3], value, unit: f[5] });
+  }
+  return rows;
+}
+app.get('/api/archive', (req, res) => {
+  const dir = path.join(root, 'data/archive');
+  let files = [];
+  try { files = readdirSync(dir).filter(f => ARCHIVE_FILE_RE.test(f)).map(f => { const s = statSync(path.join(dir, f)); return { name: f, bytes: s.size, modified: s.mtime.toISOString() }; }).sort((a, b) => a.name < b.name ? 1 : -1); } catch {}
+  res.json({ files });
+});
+app.get('/api/archive/:name/history', (req, res) => {
+  const tokens = String(req.query.s || '').split(',').filter(Boolean);
+  if (!tokens.length || tokens.length > 8) throw new AppError('Vali 1–8 seeriat.', 400);
+  const { since, until, hours } = historyWindow(req.query);
+  const bucketSeconds = hours <= 24 ? 60 : hours <= 168 ? 600 : hours <= 720 ? 3600 : 86400;
+  const wanted = new Set(tokens), buckets = new Map();
+  for (const r of readArchiveRows(req.params.name)) {
+    const token = `${r.device}|${r.point}`;
+    if (!wanted.has(token) || r.time < since || r.time >= until) continue;
+    const b = Math.floor(Date.parse(r.time) / (bucketSeconds * 1000)) * bucketSeconds, key = `${token}|${b}`;
+    const e = buckets.get(key) || { point: token, time: new Date(b * 1000).toISOString(), sum: 0, n: 0, label: r.label, unit: r.unit };
+    e.sum += r.value; e.n++; buckets.set(key, e);
+  }
+  const rows = [...buckets.values()].map(e => ({ point: e.point, time: e.time, value: e.sum / e.n, label: e.label, unit: e.unit })).sort((a, b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
+  res.json({ rows, count: rows.length, bucketSeconds, since, source: 'archive', gaps: [] });
+});
+app.get('/api/archive/:name', (req, res) => {
+  const rows = readArchiveRows(req.params.name);
+  const map = new Map();
+  for (const r of rows) { const token = `${r.device}|${r.point}`; const s = map.get(token) || { token, device: r.device, point: r.point, label: r.label, unit: r.unit, count: 0 }; s.count++; map.set(token, s); }
+  const series = [...map.values()].sort((a, b) => String(a.label).localeCompare(String(b.label)));
+  res.json({ name: req.params.name, series, from: rows[0]?.time ?? null, to: rows.at(-1)?.time ?? null, rows: rows.length });
+});
+const weatherFor = createWeather();const currentPlace = () => { const saved = getSetting('location'); try { return saved ? validatePlace(saved) : DEFAULT_PLACE; } catch { return DEFAULT_PLACE; } };
 const placeView = () => ({ ...currentPlace(), isDefault: !getSetting('location') });
 app.get('/api/location', (req, res) => res.json(placeView()));
 app.post('/api/location', (req, res) => {
@@ -454,14 +523,13 @@ async function collect() {
   try {
     for (const s of await systems()) for (const d of s.devices || []) await points(d.id);
     lastCollected = new Date().toISOString(); collectorError = null;
-    db.prepare('DELETE FROM samples WHERE time<?').run(new Date(Date.now() - 365 * 86400000).toISOString());
-    db.prepare('DELETE FROM pump_errors WHERE time<?').run(new Date(Date.now() - 365 * 86400000).toISOString());
   } catch (e) { collectorError = e.message; } finally { collecting = false; }
 }
 if (process.argv.includes('--production')) { app.use(express.static(path.join(root, 'dist'))); app.get('/{*splat}', (req, res) => res.sendFile(path.join(root, 'dist/index.html'))); }
 else { const { createServer } = await import('vite'); const vite = await createServer({ root, server: { middlewareMode: true }, appType: 'spa' }); app.use(vite.middlewares); }
 app.use((err, req, res, next) => { if (res.headersSent) return next(err); res.status(err.status || 502).json({ error: err instanceof AppError ? err.message : 'Päring ebaõnnestus. Kontrolli võrguühendust ja proovi uuesti.' }); });
-app.listen(port, process.env.HOST || '127.0.0.1', () => { console.log(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); });
+app.listen(port, process.env.HOST || '127.0.0.1', () => { console.log(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); compact(); });
 setInterval(collect, 60000).unref();
 setInterval(pollLux, 10000).unref();
 setInterval(pollAirobot, 60000).unref();
+setInterval(compact, 3600000).unref();

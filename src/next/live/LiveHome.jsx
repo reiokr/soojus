@@ -7,11 +7,15 @@ import { buildLiveState, liveSummary, DEMOS } from './state.js';
 import { moonName, moonPhase, sunTimes } from './sky.js';
 import { WEATHER_DEMOS } from '../../weather-logic.js';
 import WeatherPanel from './WeatherPanel.jsx';
+import ForecastRail from './ForecastRail.jsx';
 import SoundControl from './SoundControl.jsx';
+import { getAmbience } from './ambience.js';
 import { LocationPanel } from '../../location.jsx';
 
 const dayName = new Intl.DateTimeFormat('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
 const SEASONS = { winter: 'talv', spring: 'kevad', summer: 'suvi', autumn: 'sügis', late: 'hilissügis' };
+// Täisekraanis ei ole pildi peal klõpsatavaid seadmeid (hotspotid on peidetud), seepärast saab ülaservast hiireliigutusel (nagu muusikanupud) otse lehtedele liikuda.
+const FULL_NAV = [['heating', 'Küte', Thermometer], ['water', 'Tarbevesi', Droplets], ['ventilation', 'Ventilatsioon', Fan]];
 
 // embedded: Kodu lehe versioon ainult päris andmetega (ilma demo, kellaaja liuguri, prognoosi ja selgitusteta).
 export default function LiveHome({ ctx, embedded = false }) {
@@ -26,6 +30,8 @@ export default function LiveHome({ ctx, embedded = false }) {
   useEffect(() => {
     const canvas = canvasRef.current, scene = new LiveScene(canvas);
     sceneRef.current = scene;
+    // Äikese ajal: iga välgulöök annab märku; heli mängib ambience, kuid ainult siis, kui muusika parasjagu käib.
+    scene.onLightning = () => getAmbience().playLightning();
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     scene.reduced = Boolean(reduce?.matches);
     const fit = () => { const r = viewRef.current.getBoundingClientRect(); setSize({ w: r.width, h: r.height }); scene.resize(r.width, r.height, Math.min(2, window.devicePixelRatio || 1)); if (scene.reduced || !scene.running) scene.frame(performance.now()); };
@@ -37,8 +43,12 @@ export default function LiveHome({ ctx, embedded = false }) {
   }, []);
   useEffect(() => { sceneRef.current?.setHover(hot); }, [hot]);
   // Täisekraanil hotspot-nupud eemaldatakse, mistõttu hiirest lahkumise sündmust ei tule: ilma selleta jääks viimane esiletõst (nt maakontuur) kinni.
-  useEffect(() => { setHot(null); }, [full]);
+  useEffect(() => { setHot(null); sceneRef.current?.setFullscreen(full); }, [full]);
   useEffect(() => { sceneRef.current?.setState(live); if (sceneRef.current?.reduced) sceneRef.current.frame(performance.now()); }, [live]);
+  // Vihma taust: kui ilm näitab sadu, laseb ambience selle sisse ja kui sadu lõpeb, hajub välja.
+  // Elava kodu vaate lahkumisel lõpetame vihma, et see ei jääks mängima, kui ilma enam ei jälgita.
+  const raining = Boolean(live.weather && live.weather.rain > 0.05);
+  useEffect(() => { const amb = getAmbience(); amb.setRain(raining); return () => amb.setRain(false); }, [raining]);
   useEffect(() => {
     const onChange = () => setFull(document.fullscreenElement === stageRef.current);
     document.addEventListener('fullscreenchange', onChange);
@@ -49,6 +59,8 @@ export default function LiveHome({ ctx, embedded = false }) {
   const wake = () => { setIdle(false); clearTimeout(hideTimer.current); if (full) hideTimer.current = setTimeout(() => setIdle(true), 3500); };
   useEffect(() => { wake(); }, [full]);
   const toggleFull = () => { if (document.fullscreenElement) document.exitFullscreen?.(); else stageRef.current?.requestFullscreen?.(); };
+  // Täisekraanilt siirdumine: lahku kõigepealt täisekraanist, muidu jääks vana täisekraani element kohe eemalduma.
+  const openPage = id => { if (document.fullscreenElement) document.exitFullscreen?.(); ctx.navigate(id); };
 
   const sun = useMemo(() => sunTimes(live.time, live.place), [live.time.toDateString(), live.place.lat, live.place.lon]);
   const phase = moonPhase(live.time), seasonKey = season(live.time).key;
@@ -91,11 +103,15 @@ export default function LiveHome({ ctx, embedded = false }) {
         <li><Droplets size={15}/><span>Tarbevesi</span><b>{t(live.water)}</b></li>
         {w && <li className="live-weather"><CloudRain size={15}/><span>{live.place.name}: {w.label}</span><b>{t(w.temperature)}</b></li>}
       </ul>
+      {full && <nav className="live-topnav" aria-label="Kiirlingid lehtedele">
+        {FULL_NAV.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => openPage(id)} aria-label={`Ava leht ${label}`} title={`Ava leht ${label}`}><Icon size={16}/><span>{label}</span></button>)}
+      </nav>}
+      {full && w && <ForecastRail scene={w} forecast={forecast} place={live.place}/>}
       </div>
       <div className="live-bottom">
       {full && <div className="live-hud live-devices" role="group" aria-label="Seadmete seis">
         <div className="live-device"><span className={`live-dot ${live.heatOn || live.hwOn ? 'on' : ''}`}/><div><small><Flame size={13}/> Maasoojuspump</small><b>{nowText.pump}</b><em>Kompressor {live.compressor ? 'töötab' : 'seisab'} · pealevool {t(live.supply)} · tagasivool {t(live.returnT)}</em></div></div>
-        {live.vent.present && <div className="live-device"><span className={`live-dot ${live.vent.running ? 'air' : 'off'}`}/><div><small><Fan size={13}/> Ventilatsioon</small><b>{nowText.vent}</b><em>Õhuvool {number(live.vent.airflow, 0)} m³/h{live.vent.humidity != null && ` · õhuniiskus ${number(live.vent.humidity, 0)}%`}{live.vent.bypass && ' · möödaviik'}</em></div></div>}
+        {live.vent.present && <div className="live-device"><span className={`live-dot ${live.vent.running ? 'air' : 'off'}`}/><div><small><Fan size={13}/> Ventilatsioon</small><b>{nowText.vent}</b><em>Õhuvool {number(live.vent.airflow, 0)} m³/h{live.vent.humidity != null && ` · õhuniiskus ${number(live.vent.humidity, 0)}%`}{live.vent.bypass && ` · möödaviik ${live.vent.bypassOpen == null ? 'auto' : live.vent.bypassOpen ? 'avatud' : 'suletud'}`}</em></div></div>}
         <div className="live-device"><span className={`live-dot ${live.hwOn ? 'on' : ''}`}/><div><small><Droplets size={13}/> Tarbevesi</small><b>{nowText.boiler}</b><em>Toas {t(live.indoor)} · väljas {t(live.outdoor)}</em></div></div>
         {live.demo && <em className="live-demo-tag">DEMO</em>}
       </div>}

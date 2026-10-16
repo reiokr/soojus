@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, ChevronDown, Fan, Flame, Gauge, Link2, LoaderCircle, RefreshCw, Trash2, Wind } from 'lucide-react';
 import { api, number, time } from './lib.js';
-import { climate, climatePoints, climateQuery, co2Quality, daysWithMonths, filterInfo, MODE_INFO, ventilationSentence } from './ventilation-logic.js';
+import { bypassOpen, climate, climatePoints, climateQuery, co2Quality, daysWithMonths, filterInfo, MODE_INFO, ventilationSentence } from './ventilation-logic.js';
 
 export function useAirobot(tick, enabled = true) {
   const [view, setView] = useState(null), [error, setError] = useState(null);
@@ -105,7 +105,7 @@ function Settings({ view, notify, onView }) {
       <ChevronDown size={20}/>
     </button>
     {open && <div id="vent-settings-body" className="vent-settings-body">
-    <Row title="Suvine möödaviik (bypass)" hint="Kui sisse lülitatud, otsustab seade ise, millal soojusvaheti mööda minna."><span className="vent-state">{sw.bypass ? 'Sees' : 'Väljas'}</span><Switch on={sw.bypass} disabled={busy} label="Suvine möödaviik" onChange={on => save({ bypass: on }, `Suvine möödaviik: ${on ? 'sees' : 'väljas'}.`)}/></Row>
+    <Row title="Suvine möödaviik" hint="Automaatrežiim: klapp avaneb ise, kui välisõhk on üle 13 °C ja jahedam kui väljatõmbeõhk (vähemalt 15 min)."><span className="vent-state">{sw.bypass ? 'Automaatika' : 'Väljas'}</span><Switch on={sw.bypass} disabled={busy} label="Suvine möödaviik" onChange={on => save({ bypass: on }, `Suvine möödaviik: ${on ? 'automaatika sees' : 'väljas'}.`)}/></Row>
     <Row title="Ventilatsioon" hint="Lülitab seadme täielikult sisse või välja."><span className="vent-state">{sw.power ? 'Sees' : 'Väljas'}</span><Switch on={sw.power} disabled={busy} label="Ventilatsioon" onChange={on => { if (!on && !window.confirm('Lülitada ventilatsioon välja? Tuba ei tuulutata enne, kui lülitad selle tagasi.')) return; save({ power: on }, `Ventilatsioon: ${on ? 'sees' : 'väljas'}.`); }}/></Row>
     {sw.humidityControl != null && <Row title="Niiskuse automaatjuhtimine" hint="Kiirendab ventilatsiooni, kui toa niiskus ületab sihttaseme."><Switch on={sw.humidityControl} disabled={busy} label="Niiskuse juhtimine" onChange={on => save({ humidityControl: on }, `Niiskuse juhtimine: ${on ? 'sees' : 'väljas'}.`)}/><NumberSetting label="Niiskuse sihttase" value={s.humiditySetpoint} min={5} max={95} step={1} unit="%" disabled={busy} onSave={n => save({ humiditySetpoint: n }, `Niiskuse sihttase: ${n} %.`)}/></Row>}
     {sw.vocControl != null && <Row title="VOC automaatjuhtimine" hint="Reageerib lenduvatele orgaanilistele ühenditele (indeks 0–500)."><Switch on={sw.vocControl} disabled={busy} label="VOC juhtimine" onChange={on => save({ vocControl: on }, `VOC juhtimine: ${on ? 'sees' : 'väljas'}.`)}/>{s.vocSetpoint != null && <NumberSetting label="VOC sihttase" value={s.vocSetpoint} min={0} max={500} unit="indeks" disabled={busy} onSave={n => save({ vocSetpoint: n }, `VOC sihttase: ${n}.`)}/>}</Row>}
@@ -127,6 +127,7 @@ export function VentilationPage({ tick, theme, HistoryChart, notify, airobot, ou
   const hasClimate = Boolean(pumpDeviceId && outdoorPointId), tabs = [...(hasClimate ? [['climate', 'Toas vs väljas', null]] : []), ['co2', 'CO₂', ['co2']], ['temp', 'Temperatuurid', ['supply_temp', 'extract_temp']], ['hum', 'Niiskus', ['supply_hum', 'extract_hum']], ['flow', 'Õhuvool', ['supply_flow', 'extract_flow']], ['rpm', 'Ventilaatorid', ['supply_rpm', 'extract_rpm']]];
   const current = tabs.find(t => t[0] === tab) || tabs[0], pts = current[0] === 'climate' ? climatePoints : current[2].map(id => byId[id]).filter(Boolean);
   const air = d ? co2Quality(d.co2) : null, filter = d ? filterInfo(d.settings.filterElapsed, d.settings.filterInterval) : null;
+  const bypass = d ? bypassOpen(d) : null;
   const clim = climate(outdoor, view), t = v => v == null ? '—' : number(v, 1);
   return <div className="vent">
     {!d ? <section className="panel vent-error" role="alert"><AlertCircle size={20}/><div><b>Seadmega ei saanud ühendust</b><p>{view.error || 'Ootan esimest lugemist…'} Kontrolli, et seadmes on Modbus TCP sisse lülitatud ja IP on {view.host}.</p></div><button className="button" type="button" onClick={reload}><RefreshCw size={15}/>Proovi uuesti</button></section> : <>
@@ -136,7 +137,7 @@ export function VentilationPage({ tick, theme, HistoryChart, notify, airobot, ou
         <div><h3>{ventilationSentence(view)}</h3><p>Viimane lugemine {time(view.time)} · {view.host}</p></div>
         <div className="vent-flags">
           <span className={`vent-chip ${air.key}`}>Õhk: {air.label}</span>
-          {d.switches.bypass && <span className="vent-chip ok">Möödaviik sees</span>}
+          {d.switches.bypass && <span className="vent-chip ok">Möödaviik: automaatika{bypass == null ? '' : bypass ? ', avatud' : ', suletud'}</span>}
           {d.switches.filterAlert && <span className="vent-chip bad">Filter vajab vahetust</span>}
           {view.errors.map(e => <span key={e} className="vent-chip bad">Viga: {e}</span>)}
         </div>
@@ -148,8 +149,9 @@ export function VentilationPage({ tick, theme, HistoryChart, notify, airobot, ou
         <Tile label="Sissepuhke temperatuur" value={t(d.temperatures.supply)} unit="°C" note="tuppa"/>
         <Tile label="Niiskus toas" value={t(d.humidity.extract)} unit="%" note={`sihttase ${number(d.settings.humiditySetpoint, 0)} %`}/>
         <Tile label="Soojustagastus" value={number(d.heatRecovery, 0)} unit="%"/>
-        <Tile label="Sissepuhke õhuvool" value={number(d.airflow.supply, 0)} unit="m³/h" note={`${number(d.fans.supplyRpm, 0)} p/min`}/>
-        <Tile label="Väljatõmbe õhuvool" value={number(d.airflow.extract, 0)} unit="m³/h" note={`${number(d.fans.extractRpm, 0)} p/min`}/>
+        <Tile label="Suvine möödaviik" value={!d.switches.bypass ? 'Väljas' : bypass == null ? 'Automaatika' : bypass ? 'Avatud' : 'Suletud'} note={d.switches.bypass ? 'automaatrežiim' : undefined}/>
+        <Tile label="Sissepuhke õhuvool" value={number(d.airflow.supply, 0)} unit="m³/h" note={`hinnanguline · ${number(d.fans.supplyRpm, 0)} p/min`}/>
+        <Tile label="Väljatõmbe õhuvool" value={number(d.airflow.extract, 0)} unit="m³/h" note={`hinnanguline · ${number(d.fans.extractRpm, 0)} p/min`}/>
         <Tile label="VOC indeks" value={number(d.voc, 0)}/>
         <Tile label="PM2,5" value={number(d.pm25, 0)} unit="µg/m³"/>
         {filter && <Tile label="Filter" value={`${filter.percent}`} unit="% kasutatud" tone={d.switches.filterAlert ? 'bad' : filter.percent > 85 ? 'high' : ''} note={`jäänud ${daysWithMonths(filter.leftHours)}`}/>}

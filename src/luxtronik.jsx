@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Link2, LoaderCircle, Thermometer, Trash2 } from 'lucide-react';
-import { api, number, time, date } from './lib.js';
+import { api, time, date } from './lib.js';
 
 export function useLuxtronik(tick) {
   const [view, setView] = useState(null), [error, setError] = useState(null);
@@ -34,7 +34,6 @@ export function LuxtronikPanel({ lux, notify }) {
         <small>{view.primary ? `Põhiallikas: pump otse (${view.mapped} näitu, värskendus iga 10 s). Võimsus (kW): ${view.powerSource ? 'loetakse otse pumbalt' : 'tuleb praegu myUplinkist, otseväärtuse kinnitan pumba järgmisel töötsüklil'}. myUplink on varuks ja annab ülejäänud näidud, seaded ja häired.` : view.mismatch ? 'Otseandmete väljad ei klapi myUplinki omadega, seepärast kasutatakse myUplinki. Soojakandja temperatuure näidatakse siiski.' : view.configured ? 'Otseandmed ootavad esimest lugemist või on vananenud; praegu kasutatakse myUplinki.' : ''} myUplinki API ei anna soojakandja temperatuure. Pump (Alpha Innotec / Luxtronik) pakub neid kohtvõrgus pordil 8889. Ühendus on ainult lugemiseks ja töötab ainult sama võrgu aadressidega.</small>
       </div>
     </div>
-    {view.configured && t && <p className="location-now"><Thermometer size={16}/> Soojakandja maast {number(t.brineIn, 1)} °C, maasse {number(t.brineOut, 1)} °C · kuumgaas {number(t.hotGas, 1)} °C</p>}
     {view.configured && !t && view.error && <p className="inline-error" role="alert">{view.error}</p>}
     <form className="location-search" onSubmit={connect}>
       <label className="search-input"><Link2 size={17}/><input value={host} onChange={e => setHost(e.target.value)} placeholder="Soojuspumba IP-aadress, nt 192.168.100.171" aria-label="Soojuspumba IP-aadress" inputMode="decimal" autoComplete="off"/></label>

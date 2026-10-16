@@ -1,5 +1,6 @@
 // "Elava kodu" hetkeseis: päris andmed ühes lamedas objektis; demo-režiim üle kirjutab olekud, et animatsioone saaks igal ajal vaadata.
 import { weatherScene } from '../../weather-logic.js';
+import { bypassOpen } from '../../ventilation-logic.js';
 import { HOME } from './sky.js';
 
 const num = v => { const n = v == null || v === '' ? NaN : Number(v); return Number.isFinite(n) ? n : null; };
@@ -20,10 +21,10 @@ export function buildLiveState({ m = {}, climate = {}, vent = null, state = {}, 
     heatOn: Boolean(state.heatOn), hwOn: Boolean(state.hwOn), heatDemand: Boolean(state.heatDemand), hwDemand: Boolean(state.hwDemand),
     vent: d ? {
       present: true, running: d.switches.power && d.fans.supplyRpm > 0, level: d.fans.supplyLevel, rpm: d.fans.supplyRpm, airflow: d.airflow.supply,
-      co2: d.co2, supplyTemp: d.temperatures.supply, extractTemp: d.temperatures.extract, recovery: d.heatRecovery, bypass: d.switches.bypass,
+      co2: d.co2, supplyTemp: d.temperatures.supply, extractTemp: d.temperatures.extract, recovery: d.heatRecovery, bypass: d.switches.bypass, bypassOpen: bypassOpen(d),
       humidity: Number.isFinite(d.humidity?.extract) ? d.humidity.extract : null,
       mode: vent.mode, modeText: vent.modeText
-    } : { present: false, running: false, level: 0, rpm: 0, airflow: 0, co2: 500, supplyTemp: null, extractTemp: null, recovery: 0, bypass: false, humidity: null, mode: null, modeText: null }
+    } : { present: false, running: false, level: 0, rpm: 0, airflow: 0, co2: 500, supplyTemp: null, extractTemp: null, recovery: 0, bypass: false, bypassOpen: null, humidity: null, mode: null, modeText: null }
   };
   if (hour != null && Number.isFinite(hour)) {
     const t = new Date(now), h = Math.min(23.99, Math.max(0, hour));

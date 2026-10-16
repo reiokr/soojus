@@ -320,50 +320,57 @@ test('Elav kodu renders a live canvas, reacts to demo modes and the clock slider
 
 test('Elav kodu taustamuusika: sisse/välja nupp, helitugevus ja 60 s pausita silmus', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
-  await page.addInitScript(() => {
-    localStorage.setItem('soojus.ui', 'next'); if (!sessionStorage.getItem('fresh')) { localStorage.removeItem('soojus.sound.volume'); localStorage.removeItem('soojus.sound.track'); localStorage.removeItem('soojus.sound.mode'); sessionStorage.setItem('fresh', '1'); } window.__sources = [];
-    const make = AudioContext.prototype.createBufferSource;
-    AudioContext.prototype.createBufferSource = function () { const s = make.call(this); window.__sources.push(s); return s; };
-  });
-  await page.goto('/?page=live');
-  const toggle = page.getByRole('button', { name: /taustamuusika sisse/ }), volume = page.getByLabel('Helitugevus');
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-  expect(await page.evaluate(() => window.__sources.length)).toBe(0);
-  await toggle.click();
-  const off = page.getByRole('button', { name: 'Lülita taustamuusika välja' });
-  await expect(off).toHaveAttribute('aria-pressed', 'true');
-  await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(1);
-  const info = await page.evaluate(() => { const s = window.__sources[0]; return { loop: s.loop, seconds: s.buffer.duration, end: s.loopEnd }; });
-  expect(info.loop).toBe(true); expect(info.seconds).toBeGreaterThan(59.9); expect(info.seconds).toBeLessThan(60.1);
-  await page.getByLabel('Lugu').selectOption('kitarriohtu');
-  await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(2);
-  const second = await page.evaluate(() => { const s = window.__sources[1]; return { loop: s.loop, seconds: s.buffer.duration }; });
-  expect(second.loop).toBe(true); expect(second.seconds).toBeGreaterThan(59.9); expect(second.seconds).toBeLessThan(60.1);
-  const pauseBtn = page.getByRole('button', { name: 'Peata muusika pausile' });
-  await pauseBtn.click();
-  await expect.poll(() => page.evaluate(() => window.__sources.at(-1).context.state)).toBe('suspended');
-  const frozen = await page.evaluate(() => window.__sources.at(-1).context.currentTime);
-  await page.waitForTimeout(600);
-  expect(await page.evaluate(() => window.__sources.at(-1).context.currentTime)).toBe(frozen);
-  await page.getByRole('button', { name: 'Jätka muusikat' }).click();
-  await expect.poll(() => page.evaluate(() => window.__sources.at(-1).context.state)).toBe('running');
-  expect(await page.evaluate(() => window.__sources.length)).toBe(2);
-  const mode = page.locator('.live-sound-mode');
-  await expect(mode).toHaveAttribute('data-mode', 'one');
-  await mode.click();
-  await expect(mode).toHaveAttribute('data-mode', 'all');
-  expect(await page.evaluate(() => window.__sources.at(-1).loop)).toBe(false);
-  await mode.click();
-  expect(await page.evaluate(() => window.__sources.at(-1).loop)).toBe(true);
-  await volume.fill('0.25');
-  expect(await page.evaluate(() => localStorage.getItem('soojus.sound.volume'))).toBe('0.25');
-  await off.click();
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-  await page.reload();
-  await expect(page.getByLabel('Helitugevus')).toHaveValue('0.25');
-  await expect(page.getByLabel('Lugu')).toHaveValue('kitarriohtu');
-  expect(await page.evaluate(() => window.__sources.length)).toBe(0);
-  expect(errors).toEqual([]);
+  // Ajutine lugu kaustas dist/audio — nii saab testida loo vahetust ka siis, kui sisse ehitatud lugusid on vähe.
+  const dir = path.join(process.cwd(), 'dist/audio'), own = path.join(dir, 'e2e-lugu-test.mp3');
+  fs.mkdirSync(dir, { recursive: true }); fs.copyFileSync(path.join(dir, 'hubane-lounge.mp3'), own);
+  try {
+    await page.addInitScript(() => {
+      localStorage.setItem('soojus.ui', 'next'); if (!sessionStorage.getItem('fresh')) { localStorage.removeItem('soojus.sound.volume'); localStorage.removeItem('soojus.sound.track'); localStorage.removeItem('soojus.sound.mode'); sessionStorage.setItem('fresh', '1'); } window.__sources = [];
+      const make = AudioContext.prototype.createBufferSource;
+      AudioContext.prototype.createBufferSource = function () { const s = make.call(this); window.__sources.push(s); return s; };
+    });
+    await page.goto('/?page=live');
+    const toggle = page.getByRole('button', { name: /taustamuusika sisse/ }), volume = page.getByLabel('Helitugevus');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(await page.evaluate(() => window.__sources.length)).toBe(0);
+    await toggle.click();
+    const off = page.getByRole('button', { name: 'Lülita taustamuusika välja' });
+    await expect(off).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(1);
+    const info = await page.evaluate(() => { const s = window.__sources[0]; return { loop: s.loop, seconds: s.buffer.duration, end: s.loopEnd }; });
+    expect(info.loop).toBe(true); expect(info.seconds).toBeGreaterThan(59.9); expect(info.seconds).toBeLessThan(60.1);
+    const select = page.getByLabel('Lugu');
+    await expect(select.locator('option', { hasText: 'E2e lugu test' })).toHaveCount(1);
+    await select.selectOption('file:e2e-lugu-test.mp3');
+    await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(2);
+    const second = await page.evaluate(() => { const s = window.__sources[1]; return { loop: s.loop, seconds: s.buffer.duration }; });
+    expect(second.loop).toBe(true); expect(second.seconds).toBeGreaterThan(59.9); expect(second.seconds).toBeLessThan(60.1);
+    const pauseBtn = page.getByRole('button', { name: 'Peata muusika pausile' });
+    await pauseBtn.click();
+    await expect.poll(() => page.evaluate(() => window.__sources.at(-1).context.state)).toBe('suspended');
+    const frozen = await page.evaluate(() => window.__sources.at(-1).context.currentTime);
+    await page.waitForTimeout(600);
+    expect(await page.evaluate(() => window.__sources.at(-1).context.currentTime)).toBe(frozen);
+    await page.getByRole('button', { name: 'Jätka muusikat' }).click();
+    await expect.poll(() => page.evaluate(() => window.__sources.at(-1).context.state)).toBe('running');
+    expect(await page.evaluate(() => window.__sources.length)).toBe(2);
+    const mode = page.locator('.live-sound-mode');
+    await expect(mode).toHaveAttribute('data-mode', 'one');
+    await mode.click();
+    await expect(mode).toHaveAttribute('data-mode', 'all');
+    expect(await page.evaluate(() => window.__sources.at(-1).loop)).toBe(false);
+    await mode.click();
+    expect(await page.evaluate(() => window.__sources.at(-1).loop)).toBe(true);
+    await volume.fill('0.25');
+    expect(await page.evaluate(() => localStorage.getItem('soojus.sound.volume'))).toBe('0.25');
+    await off.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await page.reload();
+    await expect(page.getByLabel('Helitugevus')).toHaveValue('0.25');
+    await expect(page.getByLabel('Lugu')).toHaveValue('file:e2e-lugu-test.mp3');
+    expect(await page.evaluate(() => window.__sources.length)).toBe(0);
+    expect(errors).toEqual([]);
+  } finally { fs.rmSync(own, { force: true }); }
 });
 
 test('Elav kodu taustamuusika leiab dist/audio kataloogi lisatud failid', async ({ page }) => {
@@ -490,16 +497,16 @@ test('Elav kodu shows the place, weather and forecast and can demo every weather
   await page.goto('/?page=live');
   await expect(page.locator('.live-place')).toContainText('Tartu');
   await expect(page.locator('.live-weather')).toContainText('kerge vihm');
-  await expect(page.locator('.live-now-weather')).toContainText('9,4 °C');
-  await expect(page.locator('.live-now-weather')).toContainText('edelatuul');
-  await expect(page.locator('.live-day').first()).toContainText('Täna');
+  await expect(page.locator('.live-weather')).toContainText('9,4 °C');
+  await expect(page.locator('.wx-tiles')).toContainText('edelatuul');
+  await expect(page.locator('.wx-day').first()).toContainText('Täna');
   const canvas = page.locator('.live-stage canvas');
   const sample = () => canvas.evaluate(c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 4 * 211) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) | 0; return h; });
   const seen = new Set();
   for (const name of ['Selge', 'Pilves', 'Vihm', 'Lumi', 'Äike', 'Udu']) {
     await page.getByLabel('Ilma demo').selectOption({ label: name }); await page.waitForTimeout(1600);
     seen.add(await sample());
-    await expect(page.locator('.live-now-weather')).toContainText('DEMO');
+    await expect(page.locator('.wx-place')).toContainText('DEMO');
   }
   expect(seen.size).toBeGreaterThanOrEqual(5);
   await page.getByRole('button', { name: /^Tartu$/ }).click();
@@ -548,6 +555,103 @@ test('Elav kodu full screen keeps device status and temperatures visible while c
   await expect(page.locator('.live-controls')).toHaveCSS('opacity', '1');
 });
 
+test('Elav kodu full screen top edge links appear on mouse movement and open Küte, Tarbevesi and Ventilatsioon', async ({ page }) => {
+  await page.addInitScript(() => { localStorage.setItem('soojus.ui', 'next'); let fs = null; Element.prototype.requestFullscreen = function () { fs = this; document.dispatchEvent(new Event('fullscreenchange')); return Promise.resolve(); }; document.exitFullscreen = () => { fs = null; document.dispatchEvent(new Event('fullscreenchange')); return Promise.resolve(); }; Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fs }); });
+  const enter = async () => { await page.goto('/?page=live'); await page.getByRole('button', { name: 'Täisekraan' }).click(); };
+  await enter();
+  const nav = page.getByRole('navigation', { name: 'Kiirlingid lehtedele' });
+  await expect(nav).toBeVisible();
+  await expect(page.locator('.live-topnav')).toHaveCSS('opacity', '0', { timeout: 8000 });
+  await page.mouse.move(400, 300);
+  await expect(page.locator('.live-topnav')).toHaveCSS('opacity', '1');
+  await nav.getByRole('button', { name: 'Ava leht Küte' }).click();
+  await expect(page.getByRole('heading', { name: 'Küte', level: 1 })).toBeVisible();
+  expect(await page.evaluate(() => document.fullscreenElement)).toBe(null);
+  for (const label of ['Tarbevesi', 'Ventilatsioon']) {
+    await enter();
+    await page.getByRole('button', { name: `Ava leht ${label}` }).click();
+    await expect(page.getByRole('heading', { name: label, level: 1 })).toBeVisible();
+  }
+});
+
+test('Elav kodu full screen hides the brine in/out temperature tags on the ground loop', async ({ page }) => {
+  const data = { temperatures: { brineIn: 9.4, brineOut: 6.1, hotGas: 71.2, flow: 35, return: 30 }, inputs: { brineFlow: true, evu: true, motorProtection: true }, outputs: { compressor: true, brinePump: true, heatingPump: true, hotWaterPump: false } };
+  const view = { configured: true, host: '192.168.100.171', time: new Date().toISOString(), error: null, data, points: [] };
+  await page.route('**/api/luxtronik', route => route.fulfill({ json: view }));
+  await page.addInitScript(() => { localStorage.setItem('soojus.ui', 'next'); let fs = null; Element.prototype.requestFullscreen = function () { fs = this; document.dispatchEvent(new Event('fullscreenchange')); return Promise.resolve(); }; document.exitFullscreen = () => { fs = null; document.dispatchEvent(new Event('fullscreenchange')); return Promise.resolve(); }; Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fs }); });
+  await page.goto('/?page=live');
+  const canvas = page.locator('.live-stage canvas');
+  // Kohtvõrgu sildid on tumedad kaardid, kuid valge tekst segab kogu kaardi keskmist; seepärast loeme kaardi tühja paremat serva.
+  const brightness = (x, y, w, h) => canvas.evaluate((c, r) => {
+    const rect = c.getBoundingClientRect(), sc = Math.min(rect.width / 1600, rect.height / 960), ox = (rect.width - 1600 * sc) / 2, oy = (rect.height - 960 * sc) / 2 - 60 * sc, dpr = c.width / rect.width, ctx = c.getContext('2d');
+    let sum = 0;
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
+      const d = ctx.getImageData(Math.round((ox + (r.x + (i + 0.5) / 5 * r.w) * sc) * dpr), Math.round((oy + (r.y + (j + 0.5) / 5 * r.h) * sc) * dpr), 1, 1).data;
+      sum += d[0] + d[1] + d[2];
+    }
+    return sum / 25;
+  }, { x, y, w, h });
+  const tags = [[1058, 952, 16, 28], [1228, 952, 16, 28]];
+  // Oota, kuni kohtvõrgu andmed on kohal ja sildid on päriselt joonistatud (tume kaart, seega heledus alla 95).
+  await expect.poll(() => brightness(...tags[0])).toBeLessThan(95);
+  const shown = await Promise.all(tags.map(t => brightness(...t)));
+  await page.getByRole('button', { name: 'Täisekraan' }).click();
+  await page.waitForTimeout(500);
+  for (let i = 0; i < tags.length; i++) expect(await brightness(...tags[i]), `silt ${i} peidetud`).toBeGreaterThan(shown[i] + 20);
+  await page.evaluate(() => document.exitFullscreen());
+  await page.waitForTimeout(500);
+  for (let i = 0; i < tags.length; i++) expect(await brightness(...tags[i]), `silt ${i} tagasi`).toBeLessThan(shown[i] + 20);
+});
+
+test('Elav kodu full screen shows an always-visible compact weather summary under the info bullets', async ({ page }) => {
+  const hourly = Array.from({ length: 24 }, (_, i) => ({ time: `2026-10-03T${String(i).padStart(2, '0')}:00`, temperature: 8 + i * 0.2, code: 61, rainChance: 60, precipitation: 0.3, isDay: i >= 7 && i < 19 }));
+  await page.route('**/api/weather', route => route.fulfill({ json: { location: { name: 'Tartu', latitude: 58.3806, longitude: 26.7251, isDefault: false }, source: 'Open-Meteo', stale: false, error: null, weather: { temperature: 9.4, code: 61, cloud: 100, wind: 6.2, isDay: true, days: [{ date: '2026-10-03', code: 61, max: 11, min: 6, precipitation: 3.4, rainChance: 70 }], hourly } } }));
+  await page.addInitScript(() => { localStorage.setItem('soojus.ui', 'next'); let fs = null; Element.prototype.requestFullscreen = function () { fs = this; document.dispatchEvent(new Event('fullscreenchange')); return Promise.resolve(); }; document.exitFullscreen = () => { fs = null; document.dispatchEvent(new Event('fullscreenchange')); return Promise.resolve(); }; Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fs }); });
+  await page.goto('/?page=live');
+  await expect(page.locator('.live-rail')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Täisekraan' }).click();
+  const rail = page.locator('.live-rail');
+  await expect(rail).toBeVisible();
+  await expect(rail).toContainText('Tartu');
+  await expect(rail).toContainText('9,4°');
+  await expect(rail).toContainText('Prognoos 24 h');
+  await expect(rail).toContainText('Kõrgeim');
+  await expect(rail).toContainText('Madalaim');
+  await expect(rail).toContainText('Sademed');
+  // Raud jääb nähtavale ka siis, kui juhtnupud on tegevusetult kadunud.
+  await expect(page.locator('.live-controls')).toHaveCSS('opacity', '0', { timeout: 8000 });
+  await expect(rail).toBeVisible();
+});
+
+test('Elav kodu mängib äikese ajal välgulöögi heli, kui taustamuusika käib', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('soojus.ui', 'next'); window.__sfx = [];
+    const f = window.fetch;
+    window.fetch = (u, ...a) => { if (String(u).includes('/sfx/lightning')) window.__sfx.push(String(u)); return f(u, ...a); };
+  });
+  await page.goto('/?page=live');
+  await page.getByRole('button', { name: /taustamuusika sisse/ }).click();
+  await expect(page.getByRole('button', { name: /taustamuusika välja/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByLabel('Ilma demo').selectOption({ label: 'Äike' });
+  // Esimene välk lööb paari sekundi pärast (storm peab üle 0,5 kerkima + cooldown); seejärel küsib ambience heliefekti.
+  await expect.poll(() => page.evaluate(() => window.__sfx.length), { timeout: 25000 }).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.__sfx[0])).toContain('/sfx/lightning.mp3');
+});
+
+test('Elav kodu mängib vihma ajal vihmaheli, kui taustamuusika käib', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('soojus.ui', 'next'); window.__sfx = [];
+    const f = window.fetch;
+    window.fetch = (u, ...a) => { if (String(u).includes('/sfx/')) window.__sfx.push(String(u)); return f(u, ...a); };
+  });
+  await page.goto('/?page=live');
+  await page.getByLabel('Ilma demo').selectOption({ label: 'Vihm' });
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => window.__sfx.filter(u => u.includes('/rain.mp3')).length), 'ilma muusikata vihmaheli ei mängi').toBe(0);
+  await page.getByRole('button', { name: /taustamuusika sisse/ }).click();
+  await expect.poll(() => page.evaluate(() => window.__sfx.some(u => u.includes('/rain.mp3'))), { timeout: 15000 }).toBe(true);
+});
+
 for (const viewport of [{ width: 1440, height: 900 }, { width: 1920, height: 1080 }, { width: 800, height: 900 }, { width: 390, height: 844 }]) {
   test(`Elav kodu click areas sit exactly over the drawn devices at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
@@ -558,7 +662,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1920, height: 108
     const offsets = await page.evaluate(() => {
       const view = document.querySelector('.live-view').getBoundingClientRect(), W = 1600, H = 960, sc = Math.min(view.width / W, view.height / H);
       const ox = view.left + (view.width - W * sc) / 2, oy = view.top + (view.height - H * sc) / 2 - 60 * sc;
-      const spots = { Maasoojuspump: [392, 520, 148, 180], Maakontuur: [600, 790, 690, 150], Ventilatsioon: [738, 326, 154, 76], Veeboiler: [1125, 495, 90, 195] };
+      const spots = { Maasoojuspump: [372, 520, 116, 180], Maakontuur: [600, 790, 690, 150], Ventilatsioon: [738, 326, 154, 76], Veeboiler: [1138, 545, 64, 145] };
       return Object.entries(spots).map(([name, [x, y, w, h]]) => {
         const el = [...document.querySelectorAll('.live-hot')].find(e => e.getAttribute('aria-label').startsWith(name + '.'));
         if (!el) return { name, missing: true };
@@ -582,7 +686,7 @@ test('heat pump local link can be connected in settings and brine values show up
   await expect(page.getByText('Soojuspumba kohtvõrguliides')).toBeVisible();
   await page.getByLabel('Soojuspumba IP-aadress').fill('192.168.100.171');
   await page.getByRole('button', { name: 'Ühenda ja testi' }).click();
-  await expect(page.getByText(/Soojakandja maast 9,4 °C, maasse 6,1 °C/)).toBeVisible();
+  await expect(page.locator('.luxtronik-panel').getByText(/Ühendatud:/)).toBeVisible();
   await page.addInitScript(() => localStorage.setItem('soojus.ui', 'next'));
   await page.goto('/?page=live');
   const ground = page.getByRole('button', { name: /^Maakontuur\./ });
@@ -601,6 +705,38 @@ test('server validates the heat pump link input and never accepts public address
   expect((await request.get('/api/history/mix?hours=24&pump=nope&s=l:brine_in')).status()).toBe(200);
   expect((await request.get('/api/history/mix?hours=24&pump=nope&s=p:5,l:brine_in')).status()).toBe(404);
   expect((await request.get('/api/history/mix?hours=24&pump=nope&s=l:brine;in')).status()).toBe(400);
+});
+
+test('archive viewer lists files and plots a selected series from the CSV', async ({ page }) => {
+  await page.route('**/api/archive/soojus-2024.csv/history**', route => route.fulfill({ json: { rows: [{ point: 'dev|p1', time: '2024-01-01T00:00:00.000Z', value: 90, label: 'Sissepuhke õhuvool', unit: 'm³/h' }, { point: 'dev|p1', time: '2024-01-02T00:00:00.000Z', value: 95, label: 'Sissepuhke õhuvool', unit: 'm³/h' }], count: 2, bucketSeconds: 86400, since: '2024-01-01T00:00:00.000Z', source: 'archive', gaps: [] } }));
+  await page.route('**/api/archive/soojus-2024.csv', route => route.fulfill({ json: { name: 'soojus-2024.csv', series: [{ token: 'dev|p1', device: 'dev', point: 'p1', label: 'Sissepuhke õhuvool', unit: 'm³/h', count: 10 }], from: '2024-01-01T00:00:00.000Z', to: '2024-01-10T00:00:00.000Z', rows: 10 } }));
+  await page.route('**/api/archive', route => route.fulfill({ json: { files: [{ name: 'soojus-2024.csv', bytes: 2048, modified: '2026-01-01T00:00:00.000Z' }] } }));
+  await page.goto('/?page=history');
+  await page.getByRole('button', { name: 'Arhiiv' }).click();
+  await expect(page.getByLabel('Arhiivifail')).toBeVisible();
+  const series = page.getByRole('button', { name: /Sissepuhke õhuvool/ });
+  await expect(series).toBeVisible();
+  await series.click();
+  await expect(series).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.recharts-surface').first()).toBeVisible();
+});
+
+test('archive only accepts dates older than a year, exports a file and removes the rows', async ({ request }) => {
+  const headers = { 'X-Soojus-Request': '1', Origin: 'http://localhost:3210' };
+  const dir = 'data/archive';
+  const before = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+  try {
+    expect((await request.post('/api/archive', { data: {}, headers })).status()).toBe(400);
+    expect((await request.post('/api/archive', { data: { before: new Date().toISOString() }, headers })).status()).toBe(400);
+    const old = new Date(Date.now() - 400 * 86400000).toISOString();
+    const res = await request.post('/api/archive', { data: { before: old }, headers });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.removed).toBe(0);
+    expect(fs.existsSync(path.join(dir, path.basename(body.file)))).toBe(true);
+  } finally {
+    if (fs.existsSync(dir)) for (const f of fs.readdirSync(dir)) if (!before.includes(f)) fs.rmSync(path.join(dir, f), { force: true });
+  }
 });
 
 test('footer and panel tell that the heat pump is read directly with myUplink as the backup', async ({ page }) => {

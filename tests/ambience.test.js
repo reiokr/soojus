@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TRACKS, MODES, loadPlayback, savePlayback, savePosition, loadMode, saveMode, nextTrackId, loadTrack, saveTrack, loadVolume, saveVolume, volumeGain } from '../src/next/live/ambience.js';
+import { TRACKS, MODES, loadPlayback, savePlayback, savePosition, loadMode, saveMode, nextTrackId, prevTrackId, loadTrack, saveTrack, loadVolume, saveVolume, volumeGain, Ambience } from '../src/next/live/ambience.js';
 
 const store = () => { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, v) }; };
 
@@ -20,11 +20,11 @@ test('võimendus järgib kuuldavat (ruut)kõverat ning 0 on vaikus', () => {
 });
 
 test('lugude nimekiri: kordumatud id-d, valik salvestub ja tundmatu valik langeb esimesele', () => {
-  assert.ok(TRACKS.length >= 2);
+  assert.ok(TRACKS.length >= 1);
   assert.equal(new Set(TRACKS.map(t => t.id)).size, TRACKS.length);
   const s = store();
   assert.equal(loadTrack(s), TRACKS[0].id);
-  saveTrack(TRACKS[1].id, s); assert.equal(loadTrack(s), TRACKS[1].id);
+  saveTrack('file:minu-lugu.mp3', s); assert.equal(loadTrack(s), 'file:minu-lugu.mp3');
   s.setItem('soojus.sound.track', 'olematu'); assert.equal(loadTrack(s), TRACKS[0].id);
 });
 
@@ -34,9 +34,13 @@ test('esitusrežiim: vaikimisi ühe loo kordamine, valik salvestub ja "kõik jä
   assert.equal(loadMode(s), 'one');
   saveMode('all', s); assert.equal(loadMode(s), 'all');
   s.setItem('soojus.sound.mode', 'sega'); assert.equal(loadMode(s), 'one');
-  assert.equal(nextTrackId(TRACKS[0].id), TRACKS[1].id);
-  assert.equal(nextTrackId(TRACKS.at(-1).id), TRACKS[0].id);
-  assert.equal(nextTrackId('tundmatu'), TRACKS[0].id);
+  const list = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  assert.equal(nextTrackId('a', list), 'b');
+  assert.equal(nextTrackId('c', list), 'a');
+  assert.equal(nextTrackId('tundmatu', list), 'a');
+  assert.equal(prevTrackId('a', list), 'c');
+  assert.equal(prevTrackId('b', list), 'a');
+  assert.equal(prevTrackId('tundmatu', list), 'a');
 });
 
 test('mängimise seis (sees / pausil / koht loos) salvestub ja rikutud väärtused ei sega', () => {
@@ -49,6 +53,15 @@ test('mängimise seis (sees / pausil / koht loos) salvestub ja rikutud väärtus
   s.setItem('soojus.sound.pos', '{rikutud'); assert.equal(loadPlayback(s).pos, null);
   s.setItem('soojus.sound.pos', JSON.stringify({ id: 'x', t: -5 })); assert.equal(loadPlayback(s).pos, null);
   assert.deepEqual(loadPlayback(null), { on: false, paused: false, pos: null });
+});
+
+test('vihma taust: setRain lülitab oleku idempotentselt ega vaja ilma helikontekstita töötamiseks', () => {
+  const amb = new Ambience(store());
+  assert.equal(amb.rainWanted, false);
+  amb.setRain(true); assert.equal(amb.rainWanted, true);
+  amb.setRain(true); assert.equal(amb.rainWanted, true);
+  amb.setRain(false); assert.equal(amb.rainWanted, false);
+  amb.setRain(false); assert.equal(amb.rainWanted, false);
 });
 
 test('iga lugu on olemas ja on MP3', async () => {

@@ -51,3 +51,21 @@ export const climatePoints = [
 ];
 // Päringu lisaosa virtuaalsele "toas vs väljas" ajaloole.
 export const climateQuery = (pumpId, outdoorPointId) => `&pump=${encodeURIComponent(pumpId)}&outdoor=${encodeURIComponent(outdoorPointId)}`;
+
+const finiteNum = v => v == null || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null;
+
+// Möödaviigu klapi asend. Seade ise klapi asendit Modbusi kaudu ei edasta (ainult automaatrežiimi
+// luba, coil 4003), seega tuletame selle juhendis kirjeldatud avanemistingimustest ja seadme enda
+// soojustagastuse näidust: klapp avaneb, kui välisõhk on üle 13 °C ja jahedam kui väljatõmbeõhk,
+// ning avatud klapi korral soojusvahetust ei toimu, mistõttu soojustagastus langeb (väike viivitus).
+// Tagastab true = avatud, false = suletud, null = asend teadmata (nt seade seisab või andur puudub).
+export const BYPASS_RECOVERY_MAX = 40;
+export function bypassOpen(data) {
+  if (!data?.switches?.bypass) return false; // automaatika väljas → klapp on alati suletud
+  const outside = finiteNum(data.temperatures?.outside), extract = finiteNum(data.temperatures?.extract);
+  const rpm = finiteNum(data.fans?.supplyRpm), recovery = finiteNum(data.heatRecovery);
+  if (outside == null || extract == null || rpm == null || rpm <= 0) return null; // seade seisab
+  if (outside <= 13 || outside >= extract) return false; // avanemistingimus pole täidetud
+  if (recovery == null) return null;
+  return recovery < BYPASS_RECOVERY_MAX;
+}

@@ -1,10 +1,7 @@
 // Sisseehitatud lood (scripts/make-music.py). Lisaks leiab rakendus kõik helifailid kataloogist dist/audio (vt /api/audio).
+// Nimekiri sisaldab ainult neid sisse ehitatud lugusid, mis on kaasas (public/audio); ülejäänud tulevad /api/audio kaudu.
 export const TRACKS = [
-  { id: 'hubane-lounge', title: 'Hubane lounge', url: '/audio/hubane-lounge.mp3' },
-  { id: 'pehme-jazz', title: 'Pehme jazz', url: '/audio/pehme-jazz.mp3' },
-  { id: 'ohtune-rahu', title: 'Õhtune rahu', url: '/audio/ohtune-rahu.mp3' },
-  { id: 'kitarriohtu', title: 'Kitarriõhtu', url: '/audio/kitarriohtu.mp3' },
-  { id: 'puhapaeva-hommik', title: 'Pühapäeva hommik', url: '/audio/puhapaeva-hommik.mp3' }
+  { id: 'hubane-lounge', title: 'Hubane lounge', url: '/audio/hubane-lounge.mp3' }
 ];
 const VOLUME_KEY = 'soojus.sound.volume', TRACK_KEY = 'soojus.sound.track', MODE_KEY = 'soojus.sound.mode', ON_KEY = 'soojus.sound.on', PAUSED_KEY = 'soojus.sound.paused', POS_KEY = 'soojus.sound.pos', FADE = 0.45, CROSS = 3, LEAVE_GRACE = 1500;
 
@@ -23,6 +20,7 @@ export const MODES = ['one', 'all'];
 export function loadMode(storage = globalThis.localStorage) { try { const m = storage?.getItem(MODE_KEY); return MODES.includes(m) ? m : 'one'; } catch { return 'one'; } }
 export function saveMode(m, storage = globalThis.localStorage) { try { storage?.setItem(MODE_KEY, m); } catch { /* privaatne režiim */ } }
 export function nextTrackId(id, list = TRACKS) { const i = list.findIndex(t => t.id === id); return list[(i + 1) % list.length].id; }
+export function prevTrackId(id, list = TRACKS) { const i = list.findIndex(t => t.id === id); return list[(i < 0 ? 0 : i - 1 + list.length) % list.length].id; }
 
 // Failinimest loetav pealkiri: "ohtu_kohvi-2.mp3" -> "Ohtu kohvi 2".
 export function titleFromFile(name) {
@@ -55,6 +53,25 @@ const loadBuffer = (ctx, track) => {
   if (!buffers.has(track.id)) buffers.set(track.id, fetch(track.url).then(r => { if (!r.ok) throw new Error(`Heli laadimine ebaõnnestus (${r.status})`); return r.arrayBuffer(); }).then(b => ctx.decodeAudioData(b)).catch(e => { buffers.delete(track.id); throw e; }));
   return buffers.get(track.id);
 };
+// Välgulöögi heliefekt (public/sfx, ei ole muusikapalade nimekirjas). Laetakse ja dekodeeritakse üks kord.
+const THUNDER_URL = '/sfx/lightning.mp3';
+const THUNDER_GAIN = 2.7; // kokku ~2,7× salvestatud tasemest; edasine tõstmine hakkab tippe klippima
+let thunderBuffer = null, thunderLoading = null;
+function loadThunder(ctx) {
+  if (thunderBuffer) return Promise.resolve(thunderBuffer);
+  if (!thunderLoading) thunderLoading = fetch(THUNDER_URL).then(r => { if (!r.ok) throw new Error(`Välguheli laadimine ebaõnnestus (${r.status})`); return r.arrayBuffer(); }).then(b => ctx.decodeAudioData(b)).then(buf => (thunderBuffer = buf));
+  return thunderLoading.catch(e => { thunderLoading = null; throw e; });
+}
+// Vihma taust (public/sfx): hakkab kui sajab ja kustub aeglaselt, kui sadu lõpeb. Mängib katkematu 48 s silmusena.
+const RAIN_URL = '/sfx/rain.mp3';
+const RAIN_GAIN = 0.5;
+const RAIN_FADE = 2.5;
+let rainBuffer = null, rainLoading = null;
+function loadRain(ctx) {
+  if (rainBuffer) return Promise.resolve(rainBuffer);
+  if (!rainLoading) rainLoading = fetch(RAIN_URL).then(r => { if (!r.ok) throw new Error(`Vihmaheli laadimine ebaõnnestus (${r.status})`); return r.arrayBuffer(); }).then(b => ctx.decodeAudioData(b)).then(buf => (rainBuffer = buf));
+  return rainLoading.catch(e => { rainLoading = null; throw e; });
+}
 
 // Üks silmus korraga: AudioBufferSourceNode.loop on näidistäpne ja sisseehitatud lugudes on kaja saba algusesse tagasi keeratud.
 // Iga lugu mängib oma helitugevuse sõlmega, nii saab lugude vahel sujuvalt üle minna.
@@ -68,6 +85,7 @@ export class Ambience {
     const pb = loadPlayback(storage);
     this.want = pb.on; this.paused = pb.paused; this.savedPos = pb.pos;
     this.busy = false; this.error = ''; this.held = false; this.mounts = 0; this.restored = false;
+    this.rainWanted = false; this.rain = null;
     this.token = 0; this.timer = 0; this.pauseTimer = 0; this.leaveTimer = 0; this.posTimer = 0; this.lastRefresh = 0;
     this.listeners = new Set(); this.snap = null; this.gestureBound = false;
     this.subscribe = fn => { this.listeners.add(fn); return () => this.listeners.delete(fn); };
@@ -154,7 +172,7 @@ export class Ambience {
     if (!AC) throw new Error('See brauser ei toeta heli esitamist.');
     if (!this.ctx) {
       this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.gain.value = volumeGain(this.volume); this.master.connect(this.ctx.destination);
-      this.ctx.onstatechange = () => this.emit();
+      this.ctx.onstatechange = () => { this.emit(); this.syncRain(); };
     }
     this.held = false;
     if (blocking) await this.ctx.resume();
@@ -172,6 +190,7 @@ export class Ambience {
     source.onended = () => { voice.ended = true; if (this.voice === voice && this.playing && this.mode === 'all') this.advance(); };
     this.want = true; this.paused = false; this.persist();
     clearInterval(this.posTimer); this.posTimer = setInterval(this.savePos, 3000);
+    if (this.rainWanted) this.startRain();
     if (!this.mounts) { this.held = true; this.fadeAndSuspend(); }
     else this.schedule();
     if (this.mode === 'all') loadBuffer(this.ctx, this.tracks.find(t => t.id === nextTrackId(this.trackId, this.tracks))).catch(() => {});
@@ -188,6 +207,7 @@ export class Ambience {
     const token = ++this.token;
     this.want = false; this.paused = false; this.held = false; this.persist();
     clearTimeout(this.timer); clearTimeout(this.pauseTimer); clearInterval(this.posTimer);
+    this.stopRain();
     this.savedPos = { id: this.trackId, t: 0 }; savePosition(this.trackId, 0, this.storage);
     if (this.ctx) {
       const { ctx } = this;
@@ -212,6 +232,7 @@ export class Ambience {
     await ctx.resume();
     voice.gain.gain.cancelScheduledValues(ctx.currentTime);
     voice.gain.gain.setTargetAtTime(1, ctx.currentTime, 0.1);
+    this.syncRain();
     this.schedule();
   }
   pause() {
@@ -230,12 +251,65 @@ export class Ambience {
   }
   togglePause() { return this.paused ? this.resume() : this.pause(); }
 
+  // Välgulöögi ajal: mängib äikesehelinat, kuid ainult siis, kui muusika parasjagu mängib (muidu jääb vaikselt vahele).
+  // Heli läheb sama master-võimenduse kaudu, seega järgib muusika helitugevust.
+  async playLightning() {
+    if (!this.ctx || this.ctx.state !== 'running' || !this.playing || this.held) return;
+    try {
+      const buffer = await loadThunder(this.ctx);
+      if (!this.ctx || this.ctx.state !== 'running' || !this.playing || this.held) return;
+      const source = this.ctx.createBufferSource(), gain = this.ctx.createGain();
+      source.buffer = buffer; gain.gain.value = THUNDER_GAIN;
+      source.connect(gain); gain.connect(this.master);
+      source.onended = () => { source.disconnect(); gain.disconnect(); };
+      source.start();
+    } catch { /* heliefekti pole saadaval: jätame vahele */ }
+  }
+
+  // Vihma taust: mängib silmusena kogu aja, kui ilm näitab sadu ja muusika parasjagu käib; algus ja lõpp hajuvad üle.
+  setRain(on) {
+    on = Boolean(on);
+    if (on === this.rainWanted) return;
+    this.rainWanted = on;
+    if (on) this.startRain(); else this.stopRain();
+  }
+  syncRain() { if (this.rainWanted && !this.rain) this.startRain(); }
+  async startRain() {
+    if (!this.rainWanted || this.rain || !this.ctx || this.ctx.state !== 'running' || !this.playing || this.held) return;
+    try {
+      const buffer = await loadRain(this.ctx);
+      if (!this.rainWanted || this.rain || !this.ctx || this.ctx.state !== 'running' || !this.playing || this.held) return;
+      const source = this.ctx.createBufferSource(), gain = this.ctx.createGain();
+      source.buffer = buffer; source.loop = true;
+      gain.gain.value = 0; source.connect(gain); gain.connect(this.master); source.start();
+      gain.gain.setTargetAtTime(RAIN_GAIN, this.ctx.currentTime, RAIN_FADE / 3);
+      this.rain = { source, gain };
+    } catch { /* vihmaheli pole saadaval: jätame vahele */ }
+  }
+  stopRain() {
+    const rain = this.rain; if (!rain) return;
+    this.rain = null;
+    if (!this.ctx) { try { rain.source.stop(); } catch { /* juba peatatud */ } rain.source.disconnect(); rain.gain.disconnect(); return; }
+    const now = this.ctx.currentTime;
+    rain.gain.gain.cancelScheduledValues(now);
+    rain.gain.gain.setTargetAtTime(0, now, RAIN_FADE / 3);
+    setTimeout(() => { try { rain.source.stop(); } catch { /* juba peatatud */ } rain.source.disconnect(); rain.gain.disconnect(); }, RAIN_FADE * 1000 * 2);
+  }
+
   async setTrack(id) {
     if (!this.tracks.some(t => t.id === id) || id === this.trackId) return;
     this.trackId = id; saveTrack(id, this.storage); this.savedPos = { id, t: 0 }; this.error = '';
     if (!this.want) { this.emit(); return; }
     this.busy = true; this.emit();
     try { await this.begin(FADE, 0, true); } catch (e) { this.error = e.message || 'Lugu ei õnnestunud laadida.'; } finally { this.busy = false; this.emit(); }
+  }
+  // Käsitsi järgmine/eelmine lugu (ringiga). Kui muusika mängib, läheb sujuva üleminekuga üle; kui seisab, valib lihtsalt loo.
+  next() { return this.stepTrack(1); }
+  prev() { return this.stepTrack(-1); }
+  async stepTrack(delta) {
+    if (this.tracks.length < 2) return;
+    const id = delta > 0 ? nextTrackId(this.trackId, this.tracks) : prevTrackId(this.trackId, this.tracks);
+    await this.setTrack(id);
   }
   setMode(mode) {
     if (!MODES.includes(mode)) return;

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
-import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, ModbusTcp, effectiveMode, parseControl, applyControl, ControlError } from '../server/airobot.js';
+import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, ModbusTcp, effectiveMode, parseControl, applyControl, ControlError, flowForLevel } from '../server/airobot.js';
 
 function fakeUnit({ input = {}, holding = {}, coils = {}, exceptionFor = null } = {}) {
   const writes = [];
@@ -34,7 +34,7 @@ test('reads and decodes an Airobot unit over Modbus TCP', async () => {
     assert.equal(d.humidity.extract, 54.3); assert.equal(d.humidity.exhaust, null);
     assert.equal(d.co2, 520); assert.equal(d.voc, 12); assert.equal(d.pm25, 5);
     assert.deepEqual(d.fans, { supplyLevel: 3, extractLevel: 3, supplyRpm: 263, extractRpm: 189 });
-    assert.deepEqual(d.airflow, { supply: 100, extract: 95 });
+    assert.deepEqual(d.airflow, { supply: flowForLevel(3), extract: flowForLevel(3), raw: { supply: 100, extract: 95 } });
     assert.equal(d.heatRecovery, 82); assert.equal(d.errorFlags, 2050);
     assert.deepEqual(decodeErrors(d.errorFlags), ['Sissepuhke ventilaator', 'Filter']);
     assert.equal(d.settings.mode, 1); assert.equal(d.settings.humiditySetpoint, 60); assert.equal(d.settings.co2Setpoint, 800);
@@ -45,6 +45,25 @@ test('reads and decodes an Airobot unit over Modbus TCP', async () => {
     assert.ok(ids.includes('co2') && ids.includes('supply_temp')); assert.ok(!ids.includes('exhaust_temp')); assert.ok(ids.includes('outside_hum'));
     assert.equal(unit.writes.length, 0, 'lugemine ei tohi midagi kirjutada');
   } finally { unit.close(); }
+});
+
+test('invalid CO₂ and VOC sentinel values are dropped, not stored', async () => {
+  const unit = await fakeUnit({ ...registers, input: { ...registers.input, 1011: 65535, 1029: 65535 } });
+  try {
+    const d = await readAirobot({ host: '127.0.0.1', port: unit.port });
+    assert.equal(d.co2, null);
+    assert.equal(d.voc, null);
+    const ids = airobotValues(d).map(v => v.id);
+    assert.ok(!ids.includes('co2') && !ids.includes('voc'), 'vigased väärtused ei tohi ajalukku jõuda');
+  } finally { unit.close(); }
+});
+
+test('airflow is estimated from the fan level using the official S2 curve', () => {
+  assert.equal(flowForLevel(1), 90); assert.equal(flowForLevel(2), 128); assert.equal(flowForLevel(3), 166);
+  assert.equal(flowForLevel(5), 245); assert.equal(flowForLevel(7), 324); assert.equal(flowForLevel(9), 417); assert.equal(flowForLevel(10), 463);
+  assert.equal(flowForLevel(0), 0); assert.equal(flowForLevel(null), null);
+  // Tootja ametlik kõver (Airobot S2 airflow & acoustics): MIN 90, 30% 166, 70% 324, 100% 463 m³/h.
+  // Seade annab õhuvoolu registris staatilist 100, seega kasutame tasemepõhist hinnangut.
 });
 
 test('Modbus exception and refused connection become readable errors', async () => {

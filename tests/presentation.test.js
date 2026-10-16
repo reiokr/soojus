@@ -109,7 +109,7 @@ test('temperature colours are ordered from cold to hot',()=>{
   assert.ok(scalePosition(15) === 0 && scalePosition(65) === 1 && scalePosition(40) === .5);
 });
 
-import { co2Quality, filterInfo, ventilationSentence, climate, daysWithMonths } from '../src/ventilation-logic.js';
+import { co2Quality, filterInfo, ventilationSentence, climate, daysWithMonths, bypassOpen } from '../src/ventilation-logic.js';
 test('air quality bands, filter usage and the ventilation sentence',()=>{
   assert.equal(co2Quality(520).key,'good'); assert.equal(co2Quality(900).key,'ok'); assert.equal(co2Quality(1200).key,'high'); assert.equal(co2Quality(1800).key,'bad'); assert.equal(co2Quality(NaN).key,'unknown');
   const f = filterInfo(6462,8760); assert.equal(f.percent,74); assert.equal(f.leftDays,96); assert.equal(filterInfo(9000,8760).percent,100); assert.equal(filterInfo(1,0),null);
@@ -124,6 +124,17 @@ test('outdoor temperature comes from the heat pump and indoor temperature from t
   assert.deepEqual(climate(undefined,null),{ outdoor:null, outdoorSource:null, indoor:null });
   assert.equal(climate('',{ data:{ temperatures:{ outside:null, extract:null } } }).indoor,null);
 });
+test('the bypass damper position is derived from the documented opening rule and heat recovery',()=>{
+  const v = o => ({ switches:{ bypass:true }, temperatures:{ outside:16, extract:24 }, fans:{ supplyRpm:1200 }, heatRecovery:5, ...o });
+  assert.equal(bypassOpen(v({})), true);                                  // >13 °C, jahedam kui tuba, soojustagastus puudub → avatud
+  assert.equal(bypassOpen(v({ heatRecovery:80 })), false);                // soojustagastus toimib → suletud
+  assert.equal(bypassOpen(v({ switches:{ bypass:false } })), false);      // automaatika väljas → alati suletud
+  assert.equal(bypassOpen(v({ temperatures:{ outside:10, extract:24 } })), false); // liiga külm väljas → suletud
+  assert.equal(bypassOpen(v({ temperatures:{ outside:26, extract:24 } })), false); // väljas soojem kui toas → suletud
+  assert.equal(bypassOpen(v({ fans:{ supplyRpm:0 } })), null);            // seade seisab → asend teadmata
+  assert.equal(bypassOpen(v({ temperatures:{ outside:null, extract:24 } })), null);
+});
+
 test('filter intervals are shown as days with months in brackets',()=>{
   assert.equal(daysWithMonths(8760),'365 päeva (12 kuud)');
   assert.equal(daysWithMonths(720),'30 päeva (1 kuu)');

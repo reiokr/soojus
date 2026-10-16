@@ -79,6 +79,23 @@ export class ModbusTcp {
 const s16 = v => v >= 0x8000 ? v - 0x10000 : v;
 const u32 = (regs, i) => regs[i + 1] * 65536 + regs[i];
 
+// Õhuvoolu hinnang. Airobot edastab reaalse õhuvoolu (registrid 1051/1052) üksnes konstantse
+// õhuvooluga ("constant-flow") mudelitel; antud S2-l jääb register staatiliseks (100 m³/h), seega
+// tuletame õhuvoolu ventilaatori tasemest tootja ametliku kõvera järgi (Airobot S2 airflow &
+// acoustics datasheet): MIN 90 m³/h, 30% 166, 70% 324, 100% 463. Tase 1 = MIN, tase 3 = 30%,
+// tase 7 = 70%, tase 10 = 100%; vahepealsed tasemed on lineaarselt interpoleeritud.
+export const S2_FLOW_CURVE = [[0, 0], [1, 90], [3, 166], [7, 324], [10, 463]];
+export function flowForLevel(level) {
+  if (level == null || level === '') return null;
+  const l = Number(level);
+  if (!Number.isFinite(l) || l <= 0) return 0;
+  for (let i = 1; i < S2_FLOW_CURVE.length; i++) {
+    const [x0, y0] = S2_FLOW_CURVE[i - 1], [x1, y1] = S2_FLOW_CURVE[i];
+    if (l <= x1) return Math.round(y0 + (y1 - y0) * (l - x0) / (x1 - x0));
+  }
+  return S2_FLOW_CURVE.at(-1)[1];
+}
+
 export const MODES = { 1: 'Automaatne', 2: 'Manuaalne' };
 export const MODE_TEXT = { auto: 'Automaatne', manual: 'Manuaalne', boost: 'Õhutus', overpressure: 'Ülerõhk' };
 
@@ -116,8 +133,8 @@ export const AIROBOT_POINTS = [
   ['pm25', 'PM2,5', 'µg/m³', d => d.pm25],
   ['supply_rpm', 'Sissepuhke ventilaator', 'p/min', d => d.fans.supplyRpm],
   ['extract_rpm', 'Väljatõmbe ventilaator', 'p/min', d => d.fans.extractRpm],
-  ['supply_flow', 'Sissepuhke õhuvool', 'm³/h', d => d.airflow.supply],
-  ['extract_flow', 'Väljatõmbe õhuvool', 'm³/h', d => d.airflow.extract],
+  ['supply_flow', 'Sissepuhke õhuvool (hinnang)', 'm³/h', d => d.airflow.supply],
+  ['extract_flow', 'Väljatõmbe õhuvool (hinnang)', 'm³/h', d => d.airflow.extract],
   ['heat_recovery', 'Soojustagastus', '%', d => d.heatRecovery]
 ];
 
@@ -140,14 +157,16 @@ export async function readAirobot(options) {
     const optional = async fn => { try { return await fn(); } catch { return null; } };
     const c3 = await optional(() => modbus.readCoils(4027, 1)), c4 = await optional(() => modbus.readCoils(4030, 7));
     const v1 = await optional(() => modbus.readRegisters('holding', 2034, 1)), p1 = await optional(() => modbus.readRegisters('holding', 2064, 1));
+    // Anduri sentinelid: temp 32767 ja niiskus -1 tähendavad "puudub"; CO₂ (>5000) ja VOC (>500)
+    // väljaspool spetsifikatsiooni vahemikku on samuti vigased ja ei tohi ajalukku sattuda.
     const t = i => s16(s1[i]) === 32767 ? null : s16(s1[i]) / 10, h = i => s16(s1[i]) === -1 ? null : s16(s1[i]) / 10;
     return {
       firmware: s1[0],
       temperatures: { extract: t(1), supply: t(2), outside: t(3), exhaust: t(4), extra: t(5) },
       humidity: { extract: h(6), supply: h(7), outside: h(8), exhaust: h(9), extra: h(10) },
-      co2: s1[11], voc: s3[3], pm25: s4[0],
+      co2: s1[11] > 5000 ? null : s1[11], voc: s3[3] > 500 ? null : s3[3], pm25: s4[0],
       fans: { supplyLevel: s2[0], extractLevel: s2[1], supplyRpm: s2[2], extractRpm: s2[3] },
-      airflow: { supply: s5[0], extract: s5[1] },
+      airflow: { supply: flowForLevel(s2[0]), extract: flowForLevel(s2[1]), raw: { supply: s5[0], extract: s5[1] } },
       heatRecovery: s4[3], uptimeHours: u32(s2, 4) / 3600000, errorFlags: u32(s3, 0), serverConnected: Boolean(s3[2]),
       settings: { mode: r1[0], humiditySetpoint: r2[0] / 10, co2Setpoint: r2[1], manualFanLevel: r2[2], overpressureFanLevel: r2[4], boostTimeout: u32(r3, 1), overpressureTimeout: u32(r3, 3), filterInterval: r4[2], filterElapsed: r4[3], vocSetpoint: v1?.[0] ?? null, pmSetpoint: p1?.[0] ?? null },
       switches: { power: c1[0], bypass: c1[3], boost: c1[4], overpressure: c1[5], filterAlert: c2[0], humidityControl: c3?.[0] ?? null, vocControl: c4?.[0] ?? null, pmControl: c4?.[1] ?? null }
