@@ -4,7 +4,7 @@ import { number, time } from '../../lib.js';
 import { greeting, pumpState } from '../logic.js';
 import { LiveScene, season, HOTSPOTS, W, VIEW } from './scene.js';
 import { buildLiveState, liveSummary, DEMOS } from './state.js';
-import { moonName, moonPhase, sunTimes } from './sky.js';
+import { darkness, moonName, moonPhase, sunPosition, sunTimes } from './sky.js';
 import { WEATHER_DEMOS } from '../../weather-logic.js';
 import WeatherPanel from './WeatherPanel.jsx';
 import ForecastRail from './ForecastRail.jsx';
@@ -34,12 +34,34 @@ export default function LiveHome({ ctx, embedded = false }) {
     scene.onLightning = () => getAmbience().playLightning();
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     scene.reduced = Boolean(reduce?.matches);
-    const fit = () => { const r = viewRef.current.getBoundingClientRect(); setSize({ w: r.width, h: r.height }); scene.resize(r.width, r.height, Math.min(2, window.devicePixelRatio || 1)); if (scene.reduced || !scene.running) scene.frame(performance.now()); };
+    const fit = () => { const r = viewRef.current.getBoundingClientRect(); setSize({ w: r.width, h: r.height }); scene.resize(r.width, r.height, Math.min(1.5, window.devicePixelRatio || 1)); if (scene.reduced || !scene.running) scene.frame(performance.now()); };
+    // Kaadrisagedus sõltub tähelepanust: aktiivselt vaadates 24 fps, 15 s tegevusetuse järel 8 fps,
+    // 90 s järel 2 fps (vaade jääb elama, aga ei köeta). Akna taustal samuti 2 fps.
+    const ACTIVE = 24, IDLE = 8, SLEEP = 2;
+    let level = 0, idleTimer = 0, sleepTimer = 0;
+    const apply = () => scene.setFps(!document.hasFocus() ? SLEEP : level === 2 ? SLEEP : level === 1 ? IDLE : ACTIVE);
+    const rest = () => {
+      clearTimeout(idleTimer); clearTimeout(sleepTimer);
+      idleTimer = setTimeout(() => { level = 1; apply(); }, 15000);
+      sleepTimer = setTimeout(() => { level = 2; apply(); }, 90000);
+    };
+    const wake = () => { if (level) { level = 0; apply(); } rest(); };
+    apply(); rest();
+    const active = ['pointermove', 'pointerdown', 'keydown', 'wheel', 'scroll', 'touchstart'];
+    for (const ev of active) window.addEventListener(ev, wake, { passive: true });
+    const onFocus = () => apply();
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onFocus);
     const ro = new ResizeObserver(fit); ro.observe(viewRef.current); fit();
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) scene.start(); else scene.stop(); }, { threshold: 0.05 }); io.observe(viewRef.current);
     const onMotion = () => { scene.reduced = Boolean(reduce.matches); };
     reduce?.addEventListener?.('change', onMotion);
-    return () => { ro.disconnect(); io.disconnect(); reduce?.removeEventListener?.('change', onMotion); scene.destroy(); };
+    return () => {
+      ro.disconnect(); io.disconnect(); clearTimeout(idleTimer); clearTimeout(sleepTimer);
+      for (const ev of active) window.removeEventListener(ev, wake);
+      window.removeEventListener('focus', onFocus); window.removeEventListener('blur', onFocus);
+      reduce?.removeEventListener?.('change', onMotion); scene.destroy();
+    };
   }, []);
   useEffect(() => { sceneRef.current?.setHover(hot); }, [hot]);
   // Täisekraanil hotspot-nupud eemaldatakse, mistõttu hiirest lahkumise sündmust ei tule: ilma selleta jääks viimane esiletõst (nt maakontuur) kinni.
@@ -64,6 +86,8 @@ export default function LiveHome({ ctx, embedded = false }) {
 
   const sun = useMemo(() => sunTimes(live.time, live.place), [live.time.toDateString(), live.place.lat, live.place.lon]);
   const phase = moonPhase(live.time), seasonKey = season(live.time).key;
+  // Vinjett on CSS-kihis (compositor joonistab selle GPU-l), mitte canvas'es – see oli üks suuremaid kaadrikulusid.
+  const dark = useMemo(() => darkness(sunPosition(live.time, live.place).elevation), [live.time, live.place.lat, live.place.lon]);
   const w = live.weather, days = forecast?.days ?? [];
   const summary = `${liveSummary(live)}${w ? `, ilm: ${w.label}` : ''}${live.demo ? ' (demo)' : ''}`;
   const t = v => v == null ? '—' : `${number(v, 1)} °C`;
@@ -84,6 +108,7 @@ export default function LiveHome({ ctx, embedded = false }) {
     <div className="live-stage" ref={stageRef}>
       <div className="live-view" ref={viewRef}>
       <canvas ref={canvasRef} role="img" aria-label={`Elav kodu: ${summary}. Toas ${t(live.indoor)}, väljas ${t(live.outdoor)}, tarbevesi ${t(live.water)}.`}/>
+      <div className="live-vignette" aria-hidden="true" style={{ '--vig': (0.28 + dark * 0.3).toFixed(3) }}/>
       {fitScale > 0 && !full && <div className="live-hotspots">{targets.map(([id, h]) => {
         const flip = id === 'boiler';
         return <button key={id} type="button" className={`live-hot ${hot === id ? 'hot' : ''} ${flip ? 'flip' : ''}`} style={{ left: `${(offX + h.x * fitScale) / size.w * 100}%`, top: `${(offY + h.y * fitScale) / size.h * 100}%`, width: `${h.w * fitScale / size.w * 100}%`, height: `${h.h * fitScale / size.h * 100}%`, borderRadius: `${h.r * fitScale / zoomFactor}px`, '--hot': h.color }}

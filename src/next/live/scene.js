@@ -19,6 +19,10 @@ const LIVING_X = 502;
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, k) => a + (b - a) * k;
 const smooth = k => k * k * (3 - 2 * k);
+// Jõudlus: stseen on aeglane ambient-maal, seega 24 kaadrit sekundis on visuaalselt piisav
+// (60/120/144 Hz ekraanil tähendaks see lihtsalt 2–6× rohkem joonistamist) ja tagapuhver
+// on piiratud pindalaga, et 4K täisekraanil ei tekiks kümnete megapikslite lõuendit.
+const TARGET_FPS = 24, MAX_PIXELS = 4e6;
 
 function mulberry32(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const hexRgb = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
@@ -32,6 +36,9 @@ function rgba(hex, a = 1) {
 const rgbToHex = (r, g, b) => '#' + [r, g, b].map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join('');
 const cssToHex = css => { const m = /rgb\((\d+),(\d+),(\d+)\)/.exec(css); return m ? rgbToHex(+m[1], +m[2], +m[3]) : '#888888'; };
 const heatHex = t => cssToHex(tempColor(t));
+// Vahemälu võti: värvid ümardatakse astmele, et aeglaselt muutuv taevas ei sunniks tausta
+// igal kaadril uuesti joonistama (muutus 4/255 on silmale nähtamatu).
+const qHex = (hex, step = 4) => '#' + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) / step) * step).toString(16).padStart(2, '0')).join('');
 
 function rr(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -152,6 +159,8 @@ export class LiveScene {
   constructor(canvas) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.w = 800; this.h = 450; this.dpr = 1;
     this.state = null; this.t = 0; this.last = 0; this.raf = 0; this.running = false; this.reduced = false; this.frameMs = 0;
+    this.nextFrame = 0; this.frameBudget = 1000 / TARGET_FPS; this.bgKey = ''; this.forestKey = ''; this.cloudKey = ''; this.houseKey = ''; this.cloudAcc = 0; this.forestLayers = null;
+    this.sprites = new Map();
     const rng = this.rng = mulberry32(20260930);
     this.cat = new CatBrain();
     this.loadCat();
@@ -209,11 +218,61 @@ export class LiveScene {
   }
 
   resize(cssW, cssH, dpr) {
-    this.w = Math.max(200, cssW); this.h = Math.max(120, cssH); this.dpr = dpr;
-    this.canvas.width = Math.round(this.w * dpr); this.canvas.height = Math.round(this.h * dpr);
+    this.w = Math.max(200, cssW); this.h = Math.max(120, cssH);
+    // Piirang: 4K täisekraanil (3840×2160) ja 2× DPR-iga tekiks 33 MP lõuend, mida täidetakse
+    // kaadris mitu korda. Maalilise stseeni jaoks piisab ~4 MP tagapuhvrist.
+    this.dpr = Math.max(0.6, Math.min(dpr, Math.sqrt(MAX_PIXELS / (this.w * this.h))));
+    this.canvas.width = Math.round(this.w * this.dpr); this.canvas.height = Math.round(this.h * this.dpr);
+    this.bgKey = ''; this.forestKey = ''; this.cloudKey = ''; this.houseKey = '';
   }
 
-  start() { if (this.running) return; if (this.reduced) { this.frame(performance.now()); return; } this.running = true; this.last = performance.now(); const loop = now => { if (!this.running) return; this.raf = requestAnimationFrame(loop); this.frame(now); }; this.raf = requestAnimationFrame(loop); }
+  // Taustavahemälu jaoks eraldi lõuend (Node'is/testides ownerDocument puudub → joonistame otse).
+  cacheCanvas() {
+    const doc = this.canvas?.ownerDocument;
+    return doc?.createElement ? doc.createElement('canvas') : null;
+  }
+
+  // Osakeste hõõgus: varem tekkis igal kaadril sadu uusi radialGradiente (igaüks kallis objekt).
+  // Nüüd joonistame iga värvi kohta ühe 64×64 sprite'i ja kopeerime seda; läbipaistvuse annab globalAlpha.
+  glowSprite(color) {
+    const key = qHex(color, 8);
+    let sp = this.sprites.get(key);
+    if (!sp) {
+      const doc = this.canvas?.ownerDocument;
+      if (!doc?.createElement) return null;
+      const S = 64, cv = doc.createElement('canvas'); cv.width = S; cv.height = S;
+      const cx = cv.getContext('2d'), g = cx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+      g.addColorStop(0, rgba(key, 1)); g.addColorStop(0.4, rgba(key, 0.5)); g.addColorStop(1, rgba(key, 0));
+      cx.fillStyle = g; cx.fillRect(0, 0, S, S);
+      if (this.sprites.size > 400) this.sprites.clear();
+      sp = cv; this.sprites.set(key, cv);
+    }
+    return sp;
+  }
+
+  glow(ctx, color, x, y, r, alpha) {
+    if (!(alpha > 0.004) || !(r > 0.2)) return;
+    const sp = this.glowSprite(color); if (!sp) return;
+    ctx.globalAlpha = Math.min(1, alpha);
+    ctx.drawImage(sp, x - r, y - r, r * 2, r * 2);
+    ctx.globalAlpha = 1;
+  }
+
+  start() {
+    if (this.running) return;
+    if (this.reduced) { this.frame(performance.now()); return; }
+    this.running = true; this.last = performance.now(); this.nextFrame = 0;
+    const loop = now => {
+      if (!this.running) return;
+      this.raf = requestAnimationFrame(loop);
+      if (now < this.nextFrame) return;
+      this.nextFrame = now + this.frameBudget;
+      this.frame(now);
+    };
+    this.raf = requestAnimationFrame(loop);
+  }
+  // Kaadrisagedus: LiveHome reguleerib selle 24 / 8 / 4 fps sõltuvalt sellest, kas kasutaja vaatab lehte.
+  setFps(fps) { this.frameBudget = 1000 / Math.max(1, fps); }
   stop() { this.running = false; cancelAnimationFrame(this.raf); }
   destroy() { this.stop(); this.saveCat(); }
 
@@ -247,7 +306,7 @@ export class LiveScene {
 
   frame(now) {
     if (!this.state) return;
-    const t0 = performance.now(), dt = this.reduced ? 0 : clamp((now - this.last) / 1000, 0, 0.05);
+    const t0 = performance.now(), dt = this.reduced ? 0 : clamp((now - this.last) / 1000, 0, 0.13);
     this.last = now; this.t += dt;
     this.ease(dt || 0.016);
     const ctx = this.ctx, s = this.state;
@@ -284,13 +343,31 @@ export class LiveScene {
     this.drawPrecip(ctx, env, dt);
     this.drawFog(ctx, env, dt);
     ctx.restore();
-    this.drawFlash(ctx, env);
-    this.drawVignette(ctx, env);
+    this.drawFlash(ctx, env, dt);
     this.frameMs = lerp(this.frameMs, performance.now() - t0, 0.05);
   }
 
   // ---- taust (ekraaniruumis, ulatub üle stseeni serva)
-  drawBackdrop(ctx, { sky, ground, scale, oy, dark }) {
+  // Taevas ja maa on sujuvad gradientid, mis muutuvad ainult valguse/ilma tõttu. Hoiame need
+  // eraldi lõuendil ja teeme kaadris ainult odava kopeerimise (drawImage), mitte kahte suurt
+  // gradienttäitmist. Uuesti joonistame siis, kui toonid on märgatavalt muutunud (vm paar sekundit).
+  drawBackdrop(ctx, env) {
+    const bg = this.bgCanvas ??= this.cacheCanvas();
+    const bctx = bg?.getContext?.('2d');
+    if (!bctx) return this.paintBackdrop(ctx, env);
+    const { sky, ground, dark } = env;
+    const key = `${qHex(sky.top)}|${qHex(sky.mid)}|${qHex(sky.horizon)}|${qHex(ground.top)}|${qHex(ground.bottom)}|${dark.toFixed(2)}|${this.w}|${this.h}|${this.dpr}`;
+    if (key !== this.bgKey) {
+      const bw = Math.round(this.w * this.dpr), bh = Math.round(this.h * this.dpr);
+      if (bg.width !== bw || bg.height !== bh) { bg.width = bw; bg.height = bh; }
+      bctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.paintBackdrop(bctx, env);
+      this.bgKey = key;
+    }
+    ctx.drawImage(bg, 0, 0, this.w, this.h);
+  }
+
+  paintBackdrop(ctx, { sky, ground, scale, oy, dark }) {
     const horizon = oy + GROUND * scale, g = ctx.createLinearGradient(0, 0, 0, horizon);
     g.addColorStop(0, sky.top); g.addColorStop(0.55, sky.mid); g.addColorStop(1, sky.horizon);
     ctx.fillStyle = g; ctx.fillRect(0, 0, this.w, horizon + 2);
@@ -308,10 +385,18 @@ export class LiveScene {
     // tähed
     if (dark > 0.02) {
       ctx.save();
+      // 240 üksiktäitmise asemel 5 alfagruppi: täpid on nii väikesed, et astmeline hämarus ei paista.
+      const buckets = new Map();
       for (const st of this.stars) {
         const fade = clamp((GROUND - 40 - st.y) / 260) * (1 - this.a.cloud * 0.92), tw = 0.55 + 0.45 * Math.sin(this.t * st.s + st.p);
-        ctx.fillStyle = `rgba(255,250,235,${(Math.pow(dark, 1.4) * tw * fade).toFixed(3)})`;
-        ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, TAU); ctx.fill();
+        const q = Math.round(Math.pow(dark, 1.4) * tw * fade * 5); if (q <= 0) continue;
+        let list = buckets.get(q); if (!list) buckets.set(q, list = []);
+        list.push(st);
+      }
+      for (const [q, list] of buckets) {
+        ctx.fillStyle = `rgba(255,250,235,${(q / 5).toFixed(3)})`; ctx.beginPath();
+        for (const st of list) { ctx.moveTo(st.x + st.r, st.y); ctx.arc(st.x, st.y, st.r, 0, TAU); }
+        ctx.fill();
       }
       const sh = this.shoot;
       if (!this.reduced && dark > 0.7) {
@@ -353,45 +438,94 @@ export class LiveScene {
     ctx.restore();
   }
 
-  drawClouds(ctx, { sky, dark }, dt) {
+  drawClouds(ctx, { sky, dark, scale }, dt) {
     const a = this.a, total = this.clouds.length, dim = clamp(a.rain * 0.7 + a.storm * 0.5 + a.snow * 0.3);
     const tone = mix(mix(mix(sky.horizon, '#ffffff', 0.7), '#2a3556', dark * 0.85), mix('#707a8c', '#1f2533', dark), dim), shade = mix(tone, sky.mid, 0.4);
+    // Pilved liiguvad aeglaselt, aga 91 suurt läbipaistvat gradienttäitmist kaadris oli kalleim üksikosa.
+    // Joonistame pilvekihi (koos pilvekattega) pooleldi resolutsiooniga eraldi lõuendile ~10 korda sekundis.
+    // Liikumine on nii aeglane, et see ei paista; kaader aga teeb ainult ühe kopeerimise.
+    const X0 = -460, Y0 = -200, LW = W + 920, LH = GROUND * 0.85 + 200;
+    for (const c of this.clouds) { c.x += c.v * dt * (1 + a.wind * 5); if (c.x > W + 260) { c.x = -300; c.y = 70 + this.rng() * 260; } }
+    const cache = this.cloudCache ??= this.cacheCanvas();
+    const res = Math.min(1.5, (scale || 1) * this.dpr * 0.5);
+    this.cloudAcc = (this.cloudAcc || 0) + dt;
+    if (!cache) return this.paintClouds(ctx, { tone, shade, dark, a, total });
+    const key = `${qHex(tone)}|${qHex(shade)}|${dark.toFixed(2)}|${a.cloud.toFixed(2)}|${res.toFixed(3)}`;
+    if (key !== this.cloudKey || this.cloudAcc > 0.1) {
+      const cw = Math.ceil(LW * res), ch = Math.ceil(LH * res);
+      if (cache.width !== cw || cache.height !== ch) { cache.width = cw; cache.height = ch; }
+      const cx = cache.getContext('2d');
+      cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, cw, ch);
+      cx.setTransform(res, 0, 0, res, -X0 * res, -Y0 * res);
+      this.paintClouds(cx, { tone, shade, dark, a, total });
+      this.cloudKey = key; this.cloudAcc = 0;
+    }
+    ctx.drawImage(cache, X0, Y0, LW, LH);
+  }
+
+  paintClouds(ctx, { tone, shade, dark, a, total }) {
     // päris pilvekiht katab taeva, kui on pilves
     const over = clamp((a.cloud - 0.45) / 0.45);
     if (over > 0.01) { const g = ctx.createLinearGradient(0, -100, 0, GROUND * 0.85); g.addColorStop(0, rgba(tone, 0.92 * over)); g.addColorStop(0.7, rgba(shade, 0.55 * over)); g.addColorStop(1, rgba(shade, 0)); ctx.fillStyle = g; ctx.fillRect(-400, -200, W + 800, GROUND * 0.85 + 200); }
     this.clouds.forEach((c, idx) => {
-      c.x += c.v * dt * (1 + a.wind * 5); if (c.x > W + 260) { c.x = -300; c.y = 70 + this.rng() * 260; }
       const present = clamp((a.cloud * 1.15 - (idx / total) * 0.95) / 0.22);
       if (present <= 0.01) return;
       const r = mulberry32(c.seed * 97 + 5), blobs = 7, size = 1 + a.cloud * 0.6;
       for (let i = 0; i < blobs; i++) {
         const bx = c.x + (i - 3) * 38 * c.s * size + (r() - 0.5) * 18, by = c.y + (r() - 0.5) * 16 * c.s, br = (34 + r() * 26) * c.s * size;
-        const g = ctx.createRadialGradient(bx, by - br * 0.25, br * 0.15, bx, by, br);
-        g.addColorStop(0, rgba(tone, (0.55 - dark * 0.22) * present)); g.addColorStop(1, rgba(shade, 0));
-        ctx.fillStyle = g; ctx.fillRect(bx - br, by - br, br * 2, br * 2);
+        this.glow(ctx, tone, bx, by, br, (0.55 - dark * 0.22) * present);
       }
     });
   }
 
   // ---- taustamets: kuused ja mõned männid, kaugemad kihid uduvinelised; öösel tumenevad, lumega saavad valged latvad, tuul kallutab lähimat kihti
-  drawForest(ctx, { sky, ground, dark, snowLvl }) {
+  // Kolm suurt Path2D-d olid kaadri kalleim osa, kuigi nende värvid muutuvad ainult valguse/lumega.
+  // Seepärast joonistame kihid eraldi lõuenditele ja kaadris ainult kopeerime need (koos tuulekallutusega).
+  drawForest(ctx, { sky, ground, dark, snowLvl, scale }) {
     const haze = [0.62, 0.4, 0.17], night = [0.55, 0.7, 0.82], day = ['#46705f', '#32604b', '#214a38'];
     const cover = clamp(Math.max(this.a.snowCover, this.a.drift * 0.6)), snowTop = mix('#eef4fa', '#3a4660', dark * 0.75), snowA = clamp(snowLvl * 1.8);
-    this.forest.forEach((f, l) => {
+    const colors = this.forest.map((f, l) => {
       const base = mix(mix(day[l], sky.horizon, haze[l]), '#0a1222', dark * night[l]);
       const top = mix(base, snowTop, cover * (0.38 + l * 0.08));
-      const g = ctx.createLinearGradient(0, -f.h, 0, 0); g.addColorStop(0, top); g.addColorStop(0.5, mix(top, base, 0.6)); g.addColorStop(1, base);
+      return { base, top, trunk: mix(mix('#7a4d32', base, 0.45), '#0a1222', dark * 0.3), crown: mix(mix(base, '#6a8f4c', 0.16 * (1 - dark)), top, cover * 0.2), snow: mix(snowTop, sky.horizon, haze[l] * 0.45), snowAlpha: snowA * (0.8 + l * 0.1) };
+    });
+    const cache = this.forestCache ??= this.cacheCanvas();
+    const res = Math.min(2, (scale || 1) * this.dpr * 0.75);
+    const key = cache && `${qHex(snowTop)}|${qHex(sky.horizon)}|${dark.toFixed(2)}|${cover.toFixed(2)}|${snowA.toFixed(2)}|${res.toFixed(3)}`;
+    if (cache && key !== this.forestKey) {
+      this.forestLayers = this.forest.map((f, l) => {
+        const fx0 = -440, fw = 2480, fy0 = -f.h - 6, fh = f.h + 12;
+        const cv = this.forestLayers?.[l]?.cv ?? this.cacheCanvas();
+        const bw = Math.ceil(fw * res), bh = Math.ceil(fh * res);
+        if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+        const cx = cv.getContext('2d');
+        cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, bw, bh);
+        cx.setTransform(res, 0, 0, res, -fx0 * res, -fy0 * res);
+        this.paintForestLayer(cx, f, colors[l]);
+        return { cv, fx0, fy0, fw, fh };
+      });
+      this.forestKey = key;
+    }
+    this.forest.forEach((f, l) => {
       const sway = this.reduced ? 0 : Math.sin(this.t * (0.5 + l * 0.12) + l * 2) * 0.0045 * (0.3 + this.a.wind * 3) * l;
+      const L = this.forestLayers?.[l];
       ctx.save(); ctx.translate(0, GROUND + 4); ctx.transform(1, 0, -sway, 1, 0, 0);
-      ctx.fillStyle = mix(mix('#7a4d32', base, 0.45), '#0a1222', dark * 0.3); ctx.fill(f.trunk);
-      ctx.fillStyle = g; ctx.fill(f.spruce);
-      ctx.fillStyle = mix(mix(base, '#6a8f4c', 0.16 * (1 - dark)), top, cover * 0.2); ctx.fill(f.crown);
-      if (snowA > 0.03) { ctx.globalAlpha = snowA * (0.8 + l * 0.1); ctx.fillStyle = mix(snowTop, sky.horizon, haze[l] * 0.45); ctx.fill(f.snow); ctx.globalAlpha = 1; }
+      if (L) ctx.drawImage(L.cv, L.fx0, L.fy0, L.fw, L.fh);
+      else this.paintForestLayer(ctx, f, colors[l]);
       ctx.restore();
     });
     const g = ctx.createLinearGradient(0, GROUND - 6, 0, GROUND + 4), edge = mix(mix(ground.top, sky.horizon, 0.2), '#070d16', dark * 0.55);
     g.addColorStop(0, rgba(edge, 0)); g.addColorStop(1, rgba(edge, 1));
     ctx.fillStyle = g; ctx.fillRect(-400, GROUND - 6, W + 800, 12);
+  }
+
+  paintForestLayer(ctx, f, c) {
+    const g = ctx.createLinearGradient(0, -f.h, 0, 0);
+    g.addColorStop(0, c.top); g.addColorStop(0.5, mix(c.top, c.base, 0.6)); g.addColorStop(1, c.base);
+    ctx.fillStyle = c.trunk; ctx.fill(f.trunk);
+    ctx.fillStyle = g; ctx.fill(f.spruce);
+    ctx.fillStyle = c.crown; ctx.fill(f.crown);
+    if (c.snowAlpha > 0.03) { ctx.globalAlpha = c.snowAlpha; ctx.fillStyle = c.snow; ctx.fill(f.snow); ctx.globalAlpha = 1; }
   }
 
   drawTree(ctx, { season, dark, sky, ground, snowLvl }, dt) {
@@ -473,8 +607,43 @@ export class LiveScene {
   }
 
   // ---- maja
+  // Maja alumine pool (vari, pööning, toad, põrand, vaheseinad) on staatiline – see sõltub ainult
+  // valgusest. Hoiame selle eraldi lõuendil ja kopeerime kaadris; uuesti joonistame vaid tooni muutudes.
   drawHouse(ctx, env, dt) {
-    const { dark, glow, sky } = env, a = this.a, s = this.state;
+    const { dark } = env, a = this.a, s = this.state;
+    const { L, R, TOP, FLOOR } = HOUSE_SHELL;
+    const cache = this.houseCache ??= this.cacheCanvas();
+    if (!cache) this.paintHouseBase(ctx, dark);
+    else {
+      const res = Math.min(2, (env.scale || 1) * this.dpr), X0 = 180, Y0 = 200, HW = 1250, HH = 615;
+      const key = `${dark.toFixed(2)}|${res.toFixed(3)}`;
+      if (key !== this.houseKey) {
+        const bw = Math.ceil(HW * res), bh = Math.ceil(HH * res);
+        if (cache.width !== bw || cache.height !== bh) { cache.width = bw; cache.height = bh; }
+        const cx = cache.getContext('2d');
+        cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, bw, bh);
+        cx.setTransform(res, 0, 0, res, -X0 * res, -Y0 * res);
+        this.paintHouseBase(cx, dark);
+        this.houseKey = key;
+      }
+      ctx.drawImage(cache, X0, Y0, HW, HH);
+    }
+    this.drawWindows(ctx, env);
+    this.drawAtticVent(ctx, env, dt);
+    this.drawPipes(ctx, env, dt);
+    this.drawPump(ctx, env, dt);
+    this.drawBuffer(ctx, env);
+    this.drawFurniture(ctx, env);
+    this.drawLiving(ctx, env, dt);
+    this.drawBath(ctx, env, dt);
+    this.drawRoomAir(ctx, env, dt);
+    // seinad ja katus
+    ctx.fillStyle = mix('#3a4454', '#0c0f1a', dark * 0.5);
+    ctx.fillRect(L - 10, TOP, 14, FLOOR - TOP); ctx.fillRect(R - 4, TOP, 14, FLOOR - TOP); ctx.fillRect(L - 10, TOP - 6, R - L + 20, 12);
+    this.drawRoof(ctx, env);
+  }
+
+  paintHouseBase(ctx, dark) {
     const { L, R, TOP, FLOOR } = HOUSE_SHELL;
     // vari maja all
     const sh = ctx.createRadialGradient(810, GROUND + 26, 40, 810, GROUND + 26, 560);
@@ -491,7 +660,7 @@ export class LiveScene {
     // põrand ja vundament
     ctx.fillStyle = mix('#c8bfae', '#2a2935', dark * 0.65); ctx.fillRect(L - 30, FLOOR, R - L + 60, 46);
     ctx.fillStyle = mix('#a99f8e', '#1f1e29', dark * 0.65); ctx.fillRect(L - 30, FLOOR + 46, R - L + 60, 6);
-    ctx.strokeStyle = rgba('#2b3542', 0.35); ctx.lineWidth = 1.2; for (let x = L - 20; x < R + 30; x += 14) { ctx.beginPath(); ctx.moveTo(x, FLOOR + 46); ctx.lineTo(x + 14, FLOOR); ctx.stroke(); }
+    ctx.strokeStyle = rgba('#2b3542', 0.35); ctx.lineWidth = 1.2; ctx.beginPath(); for (let x = L - 20; x < R + 30; x += 14) { ctx.moveTo(x, FLOOR + 46); ctx.lineTo(x + 14, FLOOR); } ctx.stroke();
     // vaheseinad: korralik paksus (12 px, välisseinast veidi õhemad ja heledamad), servadel tumedam joon; torud ja seadmed jäävad nende ette
     for (const px of [LIVING_X, 1040]) {
       const w = 12, g = ctx.createLinearGradient(px - w / 2, 0, px + w / 2, 0);
@@ -501,19 +670,6 @@ export class LiveScene {
       ctx.fillStyle = rgba('#000000', 0.1 + dark * 0.08); ctx.fillRect(px + w / 2 + 1, TOP, 8, FLOOR - TOP);
       ctx.fillStyle = mix('#59636f', '#14171f', dark * 0.5); ctx.fillRect(px - w / 2 - 2, FLOOR - 7, w + 4, 7);
     }
-    this.drawWindows(ctx, env);
-    this.drawAtticVent(ctx, env, dt);
-    this.drawPipes(ctx, env, dt);
-    this.drawPump(ctx, env, dt);
-    this.drawBuffer(ctx, env);
-    this.drawFurniture(ctx, env);
-    this.drawLiving(ctx, env, dt);
-    this.drawBath(ctx, env, dt);
-    this.drawRoomAir(ctx, env, dt);
-    // seinad ja katus
-    ctx.fillStyle = mix('#3a4454', '#0c0f1a', dark * 0.5);
-    ctx.fillRect(L - 10, TOP, 14, FLOOR - TOP); ctx.fillRect(R - 4, TOP, 14, FLOOR - TOP); ctx.fillRect(L - 10, TOP - 6, R - L + 20, 12);
-    this.drawRoof(ctx, env);
   }
 
   drawRoof(ctx, { dark, snowLvl }) {
@@ -724,8 +880,7 @@ export class LiveScene {
         const u = (flow.off[i] + flow.phase) % 1; pointAt(flow.path, u, p);
         const c = colorFn(u), tw = 0.6 + 0.4 * Math.sin(this.t * 4 + i * 1.7);
         const r = flow.size * sizeMul * (0.8 + 0.5 * a.air);
-        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3.6); g.addColorStop(0, rgba(c, 0.85 * tw)); g.addColorStop(1, rgba(c, 0));
-        ctx.fillStyle = g; ctx.fillRect(p.x - r * 3.6, p.y - r * 3.6, r * 7.2, r * 7.2);
+        this.glow(ctx, c, p.x, p.y, r * 3.6, 0.85 * tw);
       }
     };
     const sv = PATHS.airSupply.vu, ex = PATHS.airExtract.vu;
@@ -736,8 +891,7 @@ export class LiveScene {
       e.u = (e.u + dt * 0.12 * a.air * e.v) % 1;
       const x = 862 + Math.sin(e.u * 7 + e.o) * 10 * e.u + e.o * e.u * 0.8, y = 246 - e.u * 150, al = Math.sin(e.u * Math.PI) * 0.45 * a.air;
       const c = mix(outC, '#ffffff', 0.5), r = 5 + e.u * 18;
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, rgba(c, al)); g.addColorStop(1, rgba(c, 0));
-      ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      this.glow(ctx, c, x, y, r, al);
     }
     // diffuusor toas
     ctx.fillStyle = '#2b3542'; ctx.fillRect(862, 444, 22, 6); ctx.fillRect(788, 444, 22, 6);
@@ -754,8 +908,7 @@ export class LiveScene {
       const p = this.tmp, r = flow.size * sizeMul * (0.8 + 0.6 * level), alpha = 0.3 + 0.7 * clamp(level * 1.4 + 0.12);
       for (let i = 0; i < flow.n; i++) {
         const u = (flow.off[i] + flow.phase) % 1; pointAt(flow.path, u, p);
-        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3.2); g.addColorStop(0, rgba(color, alpha)); g.addColorStop(0.35, rgba(color, alpha * 0.55)); g.addColorStop(1, rgba(color, 0));
-        ctx.fillStyle = g; ctx.fillRect(p.x - r * 3.2, p.y - r * 3.2, r * 6.4, r * 6.4);
+        this.glow(ctx, color, p.x, p.y, r * 3.2, alpha);
       }
     };
     go(this.flows.heatSupplyA, a.heat, hotC); go(this.flows.heatSupplyB, a.heat, hotC); go(this.flows.heatReturn, a.heat, coldC);
@@ -810,7 +963,16 @@ export class LiveScene {
     ctx.lineWidth = 1.4;
     [[838, 0.16], [900, 0.2], [986, 0.26]].forEach(([y0, al], i) => { ctx.strokeStyle = rgba('#000000', al); ctx.beginPath(); for (let x = -400; x <= W + 400; x += 14) { const y = y0 + Math.sin(x * 0.012 + i * 2) * 7 + Math.sin(x * 0.05 + i) * 2; x === -400 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke(); });
     const rnd = mulberry32(5150);
-    for (let i = 0; i < 70; i++) { const x = -300 + rnd() * (W + 600), y = top + 18 + rnd() * 330, r = 2 + rnd() * 9, rock = rnd() > 0.6; ctx.fillStyle = rgba(rock ? mix('#8a7f72', '#1c1e26', night) : mix('#2a2018', '#07080c', night), rock ? 0.6 : 0.45); ctx.beginPath(); ctx.ellipse(x, y, r * 1.3, r, rnd() * 3, 0, TAU); ctx.fill(); }
+    // Kivid ja mullatükid: kaks värvi, seega kaks täitmist 70 asemel.
+    const rockC = rgba(mix('#8a7f72', '#1c1e26', night), 0.6), soilC = rgba(mix('#2a2018', '#07080c', night), 0.45);
+    const rocks = [], clods = [];
+    for (let i = 0; i < 70; i++) { const x = -300 + rnd() * (W + 600), y = top + 18 + rnd() * 330, r = 2 + rnd() * 9, rock = rnd() > 0.6; (rock ? rocks : clods).push([x, y, r * 1.3, r, rnd() * 3]); }
+    for (const [col, list] of [[rockC, rocks], [soilC, clods]]) {
+      if (!list.length) continue;
+      ctx.fillStyle = col; ctx.beginPath();
+      for (const [x, y, rx, ry, rot] of list) { ctx.moveTo(x + rx * Math.cos(rot), y + rx * Math.sin(rot)); ctx.ellipse(x, y, rx, ry, rot, 0, TAU); }
+      ctx.fill();
+    }
     // puu juured
     ctx.strokeStyle = mix('#3e2f22', '#0b0d14', night); ctx.lineCap = 'round'; ctx.lineWidth = 6;
     for (const [dx, dy, cx2] of [[-110, 120, -30], [-60, 170, -6], [90, 140, 34], [50, 190, 10]]) { ctx.beginPath(); ctx.moveTo(190, top); ctx.quadraticCurveTo(190 + cx2, top + dy * 0.45, 190 + dx, top + dy); ctx.stroke(); }
@@ -831,8 +993,7 @@ export class LiveScene {
     for (let i = 0; i < n; i++) {
       const u = (this.brine.off[i] + this.brine.phase) % 1; pointAt(GROUND_LOOP, u, p);
       const br = this.state.brine, c = br?.present ? mix(brineHex(br.out), brineHex(br.in), smooth(clamp((u - 0.1) / 0.75))) : mix('#8fd8ff', '#ffc98c', smooth(clamp((u - 0.12) / 0.72))), r = 2.7 * (0.85 + 0.3 * a.comp);
-      const pg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3.2); pg.addColorStop(0, rgba(c, alpha)); pg.addColorStop(0.4, rgba(c, alpha * 0.5)); pg.addColorStop(1, rgba(c, 0));
-      ctx.fillStyle = pg; ctx.fillRect(p.x - r * 3.2, p.y - r * 3.2, r * 6.4, r * 6.4);
+      this.glow(ctx, c, p.x, p.y, r * 3.2, alpha);
     }
     const br = this.state.brine;
     if (br?.present && !this.fullscreen) {
@@ -1063,7 +1224,7 @@ export class LiveScene {
     if (a.hw > 0.3) for (const st of this.steam) {
       if (!this.reduced) { st.p = (st.p + dt * 0.11 * a.hw) % 1; }
       const k = st.p, sx = st.x + Math.sin(k * 6 + st.o * 9) * 16, sy = 690 - k * 190, al = Math.sin(k * Math.PI) * 0.22 * a.hw, r = st.r * (0.6 + k * 1.6);
-      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r); g.addColorStop(0, `rgba(255,255,255,${al})`); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+      this.glow(ctx, '#ffffff', sx, sy, r, al);
     }
     // goblin tuleb boileri tagant ja läheb sinna tagasi, seepärast joonistatakse ta enne boilerit
     this.drawGoblin(ctx, dark, dt);
@@ -1275,12 +1436,22 @@ export class LiveScene {
   drawRoomAir(ctx, { dark }, dt) {
     const a = this.a, n = Math.round(24 + a.co2 * 86), p = this.motes;
     if (a.co2 > 0.05) { ctx.fillStyle = `rgba(150,170,90,${0.22 * a.co2})`; ctx.fillRect(LIVING_X + 2, 444, 1038 - LIVING_X, 254); }
+    // Tolmukesed kogume värvi ja läbipaistvuse astme järgi – 110 üksiktäitmise asemel paar joonistust.
+    const groups = new Map();
     for (let i = 0; i < n; i++) {
       const m = p[i];
       if (!this.reduced) { m.x += (m.vx + Math.sin(this.t * 0.7 + m.p) * 4) * dt * (0.4 + a.air); m.y += (m.vy + Math.cos(this.t * 0.6 + m.p) * 4) * dt * (0.4 + a.air); m.on += dt * 0.25; }
       if (m.x < LIVING_X + 6 || m.x > 1034 || m.y < 448 || m.y > 696 || m.on > 1) { m.x = LIVING_X + 14 + this.rng() * (1034 - LIVING_X - 14); m.y = 456 + this.rng() * 232; m.on = 0; }
-      const al = Math.sin(clamp(m.on) * Math.PI) * (0.25 + a.co2 * 0.55);
-      ctx.fillStyle = a.co2 > 0.35 ? `rgba(196,210,120,${al})` : `rgba(255,248,230,${al * 0.8})`; ctx.beginPath(); ctx.arc(m.x, m.y, m.r * (0.8 + a.co2 * 0.6), 0, TAU); ctx.fill();
+      const co2 = a.co2 > 0.35, al = Math.sin(clamp(m.on) * Math.PI) * (0.25 + a.co2 * 0.55) * (co2 ? 1 : 0.8);
+      const key = `${co2 ? '196,210,120' : '255,248,230'}|${Math.round(al * 10)}`;
+      let list = groups.get(key); if (!list) groups.set(key, list = []);
+      list.push(m);
+    }
+    for (const [key, list] of groups) {
+      const [col, q] = key.split('|');
+      ctx.fillStyle = `rgba(${col},${(q / 10).toFixed(1)})`; ctx.beginPath();
+      for (const m of list) { const r = m.r * (0.8 + a.co2 * 0.6); ctx.moveTo(m.x + r, m.y); ctx.arc(m.x, m.y, r, 0, TAU); }
+      ctx.fill();
     }
   }
 
@@ -1288,14 +1459,23 @@ export class LiveScene {
   drawForeground(ctx, { dark, ground, season }, dt) {
     const wind = Math.min(2.2, Math.sin(this.t * 0.6) * 0.5 + 0.5 + this.a.wind * 2);
     const cover = clamp(Math.max(this.a.snowCover, this.a.drift * 0.9)), blade = 1 - cover * 0.88;
+    // Rohulibled kogume värvi järgi: ühe joonega saab korraga tõmmata kümneid libedaid.
+    const tufts = new Map();
     for (const g of this.grass) {
       const inHouse = g.x > HOUSE_X0 && g.x < HOUSE_X1;
       // maja ees (vundamendi all) on muru madalam ja algab vundamendist allpool; majasse ega vundamendile muru ei kasva
       const y0 = inHouse ? FOUNDATION_BOTTOM + 8 + g.l * 14 : GROUND + 6 + g.l * 34, hh = g.h * (inHouse ? 0.6 : 1) * blade;
       if (hh < 2.5) continue;
       const sw = Math.sin(this.t * 1.6 + g.p + g.x * 0.01) * (3 + wind * 5) * blade;
-      ctx.strokeStyle = mix(mix(mix(ground.top, '#9cc26a', 0.35), '#08101a', dark * 0.65 + g.l * 0.1), '#e6eef6', cover * 0.4); ctx.lineWidth = 2; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(g.x, y0); ctx.quadraticCurveTo(g.x + sw * 0.4, y0 - hh * 0.6, g.x + sw, y0 - hh); ctx.stroke();
+      const col = qHex(mix(mix(mix(ground.top, '#9cc26a', 0.35), '#08101a', dark * 0.65 + g.l * 0.1), '#e6eef6', cover * 0.4), 8);
+      let list = tufts.get(col); if (!list) tufts.set(col, list = []);
+      list.push([g.x, y0, hh, sw]);
+    }
+    ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (const [col, list] of tufts) {
+      ctx.strokeStyle = col; ctx.beginPath();
+      for (const [x, y0, hh, sw] of list) { ctx.moveTo(x, y0); ctx.quadraticCurveTo(x + sw * 0.4, y0 - hh * 0.6, x + sw, y0 - hh); }
+      ctx.stroke();
     }
     // Hanged kasvavad eraldi, aeglase akumulatsiooni (drift) järgi; lumikate annab vaid madala algpiiri.
     const dl = Math.max(this.a.drift, this.a.snowCover * 0.3);
@@ -1310,8 +1490,8 @@ export class LiveScene {
       for (const f of this.fireflies) {
         if (!this.reduced) { f.vx += (Math.sin(this.t * 0.8 + f.p) * 20 - f.vx) * dt; f.vy += (Math.cos(this.t * 0.9 + f.p * 2) * 14 - f.vy) * dt; f.x += f.vx * dt * f.s; f.y += f.vy * dt * f.s; }
         if (f.x < 40 || f.x > 470) f.vx *= -1; if (f.y < 540 || f.y > 700) f.vy *= -1;
-        const pu = Math.pow(Math.max(0, Math.sin(this.t * 1.7 * f.s + f.p)), 3) * dark, g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 16);
-        g.addColorStop(0, `rgba(215,255,120,${0.9 * pu})`); g.addColorStop(1, 'rgba(215,255,120,0)'); ctx.fillStyle = g; ctx.fillRect(f.x - 16, f.y - 16, 32, 32);
+        const pu = Math.pow(Math.max(0, Math.sin(this.t * 1.7 * f.s + f.p)), 3) * dark;
+        this.glow(ctx, '#d7ff78', f.x, f.y, 16, 0.9 * pu);
       }
       ctx.restore();
     }
@@ -1408,10 +1588,10 @@ export class LiveScene {
   }
 
   // äikesevälgatus: sähvatus kogu pildil ja sakiline välk taevas
-  drawFlash(ctx, { scale, ox, oy }) {
+  drawFlash(ctx, { scale, ox, oy }, dt = 1 / 60) {
     const a = this.a, b = this.bolt;
     if (!this.reduced && a.storm > 0.5) {
-      b.cooldown -= 1 / 60;
+      b.cooldown -= dt;
       if (b.t < 0 && b.cooldown < 0) {
         b.t = 0; b.cooldown = 4 + this.rng() * 9; a.flash = 1;
         const pts = []; let x = 300 + this.rng() * 1000, y = -10;
@@ -1422,7 +1602,7 @@ export class LiveScene {
       }
     }
     if (b.t >= 0) {
-      b.t += 1 / 60; const k = b.t / 0.35;
+      b.t += dt; const k = b.t / 0.35;
       if (k >= 1) b.t = -1;
       else {
         ctx.save(); ctx.translate(ox, oy); ctx.scale(scale, scale); ctx.globalCompositeOperation = 'lighter';
@@ -1434,11 +1614,6 @@ export class LiveScene {
     if (a.flash > 0.01) { ctx.fillStyle = `rgba(215,228,255,${(a.flash * 0.45).toFixed(3)})`; ctx.fillRect(0, 0, this.w, this.h); a.flash *= this.reduced ? 0 : 0.86; }
   }
 
-  drawVignette(ctx, { dark }) {
-    const g = ctx.createRadialGradient(this.w / 2, this.h / 2, Math.min(this.w, this.h) * 0.42, this.w / 2, this.h / 2, Math.max(this.w, this.h) * 0.72);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(4,8,20,${0.28 + dark * 0.3})`);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, this.w, this.h);
-  }
 }
 
 // Aastaaeg kuupäeva järgi: puu lehed, langevad lehed ja värvid.
