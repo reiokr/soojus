@@ -90,3 +90,35 @@ test('push API issues a VAPID key and stores subscriptions', async ({ request })
   expect(unsubscribe.ok()).toBe(true);
   expect((await unsubscribe.json()).count).toBe(key.count);
 });
+
+test('backup panel renders in both interfaces', async ({ page }) => {
+  await page.goto('/?ui=classic&page=settings');
+  await expect(page.getByRole('heading', { name: 'Varukoopia ja taastamine' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Loo varukoopia kohe' })).toBeVisible();
+  await expect(page.getByText('Automaatne öine varukoopia')).toBeVisible();
+
+  await page.goto('/?ui=next&page=settings');
+  await expect(page.getByRole('heading', { name: 'Varukoopia ja taastamine' })).toBeVisible();
+});
+
+test('backup API creates, downloads and deletes a database snapshot', async ({ request }) => {
+  const origin = (process.env.E2E_BASE_URL || 'http://localhost:3210').replace(/\/$/, '');
+  const headers = { Origin: origin, 'X-Soojus-Request': '1' };
+  const created = await request.post('/api/backups', { headers, data: {} });
+  expect(created.ok()).toBe(true);
+  const backup = await created.json();
+  expect(backup.name).toMatch(/-manual\.sqlite$/);
+  expect(backup.bytes).toBeGreaterThan(0);
+
+  const listed = await (await request.get('/api/backups')).json();
+  expect(listed.files.some(file => file.name === backup.name)).toBe(true);
+
+  const download = await request.get(`/api/backups/${encodeURIComponent(backup.name)}`, { headers: { Range: 'bytes=0-15' } });
+  expect(download.status()).toBe(206);
+  expect((await download.body()).toString()).toBe('SQLite format 3\u0000');
+
+  const removed = await request.delete(`/api/backups/${encodeURIComponent(backup.name)}`, { headers });
+  expect(removed.ok()).toBe(true);
+  const after = await (await request.get('/api/backups')).json();
+  expect(after.files.some(file => file.name === backup.name)).toBe(false);
+});

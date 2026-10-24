@@ -16,6 +16,7 @@ import { ensurePriceTable, syncPrices, pricesFor } from './prices.js';
 import { buildHeatingCurve } from './heating-curve.js';
 import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueAlerts, dueNotifications, sendSms, kdeconnectDevices } from './notifications.js';
 import { createPushStore } from './push.js';
+import { BACKUP_KEY, BackupError, applyPendingRestore, backupFile, createBackup, deleteBackup, listBackups, parseBackupSettings, runNightlyBackup, saveUpload, stageRestore, validateBackup } from './backup.js';
 import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
 import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
 
@@ -23,10 +24,18 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT || 3210);
 const origin = process.env.APP_ORIGIN || `http://localhost:${port}`;
 const apiBase = 'https://api.myuplink.com';
-mkdirSync(path.join(root, 'data'), { recursive: true, mode: 0o700 });
+const dataDir = path.join(root, 'data');
+mkdirSync(dataDir, { recursive: true, mode: 0o700 });
 try { chmodSync(path.join(root, '.env'), 0o600); } catch {}
-const db = new DatabaseSync(path.join(root, 'data/soojus.sqlite'));
-chmodSync(path.join(root, 'data/soojus.sqlite'), 0o600);
+const dbFile = path.join(dataDir, 'soojus.sqlite');
+const backupDir = path.join(dataDir, 'backups');
+// Taaste rakendatakse enne andmebaasi avamist; nii ei jää pooleldi asendatud baasi.
+try {
+  const restored = applyPendingRestore({ dir: backupDir, dbFile });
+  if (restored?.restored) console.log(`Soojus: andmebaas taastatud varukoopiast ${restored.name}`);
+} catch (e) { console.error(`Soojus: taastamine ebaõnnestus: ${e.message}`); }
+const db = new DatabaseSync(dbFile);
+chmodSync(dbFile, 0o600);
 db.exec(`PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS samples (device TEXT, point TEXT, time TEXT, value REAL, label TEXT, unit TEXT, PRIMARY KEY(device,point,time));
@@ -813,6 +822,62 @@ app.post('/api/push/test', async (req, res) => {
   res.json(result);
 });
 
+// ---- Varukoopiad ja taastamine ---------------------------------------------
+const backupSettings = () => parseBackupSettings(getSetting(BACKUP_KEY) || {});
+app.get('/api/backups', (req, res) => {
+  const files = listBackups(backupDir);
+  const latestAuto = files.find(file => file.kind === 'auto');
+  // Pärast taastamist võib salvestatud olek olla varukoopia hetkest vana või puududa;
+  // näita siis viimast automaatset faili, mitte tühja rida.
+  const status = getSetting('backupStatus') || (latestAuto ? { time: latestAuto.createdAt, ok: true, name: latestAuto.name, bytes: latestAuto.bytes } : null);
+  res.json({ settings: backupSettings(), files, status });
+});
+app.post('/api/backups', (req, res) => {
+  try {
+    const result = createBackup(db, backupDir, 'manual');
+    audit('local', 'Varukoopia', { name: result.name, bytes: result.bytes });
+    res.json(result);
+  } catch (e) { throw new AppError(`Varukoopia loomine ebaõnnestus: ${e.message}`, 500); }
+});
+app.post('/api/backups/settings', (req, res) => {
+  const next = parseBackupSettings(req.body);
+  setSetting(BACKUP_KEY, next);
+  audit('local', 'Varukoopia seaded', next);
+  res.json(next);
+});
+app.post('/api/backups/upload', express.raw({ type: 'application/octet-stream', limit: '512mb' }), (req, res) => {
+  try {
+    const result = saveUpload(backupDir, req.body);
+    audit('local', 'Varukoopia üleslaadimine', { name: result.name, bytes: result.bytes });
+    res.json(result);
+  } catch (e) { throw new AppError(e.message, 400); }
+});
+app.post('/api/backups/restore', (req, res) => {
+  try {
+    const name = String(req.body?.name || '');
+    validateBackup(backupFile(backupDir, name));
+    // Enne taastamist tee jooksvast baasist turvakoopia, mida saab alati tagasi võtta.
+    const safety = createBackup(db, backupDir, 'pre-restore');
+    stageRestore({ dir: backupDir, name, safety: safety.name });
+    audit('local', 'Varukoopia taastamine', { name, safety: safety.name });
+    const automatic = Boolean(process.env.INVOCATION_ID) || process.env.SOOJUS_AUTO_RESTART === '1';
+    res.json({ ok: true, restartRequired: true, automatic, safety: safety.name });
+    // systemd (Restart=on-failure) taaskäivitab teenuse; marker rakendub käivitusel.
+    if (automatic) setTimeout(() => process.exit(1), 1000).unref?.();
+  } catch (e) { throw new AppError(`Taastamist ei saanud ette valmistada: ${e.message}`, 400); }
+});
+app.get('/api/backups/:name', (req, res) => {
+  try { res.download(backupFile(backupDir, req.params.name), req.params.name); }
+  catch (e) { throw new AppError(e.message, 404); }
+});
+app.delete('/api/backups/:name', (req, res) => {
+  try {
+    deleteBackup(backupDir, req.params.name);
+    audit('local', 'Varukoopia kustutamine', { name: req.params.name });
+    res.json({ ok: true });
+  } catch (e) { throw new AppError(e.message, 404); }
+});
+
 // ---- Vigade analüüs ---------------------------------------------------------
 // Iga vea kohta keskmistame töötingimused vahetult enne viga ja võrdleme tavalise tööga
 // (kompressor töötab). Vastus sobib nii tabeliks kui ka koodipõhiseks võrdluseks.
@@ -865,12 +930,29 @@ async function collect() {
 }
 if (process.argv.includes('--production')) { app.use(express.static(path.join(root, 'dist'))); app.get('/{*splat}', (req, res) => res.sendFile(path.join(root, 'dist/index.html'))); }
 else { const { createServer } = await import('vite'); const vite = await createServer({ root, server: { middlewareMode: true }, appType: 'spa' }); app.use(vite.middlewares); }
-app.use((err, req, res, next) => { if (res.headersSent) return next(err); res.status(err.status || 502).json({ error: err instanceof AppError ? err.message : 'Päring ebaõnnestus. Kontrolli võrguühendust ja proovi uuesti.' }); });
+app.use((err, req, res, next) => { if (res.headersSent) return next(err); res.status(err.status || (err instanceof BackupError ? 400 : 502)).json({ error: err instanceof AppError || err instanceof BackupError ? err.message : 'Päring ebaõnnestus. Kontrolli võrguühendust ja proovi uuesti.' }); });
 // Börsihinna ajalugu laetakse taustal, et lehe päring ei peaks Eleringit ootama.
 setTimeout(() => { syncPricesInBackground(new Date(Date.now() - 2 * DAY_MS), new Date()).catch(() => {}); }, 8000).unref?.();
 setInterval(() => { syncPricesInBackground(new Date(Date.now() - 2 * DAY_MS), new Date()).catch(() => {}); }, 6 * 3600 * 1000).unref?.();
 setTimeout(() => notificationTick().catch(() => {}), 45000).unref?.();
 setInterval(() => notificationTick().catch(() => {}), 5 * 60 * 1000).unref?.();
+// Automaatne öine varukoopia: kontroll iga 15 minuti tagant, et ajastus ei jääks vahele
+// ka siis, kui server käivitub alles pärast valitud kellaaega.
+const nightlyBackup = () => {
+  try {
+    const settings = parseBackupSettings(getSetting(BACKUP_KEY) || {});
+    const created = runNightlyBackup({ db, dir: backupDir, settings });
+    if (created) {
+      setSetting('backupStatus', { time: new Date().toISOString(), ok: true, name: created.name, bytes: created.bytes });
+      console.log(`Soojus: automaatne varukoopia ${created.name}`);
+    }
+  } catch (e) {
+    setSetting('backupStatus', { time: new Date().toISOString(), ok: false, error: e.message });
+    console.error(`Soojus: automaatne varukoopia ebaõnnestus: ${e.message}`);
+  }
+};
+setTimeout(nightlyBackup, 60000).unref?.();
+setInterval(nightlyBackup, 15 * 60000).unref?.();
 app.listen(port, process.env.HOST || '127.0.0.1', () => { console.log(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); compact(); legionellaTick(); });
 setInterval(collect, 60000).unref();
 setInterval(pollLux, 10000).unref();

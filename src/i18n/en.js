@@ -559,6 +559,28 @@ export default {
     note: 'The curve is approximate. The offset affects all targets and is applied to the device only after saving.',
     fit: 'Fitted curve', preview: 'Offset preview', scatter: 'Actual measurements'
   },
+  backup: {
+    title: 'Backup and restore',
+    hint: 'Create a full database copy or restore an earlier state. Backups are stored on the server in data/backups.',
+    loading: 'Loading backups…', create: 'Create backup now', creating: 'Creating backup…', created: 'Backup created and downloaded.',
+    auto: 'Automatic nightly backup', autoHint: 'Every night at {hour} while the server is running. If the server was off at that time, the backup is made later. Automatic copies are kept for {days} days.',
+    hour: 'Time', retention: 'Retention (days)', saveSettings: 'Save settings', saving: 'Saving…', saved: 'Backup settings saved.',
+    chooseFile: 'Choose backup file', upload: 'Upload', uploading: 'Uploading…', uploaded: 'Backup uploaded: {name}.',
+    uploadHint: 'You can upload a previously downloaded .sqlite backup. Its integrity is checked before restore.',
+    list: 'Backups', empty: 'No backups yet.',
+    kind_manual: 'manual', kind_auto: 'automatic', kind_upload: 'uploaded', kind_pre: 'before restore',
+    download: 'Download', restore: 'Restore', remove: 'Delete',
+    confirmRestore: 'Restore backup {name}? The current database will be replaced. A safety backup is made first.',
+    confirmDelete: 'Delete backup {name}?',
+    deleted: 'Backup deleted.', restoring: 'Restoring…',
+    restarting: 'Restore is prepared. The server will restart and the page will reload…',
+    restartManual: 'Restore is prepared. Restart the server: systemctl --user restart soojus.service',
+    restartTimeout: 'The server did not respond. Check the service and reload the page.',
+    statusOk: 'Last automatic backup: {time} · {size} MB.',
+    statusError: 'Last automatic backup failed: {error}',
+    note: 'The backup contains the entire local database, including settings and push subscriptions. Keep the files safe. Restoring can also change settings; if the backup predates push setup, push must be enabled again.'
+  },
+
   settings: {
     ui: { title: 'Interface', subtitle: 'Choose how the app looks. Data and settings are the same in both.', aria: 'Interface', classic: 'Classic', next: 'New · Home plan' },
     conn: {

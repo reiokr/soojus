@@ -559,6 +559,28 @@ export default {
     note: 'Kõver on ligikaudne. Nihe mõjutab kõiki sihte ja rakendub seadmele alles pärast salvestamist.',
     fit: 'Sobitatud kõver', preview: 'Nihke eelvaade', scatter: 'Tegelikud mõõtmised'
   },
+  backup: {
+    title: 'Varukoopia ja taastamine',
+    hint: 'Tee andmebaasist täielik koopia või taasta varasem seis. Varukoopiad on serveris kaustas data/backups.',
+    loading: 'Laadin varukoopiaid…', create: 'Loo varukoopia kohe', creating: 'Loon varukoopiat…', created: 'Varukoopia loodud ja alla laaditud.',
+    auto: 'Automaatne öine varukoopia', autoHint: 'Iga öö kell {hour}, kui server töötab. Kui server oli sellel ajal väljas, tehakse koopia hiljem. Automaatseid koopiaid hoitakse {days} päeva.',
+    hour: 'Kellaaeg', retention: 'Säilitusaeg (päeva)', saveSettings: 'Salvesta seaded', saving: 'Salvestan…', saved: 'Varukoopia seaded salvestatud.',
+    chooseFile: 'Vali varukoopia fail', upload: 'Laadi üles', uploading: 'Laadin üles…', uploaded: 'Varukoopia üles laaditud: {name}.',
+    uploadHint: 'Võid üles laadida varem allalaaditud .sqlite varukoopia. Enne taastamist kontrollitakse faili terviklikkust.',
+    list: 'Varukoopiad', empty: 'Varukoopiaid pole veel.',
+    kind_manual: 'käsitsi', kind_auto: 'automaatne', kind_upload: 'üleslaaditud', kind_pre: 'enne taastamist',
+    download: 'Laadi alla', restore: 'Taasta', remove: 'Kustuta',
+    confirmRestore: 'Taastada varukoopia {name}? Praegune andmebaas asendatakse. Enne seda tehakse turvakoopia.',
+    confirmDelete: 'Kustutada varukoopia {name}?',
+    deleted: 'Varukoopia kustutatud.', restoring: 'Taastan…',
+    restarting: 'Taastamine on ette valmistatud. Server taaskäivitub ja leht värskendub…',
+    restartManual: 'Taastamine on ette valmistatud. Taaskäivita server: systemctl --user restart soojus.service',
+    restartTimeout: 'Server ei vastanud. Kontrolli teenust ja laadi leht uuesti.',
+    statusOk: 'Viimane automaatne varukoopia: {time} · {size} MB.',
+    statusError: 'Viimane automaatne varukoopia ebaõnnestus: {error}',
+    note: 'Varukoopia sisaldab kogu kohalikku andmebaasi, sealhulgas seadeid ja push-tellimusi. Hoia faile turvaliselt. Taastamine võib muuta ka seadeid; kui varukoopia on push-i loomisest vanem, tuleb push uuesti lubada.'
+  },
+
   settings: {
     ui: { title: 'Liides', subtitle: 'Vali, kuidas rakendus välja näeb. Andmed ja seadistused on mõlemas samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },
     conn: {
