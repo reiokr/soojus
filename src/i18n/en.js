@@ -1,18 +1,21 @@
 // English. Keep the same key structure as et.js – tests check parity.
 export default {
   nav: {
+    curve: 'Heating curve',
     energy: 'Energy',
     overview: 'Home', heating: 'Heating', water: 'Hot water', ventilation: 'Ventilation', history: 'History',
     more: 'More', air: 'Air', live: 'Live home', parameters: 'Parameters', alarms: 'Notifications',
     analysis: 'Error analysis', device: 'My device', settings: 'Settings & connection'
   },
   titles: {
+    curve: 'Heating curve',
     energy: 'Energy and cost',
     overview: 'Home', heating: 'Heating', water: 'Hot water', ventilation: 'Ventilation', live: 'Live home',
     history: 'History', parameters: 'All parameters', alarms: 'Notifications', analysis: 'Error analysis',
     device: 'My device', settings: 'Settings & connection'
   },
   subtitles: {
+    curve: 'Return target versus outdoor temperature and the heating offset.',
     energy: 'Heat, electricity, COP and cost for the selected period.',
     overview: 'Heat pump status, temperatures and system readings.',
     heating: 'Heating circuit settings and readings.',
@@ -532,6 +535,16 @@ export default {
     save: 'Save', saving: 'Saving…', test: 'Send test SMS', sending: 'Sending…', testHint: 'A test SMS uses one message.',
     saved: 'Notification settings saved.', testSent: 'Test SMS sent.', log: 'Recent notifications', noLog: 'No notifications sent yet.',
     sent: 'sent', failed: 'failed'
+  },
+  curve: {
+    title: 'Heating curve', summary: 'Summary', chartTitle: 'Curve and operating points', period: 'Period', loading: 'Loading the heating curve…',
+    outdoor: 'Outdoor', target: 'Return target', returnNow: 'Actual return', deviation: 'Deviation from target', compressorOff: 'compressor is off',
+    offset: 'Heating offset', limit: 'Outdoor limit', points: '{count} target points', offsetPreview: 'Offset preview',
+    saveOffset: 'Save offset', saved: 'Heating offset saved.', confirmOffset: 'Set the heating offset to {value} K (currently {current} K)?',
+    empty: 'Not enough historical data. Choose a longer period.',
+    hint: 'Return target versus outdoor temperature. The curve is derived from the device’s historical target values; the device curve parameters are not exposed by the API.',
+    note: 'The curve is approximate. The offset affects all targets and is applied to the device only after saving.',
+    fit: 'Fitted curve', preview: 'Offset preview', scatter: 'Actual measurements'
   },
   settings: {
     ui: { title: 'Interface', subtitle: 'Choose how the app looks. Data and settings are the same in both.', aria: 'Interface', classic: 'Classic', next: 'New · Home plan' },

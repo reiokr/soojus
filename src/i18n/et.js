@@ -1,18 +1,21 @@
 // Eesti keel (vaikimisi). Võtmed on jaotatud valdkondade kaupa; uued lehed lisavad võtmeid järk-järgult.
 export default {
   nav: {
+    curve: 'Küttekõver',
     energy: 'Energia',
     overview: 'Kodu', heating: 'Küte', water: 'Tarbevesi', ventilation: 'Ventilatsioon', history: 'Ajalugu',
     more: 'Veel', air: 'Õhk', live: 'Elav kodu', parameters: 'Parameetrid', alarms: 'Teavitused',
     analysis: 'Vigade analüüs', device: 'Minu seade', settings: 'Seaded ja ühendus'
   },
   titles: {
+    curve: 'Küttekõver',
     energy: 'Energia ja kulu',
     overview: 'Kodu', heating: 'Küte', water: 'Tarbevesi', ventilation: 'Ventilatsioon', live: 'Elav kodu',
     history: 'Ajalugu', parameters: 'Kõik parameetrid', alarms: 'Teavitused', analysis: 'Vigade analüüs',
     device: 'Minu seade', settings: 'Seaded ja ühendus'
   },
   subtitles: {
+    curve: 'Tagasivoolu siht välisõhu suhtes ja kütte nihe.',
     energy: 'Soojus, elekter, COP ja kulu valitud perioodil.',
     overview: 'Soojuspumba tööolek, temperatuurid ja süsteemi näidud.',
     heating: 'Kütteringi seadistused ja näidud.',
@@ -532,6 +535,16 @@ export default {
     save: 'Salvesta', saving: 'Salvestan…', test: 'Saada test-SMS', sending: 'Saadan…', testHint: 'Test-SMS kulutab ühe SMS-i.',
     saved: 'Teavituste seaded salvestatud.', testSent: 'Test-SMS saadetud.', log: 'Viimased teavitused', noLog: 'Teavitusi pole veel saadetud.',
     sent: 'saadetud', failed: 'ebaõnnestus'
+  },
+  curve: {
+    title: 'Küttekõver', summary: 'Kokkuvõte', chartTitle: 'Kõver ja tööpunktid', period: 'Ajavahemik', loading: 'Laadin küttekõverat…',
+    outdoor: 'Välisõhk', target: 'Tagasivoolu siht', returnNow: 'Tegelik tagasivool', deviation: 'Erinevus sihist', compressorOff: 'kompressor seisab',
+    offset: 'Kütte nihe', limit: 'Välisõhupiir', points: '{count} sihtpunkti', offsetPreview: 'Nihke eelvaade',
+    saveOffset: 'Salvesta nihe', saved: 'Kütte nihe salvestatud.', confirmOffset: 'Muuta kütte nihet {value} K peale (praegu {current} K)?',
+    empty: 'Piisavalt ajaloolisi andmeid pole. Vali pikem periood.',
+    hint: 'Tagasivoolu siht välisõhu suhtes. Kõver on tuletatud seadme ajaloolistest sihtväärtustest, sest seadme enda kõveraparameetrid API kaudu ei ole.',
+    note: 'Kõver on ligikaudne. Nihe mõjutab kõiki sihte ja rakendub seadmele alles pärast salvestamist.',
+    fit: 'Sobitatud kõver', preview: 'Nihke eelvaade', scatter: 'Tegelikud mõõtmised'
   },
   settings: {
     ui: { title: 'Liides', subtitle: 'Vali, kuidas rakendus välja näeb. Andmed ja seadistused on mõlemas samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },

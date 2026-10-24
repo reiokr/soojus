@@ -111,6 +111,14 @@ test('mobile layout and navigation stay within viewport',async({page})=>{
   await page.screenshot({path:'test-results/mobile.png',fullPage:true});
 });
 
+test('heating curve page shows the fitted curve, current point and offset control', async ({ page }) => {
+  await page.goto('/?ui=next&page=curve');
+  await expect(page.getByRole('heading', { name: 'Küttekõver', exact: true })).toBeVisible();
+  await expect(page.locator('.en-card')).toHaveCount(5);
+  await expect(page.locator('.curve-chart')).toBeVisible();
+  await expect(page.locator('.curve-offset input[type="range"]')).toBeVisible();
+});
+
 test('energy page shows daily heat, electricity, COP, cost and exports CSV', async ({ page }) => {
   await page.goto('/?ui=next&page=energy');
   await expect(page.getByRole('heading', { name: 'Energia ja kulu', exact: true })).toBeVisible();

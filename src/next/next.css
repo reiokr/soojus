@@ -3146,3 +3146,20 @@ html[data-ui="next"] .nx-liide .segmented {
   .en-table { font-size: 12px; }
   .en-period { width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Küttekõver */
+.curve-chart { height: 380px; }
+.curve-offset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.curve-offset > span { font-size: 13px; color: var(--muted); }
+.curve-offset input[type="range"] { flex: 1; min-width: 180px; accent-color: var(--nx-ok); }
+.curve-offset .button { margin-left: auto; }
+@media (max-width: 700px) {
+  .curve-chart { height: 300px; }
+  .curve-offset .button { margin-left: 0; width: 100%; }
+}

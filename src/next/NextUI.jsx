@@ -1,10 +1,11 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, Check, ChevronDown, Clock3, Droplets, Globe, History, LayoutTemplate, Link2, MoreHorizontal, Moon, Monitor, Pencil, RefreshCw, Settings2, SlidersHorizontal, Sun, Thermometer, LayoutDashboard, Waves, Flame, Timer, Repeat2, ArrowUpDown, Fan, Sparkles } from 'lucide-react';
+import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, Check, ChevronDown, Clock3, Droplets, Globe, History, LayoutTemplate, Link2, MoreHorizontal, Moon, Monitor, Pencil, RefreshCw, Settings2, SlidersHorizontal, Sun, Thermometer, LayoutDashboard, Waves, Flame, Timer, Repeat2, ArrowUpDown, Fan, Sparkles, ChartLine } from 'lucide-react';
 import { api, number, time, enumText, timeTicks } from '../lib.js';
 import { t, LOCALES, setLocale, getLocale } from '../i18n/index.js';
 import { useLocale } from '../i18n/react.js';
 import HousePlan from './HousePlan.jsx';
 const EnergyPage = lazy(() => import('./energy.jsx'));
+const HeatingCurvePage = lazy(() => import('./curve.jsx'));
 import { co2Quality, climatePoints, climateQuery, readingQuality } from '../ventilation-logic.js';
 import { pumpState, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality } from './logic.js';
 import { buildReportModel, buildReportHtml, buildReportText, buildReportDocument } from './error-report.js';
@@ -13,11 +14,11 @@ import './next.css';
 
 const LiveHome = lazy(() => import('./live/LiveHome.jsx'));
 const NAV = [['overview', 'nav.overview', LayoutDashboard], ['heating', 'nav.heating', Thermometer], ['water', 'nav.water', Droplets], ['ventilation', 'nav.ventilation', Fan, 'nav.air'], ['history', 'nav.history', History]];
-const MORE = [['live', 'nav.live', Sparkles], ['energy', 'nav.energy', BarChart3], ['parameters', 'nav.parameters', SlidersHorizontal], ['alarms', 'nav.alarms', Bell], ['analysis', 'nav.analysis', Activity], ['device', 'nav.device', Monitor], ['settings', 'nav.settings', Settings2]];
-const TITLES = { overview: 'titles.overview', heating: 'titles.heating', water: 'titles.water', ventilation: 'titles.ventilation', live: 'titles.live', history: 'titles.history', energy: 'titles.energy', parameters: 'titles.parameters', alarms: 'titles.alarms', analysis: 'titles.analysis', device: 'titles.device', settings: 'titles.settings' };
+const MORE = [['live', 'nav.live', Sparkles], ['energy', 'nav.energy', BarChart3], ['curve', 'nav.curve', ChartLine], ['parameters', 'nav.parameters', SlidersHorizontal], ['alarms', 'nav.alarms', Bell], ['analysis', 'nav.analysis', Activity], ['device', 'nav.device', Monitor], ['settings', 'nav.settings', Settings2]];
+const TITLES = { overview: 'titles.overview', heating: 'titles.heating', water: 'titles.water', ventilation: 'titles.ventilation', live: 'titles.live', history: 'titles.history', energy: 'titles.energy', curve: 'titles.curve', parameters: 'titles.parameters', alarms: 'titles.alarms', analysis: 'titles.analysis', device: 'titles.device', settings: 'titles.settings' };
 const SUBTITLES = {
   heating: 'subtitles.heating', water: 'subtitles.water', ventilation: 'subtitles.ventilation', history: 'subtitles.history',
-  live: 'subtitles.live', energy: 'subtitles.energy', parameters: 'subtitles.parameters', alarms: 'subtitles.alarms', analysis: 'subtitles.analysis', device: 'subtitles.device', settings: 'subtitles.settings'
+  live: 'subtitles.live', energy: 'subtitles.energy', curve: 'subtitles.curve', parameters: 'subtitles.parameters', alarms: 'subtitles.alarms', analysis: 'subtitles.analysis', device: 'subtitles.device', settings: 'subtitles.settings'
 };
 
 function useDay(deviceId, tick, enabled) {
@@ -458,6 +459,7 @@ export default function NextUI({ ctx }) {
     {page === 'ventilation' && <parts.VentilationPage tick={ctx.tick} theme={theme} HistoryChart={parts.HistoryChart} notify={ctx.notify} airobot={ctx.airobot} outdoor={ctx.m.outdoor?.value} pumpDeviceId={selection} outdoorPointId={ctx.m.outdoor?.parameterId}/>}
     {page === 'live' && <Suspense fallback={<div className="nx-skeleton"><i/></div>}><LiveHome ctx={ctx}/></Suspense>}
     {page === 'energy' && <Suspense fallback={<div className="nx-skeleton" aria-label={t('energy.loading')}><i/><i/><i/></div>}><EnergyPage ctx={ctx}/></Suspense>}
+    {page === 'curve' && <Suspense fallback={<div className="nx-skeleton" aria-label={t('curve.loading')}><i/><i/><i/></div>}><HeatingCurvePage ctx={ctx}/></Suspense>}
     {page === 'history' && <parts.HistoryPage deviceId={selection} points={ctx.points} tick={ctx.tick} theme={theme} model={model} stateId={model === 'WZSV 92H3M' ? '17' : null} ventPoints={ctx.airobot?.view?.configured && ctx.airobot.view.data ? ctx.airobot.view.points : []} luxPoints={ctx.lux?.view?.configured && ctx.lux.view.data ? ctx.lux.view.points : []}/>}
     {page === 'parameters' && <parts.Parameters {...shared} search={ctx.search} setSearch={ctx.setSearch} favorites={ctx.favorites} favorite={ctx.favorite}/>}
     {page === 'alarms' && <><parts.AlarmsPage systemId={system?.systemId} tick={ctx.tick}/><PlanNotes ctx={ctx}/></>}

@@ -13,6 +13,7 @@ import { AppError, validatePoint, validateZone, pointResults, csvCell } from './
 import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './store.js';
 import { energyReport, MAX_DAYS } from './energy.js';
 import { ensurePriceTable, syncPrices, pricesFor } from './prices.js';
+import { buildHeatingCurve } from './heating-curve.js';
 import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueNotifications, sendSms, kdeconnectDevices } from './notifications.js';
 import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
 import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
@@ -405,6 +406,25 @@ app.get('/api/energy', async (req, res) => {
   const days = Math.max(1, Math.min(MAX_DAYS, Number(req.query.days) || 30));
   const to = new Date(), from = new Date(to.getTime() - days * DAY_MS);
   res.json(energyReport(db, { deviceId: device, from: from.toISOString(), to: to.toISOString(), luxId: LUX_ID }));
+});
+// Küttekõver: tagasivoolu siht (2) välisõhu (5) suhtes + tegelikud tööpunktid.
+app.get('/api/heating-curve', async (req, res) => {
+  const device = String(req.query.device || '');
+  await historyDevice(device);
+  const days = Math.max(7, Math.min(365, Number(req.query.days) || 30));
+  const to = new Date(), from = new Date(to.getTime() - days * DAY_MS);
+  const bucket = days <= 90 ? 600 : 3600;
+  const rows = db.prepare(`SELECT strftime('%Y-%m-%dT%H:%M:%fZ', CAST(unixepoch(time)/? AS INTEGER)*?, 'unixepoch') AS time,
+    AVG(CASE WHEN point='5' THEN value END) AS outdoor,
+    AVG(CASE WHEN point='2' THEN value END) AS target,
+    AVG(CASE WHEN point='1' THEN value END) AS "return",
+    AVG(CASE WHEN point='0' THEN value END) AS supply,
+    AVG(CASE WHEN point='70' THEN value END) AS compressor
+    FROM samples WHERE device=? AND time>=? AND time<? AND point IN ('0','1','2','5','70')
+    GROUP BY CAST(unixepoch(time)/? AS INTEGER) ORDER BY time`).all(bucket, bucket, device, from.toISOString(), to.toISOString(), bucket);
+  const last = id => db.prepare('SELECT value FROM samples WHERE device=? AND point=? ORDER BY time DESC LIMIT 1').get(device, id)?.value ?? null;
+  const latest = { outdoor: last('5'), target: last('2'), return: last('1'), supply: last('0'), offset: last('5001'), limit: last('5700'), compressor: last('70') };
+  res.json({ from: from.toISOString(), to: to.toISOString(), days, ...buildHeatingCurve(rows), latest });
 });
 // Börsihinna ajalugu (Nord Pool / Elering): tunnikeskmised hinnad kohalikus ajas, EUR/kWh ilma KM-ta.
 let priceSync = null;
