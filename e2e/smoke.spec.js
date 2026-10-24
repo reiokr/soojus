@@ -101,8 +101,9 @@ test('backup API creates, downloads and deletes a database snapshot', async ({ r
 });
 
 test('a failed lazy chunk shows the recoverable error boundary', async ({ page }) => {
-  await page.route('**/assets/history-chart-*.js', route => route.abort());
-  await page.goto('/?page=overview');
+  // Uus liides on alati lazy chunk ja laetakse ka siis, kui seade pole ühendatud.
+  await page.route('**/assets/NextUI-*.js', route => route.abort());
+  await page.goto('/?ui=next&page=overview');
   await expect(page.getByRole('heading', { name: 'Midagi läks valesti' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Laadi leht uuesti' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Proovi uuesti' })).toBeVisible();
