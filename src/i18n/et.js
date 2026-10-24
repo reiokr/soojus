@@ -519,6 +519,20 @@ export default {
     coverage: 'Börsihind kaetud {percent}% ulatuses', noPrices: 'Börsihindu ei saanud laadida. Proovi hiljem uuesti.',
     note: 'Võrdlus kasutab sama mõõdetud kompressori tarbimist ja samu võrgukomponente. Fikseeritud ja kahetariifne hind on lõpphind koos käibemaksuga; börsipakett lisab spot-hinna (ilma KM-ta) ja marginaali. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
   },
+  notify: {
+    title: 'Nutikad teavitused', hint: 'Saada SMS, kui tekib viga, filter vajab vahetust, CO₂ on kõrge või legionella ebaõnnestub.',
+    loading: 'Laadin teavituste seadeid…', smsEnabled: 'Saada SMS-teavitusi', phone: 'Mobiilinumber', provider: 'SMS-teenus', webhook: 'Webhook',
+    twilioSid: 'Twilio Account SID', twilioToken: 'Twilio Auth Token', twilioFrom: 'Twilio saatja number',
+    messagebirdKey: 'MessageBirdi võti', messagebirdFrom: 'Saatja nimi', webhookUrl: 'Webhook’i URL', webhookToken: 'Webhook’i token',
+    savedSecret: 'Salvestatud – jäta tühjaks, kui ei muuda',
+    rules: 'Millal teavitada', rule_pumpError: 'Soojuspumba viga', rule_ventFilter: 'Ventilatsiooni filter', rule_co2: 'CO₂ liiga kõrge',
+    rule_legionella: 'Legionella ebaõnnestus', rule_stale: 'Andmed vananenud',
+    quietFrom: 'Vaikne aeg alates', quietTo: 'Vaikne aeg kuni', cooldown: 'Kordusvähemalt (min)', dailyLimit: 'Päevane piirmäär',
+    quietHint: 'Vaiksel ajal SMS-e ei saadeta. Kui algus ja lõpp on samad, on vaikne aeg väljas.', costHint: 'SMS-id on tasulised vastavalt teenusepakkuja hinnakirjale.',
+    save: 'Salvesta', saving: 'Salvestan…', test: 'Saada test-SMS', sending: 'Saadan…', testHint: 'Test-SMS kulutab ühe SMS-i.',
+    saved: 'Teavituste seaded salvestatud.', testSent: 'Test-SMS saadetud.', log: 'Viimased teavitused', noLog: 'Teavitusi pole veel saadetud.',
+    sent: 'saadetud', failed: 'ebaõnnestus'
+  },
   settings: {
     ui: { title: 'Liides', subtitle: 'Vali, kuidas rakendus välja näeb. Andmed ja seadistused on mõlemas samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },
     conn: {

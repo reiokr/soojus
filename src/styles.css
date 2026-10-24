@@ -285,3 +285,18 @@ html[data-theme="dark"] .vent-tip::after{border-top-color:#e9eef3}
 .lang-card small{color:var(--muted);font-size:12px}
 .lang-card-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .lang-current{font-size:12px;font-weight:700;color:var(--teal)}
+
+/* Nutikad teavitused */
+.notify-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 18px; }
+.notify-panel .field { margin-bottom: 12px; }
+.notify-toggle { margin: 0 0 14px; }
+.notify-subhead { font-size: 13px; margin: 18px 0 10px; }
+.notify-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 14px; }
+.notify-hint { font-size: 12px; }
+.notify-log { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+.notify-log li { display: flex; gap: 10px; align-items: baseline; border-top: 1px solid var(--line); padding: 9px 0; }
+.notify-log time { color: var(--muted); white-space: nowrap; }
+.notify-log span { flex: 1; min-width: 0; }
+.notify-log b { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.notify-ok { color: var(--teal); }
+.notify-fail { color: #b42318; }

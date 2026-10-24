@@ -519,6 +519,20 @@ export default {
     coverage: 'Exchange price covers {percent}% of consumption', noPrices: 'Could not load exchange prices. Try again later.',
     note: 'The comparison uses the same measured compressor consumption and the same grid components. The fixed and dual prices include VAT; the exchange package adds the spot price (excl. VAT) and margin. The monthly fee is excluded. Exchange price: Nord Pool / Elering.'
   },
+  notify: {
+    title: 'Smart notifications', hint: 'Send an SMS on an error, a filter change, high CO₂ or a failed legionella cycle.',
+    loading: 'Loading notification settings…', smsEnabled: 'Send SMS notifications', phone: 'Mobile number', provider: 'SMS provider', webhook: 'Webhook',
+    twilioSid: 'Twilio Account SID', twilioToken: 'Twilio Auth Token', twilioFrom: 'Twilio sender number',
+    messagebirdKey: 'MessageBird key', messagebirdFrom: 'Sender name', webhookUrl: 'Webhook URL', webhookToken: 'Webhook token',
+    savedSecret: 'Saved – leave empty to keep',
+    rules: 'When to notify', rule_pumpError: 'Heat pump error', rule_ventFilter: 'Ventilation filter', rule_co2: 'CO₂ too high',
+    rule_legionella: 'Legionella failed', rule_stale: 'Data is stale',
+    quietFrom: 'Quiet hours from', quietTo: 'Quiet hours until', cooldown: 'Repeat no sooner than (min)', dailyLimit: 'Daily limit',
+    quietHint: 'No SMS is sent during quiet hours. If start and end are the same, quiet hours are off.', costHint: 'SMS messages are charged by your provider.',
+    save: 'Save', saving: 'Saving…', test: 'Send test SMS', sending: 'Sending…', testHint: 'A test SMS uses one message.',
+    saved: 'Notification settings saved.', testSent: 'Test SMS sent.', log: 'Recent notifications', noLog: 'No notifications sent yet.',
+    sent: 'sent', failed: 'failed'
+  },
   settings: {
     ui: { title: 'Interface', subtitle: 'Choose how the app looks. Data and settings are the same in both.', aria: 'Interface', classic: 'Classic', next: 'New · Home plan' },
     conn: {

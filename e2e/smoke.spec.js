@@ -38,3 +38,12 @@ test('both interfaces load without uncaught browser errors', async ({ page }) =>
 
   expect(errors).toEqual([]);
 });
+
+test('notification settings panel renders in both interfaces', async ({ page }) => {
+  await page.goto('/?ui=classic&page=settings');
+  await expect(page.getByRole('heading', { name: 'Nutikad teavitused' })).toBeVisible();
+  await expect(page.locator('.notify-panel input[type="tel"]')).toBeVisible();
+  await page.goto('/?ui=next&page=settings');
+  await expect(page.getByRole('heading', { name: 'Nutikad teavitused' })).toBeVisible();
+  await expect(page.locator('.notify-panel .notify-checks input')).toHaveCount(5);
+});

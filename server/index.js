@@ -13,6 +13,7 @@ import { AppError, validatePoint, validateZone, pointResults, csvCell } from './
 import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './store.js';
 import { energyReport, MAX_DAYS } from './energy.js';
 import { ensurePriceTable, syncPrices, pricesFor } from './prices.js';
+import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueNotifications, sendSms } from './notifications.js';
 import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
 import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
 
@@ -691,6 +692,73 @@ app.post('/api/legionella/run', async (req, res) => {
   res.json(await legionellaStart(cfg, device, Date.now(), true));
 });
 
+// ---- Nutikad SMS-teavitused -------------------------------------------------
+function notificationState() {
+  const lux = luxView(), newest = lux.errors?.[0];
+  const acked = newest && lux.errorsAck && Date.parse(newest.time) <= Date.parse(lux.errorsAck);
+  const pumpError = newest && !acked && Date.now() - Date.parse(newest.time) < 24 * 3600000 ? newest : null;
+  const leg = legionellaConfig();
+  const lastSample = db.prepare('SELECT MAX(time) AS time FROM samples').get()?.time;
+  return {
+    pumpError,
+    ventFilter: Boolean(airobotState.data?.switches?.filterAlert),
+    co2: airobotState.data?.co2 ?? null,
+    legionella: leg?.lastError ? { error: leg.lastError, time: leg.lastRun || null } : null,
+    staleSince: lastSample && Date.now() - Date.parse(lastSample) > 30 * 60000 ? lastSample : null
+  };
+}
+let notifyBusy = false;
+async function notificationTick() {
+  if (notifyBusy) return;
+  const config = getSetting(NOTIFY_KEY);
+  if (!config?.smsEnabled || !config.phone) return;
+  const log = getSetting(NOTIFY_LOG_KEY) || { lastSent: {}, sent: [] };
+  const due = dueNotifications({ settings: config, state: notificationState(), log, now: Date.now() });
+  if (!due.length) return;
+  notifyBusy = true;
+  try {
+    for (const alert of due) {
+      const time = new Date().toISOString();
+      try {
+        await sendSms(config, alert.text);
+        log.lastSent[alert.key] = time;
+        log.sent.unshift({ time, key: alert.key, text: alert.text, ok: true });
+      } catch (e) {
+        // Ka ebaõnnestunud katse jätab cooldown'i, et vigane konfiguratsioon ei saadaks iga 5 minuti tagant uut katset.
+        log.lastSent[alert.key] = time;
+        log.sent.unshift({ time, key: alert.key, text: alert.text, ok: false, error: e.message });
+      }
+      log.sent = log.sent.slice(0, 100);
+      setSetting(NOTIFY_LOG_KEY, log);
+    }
+  } finally { notifyBusy = false; }
+}
+app.get('/api/notifications/settings', (req, res) => res.json(publicNotifications(getSetting(NOTIFY_KEY) || {})));
+app.post('/api/notifications/settings', (req, res) => {
+  try {
+    const next = parseNotifications(req.body, getSetting(NOTIFY_KEY));
+    setSetting(NOTIFY_KEY, next);
+    audit('local', 'Teavitused', { smsEnabled: next.smsEnabled, provider: next.provider });
+    res.json(publicNotifications(next));
+  } catch (e) { throw new AppError(e.message, 400); }
+});
+app.post('/api/notifications/test', async (req, res) => {
+  const config = parseNotifications(req.body, getSetting(NOTIFY_KEY));
+  if (!config.phone) throw new AppError('Sisesta telefoninumber.', 400);
+  const time = new Date().toISOString(), log = getSetting(NOTIFY_LOG_KEY) || { lastSent: {}, sent: [] };
+  try {
+    await sendSms(config, 'Soojus: testteavitus. SMS-teavitused töötavad.');
+    log.sent.unshift({ time, key: 'test', text: 'Test-SMS', ok: true });
+    setSetting(NOTIFY_LOG_KEY, { ...log, sent: log.sent.slice(0, 100) });
+    res.json({ ok: true });
+  } catch (e) {
+    log.sent.unshift({ time, key: 'test', text: 'Test-SMS', ok: false, error: e.message });
+    setSetting(NOTIFY_LOG_KEY, { ...log, sent: log.sent.slice(0, 100) });
+    throw new AppError(e.message, 502);
+  }
+});
+app.get('/api/notifications/log', (req, res) => res.json(getSetting(NOTIFY_LOG_KEY) || { lastSent: {}, sent: [] }));
+
 // ---- Vigade analüüs ---------------------------------------------------------
 // Iga vea kohta keskmistame töötingimused vahetult enne viga ja võrdleme tavalise tööga
 // (kompressor töötab). Vastus sobib nii tabeliks kui ka koodipõhiseks võrdluseks.
@@ -747,6 +815,8 @@ app.use((err, req, res, next) => { if (res.headersSent) return next(err); res.st
 // Börsihinna ajalugu laetakse taustal, et lehe päring ei peaks Eleringit ootama.
 setTimeout(() => { syncPricesInBackground(new Date(Date.now() - 2 * DAY_MS), new Date()).catch(() => {}); }, 8000).unref?.();
 setInterval(() => { syncPricesInBackground(new Date(Date.now() - 2 * DAY_MS), new Date()).catch(() => {}); }, 6 * 3600 * 1000).unref?.();
+setTimeout(() => notificationTick().catch(() => {}), 45000).unref?.();
+setInterval(() => notificationTick().catch(() => {}), 5 * 60 * 1000).unref?.();
 app.listen(port, process.env.HOST || '127.0.0.1', () => { console.log(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); compact(); legionellaTick(); });
 setInterval(collect, 60000).unref();
 setInterval(pollLux, 10000).unref();
