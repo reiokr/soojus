@@ -3163,3 +3163,6 @@ html[data-ui="next"] .nx-liide .segmented {
   .curve-chart { height: 300px; }
   .curve-offset .button { margin-left: 0; width: 100%; }
 }
+
+.en-cop-note { display: flex; align-items: flex-start; gap: 7px; margin-top: 2px; }
+.en-cop-note svg { color: var(--nx-ok); margin-top: 1px; flex-shrink: 0; }

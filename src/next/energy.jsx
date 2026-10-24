@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Download } from 'lucide-react';
+import { AlertCircle, Download, Info } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api, number } from '../lib.js';
 import { t } from '../i18n/index.js';
@@ -222,11 +222,12 @@ export default function EnergyPage({ ctx }) {
         <div className="en-cards">
           <Card label={t('energy.heat')} value={number(totals.heatKwh, 1)} unit={t('energy.kwh')}/>
           <Card label={t('energy.electric')} value={electricKnown ? number(totals.electricKwh, 1) : '—'} unit={electricKnown ? t('energy.kwh') : null} hint={splitMode && electricKnown ? t('energy.split', { day: number(split.day, 1), night: number(split.night, 1) }) : null}/>
-          <Card label={t('energy.cop')} value={electricKnown && totals.cop != null ? number(totals.cop, 2) : '—'}/>
+          <Card label={t('energy.cop')} value={electricKnown && totals.cop != null ? number(totals.cop, 2) : '—'} hint={t('energy.copHint')}/>
           <Card label={t('energy.cost')} value={cost != null ? number(cost, 2) : '—'} unit={cost != null ? '€' : null} hint={detail && electricKnown && fixedCost > 0 ? t('energy.includesFixed', { value: number(fixedCost, 2) }) : null}/>
           <Card label={t('energy.hours')} value={electricKnown ? number(totals.hours, 1) : '—'} unit={electricKnown ? t('energy.h') : null}/>
           {ventKwh != null && <Card label={t('energy.ventilation')} value={number(ventKwh, 1)} unit={t('energy.kwh')} hint={`${ventCost != null ? `${number(ventCost, 2)} €` : ''}${ventCoverage != null && ventCoverage < 0.9 ? ` · ${t('energy.ventCoverage', { percent: Math.round(ventCoverage * 100) })}` : ''}`}/>}
         </div>
+        <p className="en-note en-cop-note"><Info size={14}/><span>{t('energy.copExplained')}</span></p>
         {coverage != null && <p className="en-coverage">{t('energy.coverage', { percent: Math.round(coverage * 100) })}{coverage < 0.9 ? ` · ${t('energy.coverageWarn')}` : ''}</p>}
         {tariffFields}
         <div className="en-tariff-foot">

@@ -125,6 +125,7 @@ test('energy page shows daily heat, electricity, COP, cost and exports CSV', asy
   await expect(page.locator('.en-card')).toHaveCount(6);
   await expect(page.locator('.en-card').filter({ hasText: 'Toodetud soojus' })).toContainText(/kWh/);
   await expect(page.locator('.en-card').filter({ hasText: 'COP' })).toContainText(/\d/);
+  await expect(page.locator('.en-cop-note')).toContainText('1 kWh elektri eest saadi 3,5 kWh soojust');
   await expect(page.locator('.en-table:not(.en-compare) tbody tr').first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Pakettide võrdlus' })).toBeVisible();
   await page.getByRole('button', { name: 'Kahetariifne', exact: true }).click();
