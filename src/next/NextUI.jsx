@@ -4,7 +4,7 @@ import { api, number, time, enumText, timeTicks } from '../lib.js';
 import { t, LOCALES, setLocale, getLocale } from '../i18n/index.js';
 import { useLocale } from '../i18n/react.js';
 import HousePlan from './HousePlan.jsx';
-import EnergyPage from './energy.jsx';
+const EnergyPage = lazy(() => import('./energy.jsx'));
 import { co2Quality, climatePoints, climateQuery, readingQuality } from '../ventilation-logic.js';
 import { pumpState, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality } from './logic.js';
 import { buildReportModel, buildReportHtml, buildReportText, buildReportDocument } from './error-report.js';
@@ -457,7 +457,7 @@ export default function NextUI({ ctx }) {
     {(page === 'heating' || page === 'water') && <Control ctx={ctx} water={page === 'water'} key={page}/>}
     {page === 'ventilation' && <parts.VentilationPage tick={ctx.tick} theme={theme} HistoryChart={parts.HistoryChart} notify={ctx.notify} airobot={ctx.airobot} outdoor={ctx.m.outdoor?.value} pumpDeviceId={selection} outdoorPointId={ctx.m.outdoor?.parameterId}/>}
     {page === 'live' && <Suspense fallback={<div className="nx-skeleton"><i/></div>}><LiveHome ctx={ctx}/></Suspense>}
-    {page === 'energy' && <EnergyPage ctx={ctx}/>}
+    {page === 'energy' && <Suspense fallback={<div className="nx-skeleton" aria-label={t('energy.loading')}><i/><i/><i/></div>}><EnergyPage ctx={ctx}/></Suspense>}
     {page === 'history' && <parts.HistoryPage deviceId={selection} points={ctx.points} tick={ctx.tick} theme={theme} model={model} stateId={model === 'WZSV 92H3M' ? '17' : null} ventPoints={ctx.airobot?.view?.configured && ctx.airobot.view.data ? ctx.airobot.view.points : []} luxPoints={ctx.lux?.view?.configured && ctx.lux.view.data ? ctx.lux.view.points : []}/>}
     {page === 'parameters' && <parts.Parameters {...shared} search={ctx.search} setSearch={ctx.setSearch} favorites={ctx.favorites} favorite={ctx.favorite}/>}
     {page === 'alarms' && <><parts.AlarmsPage systemId={system?.systemId} tick={ctx.tick}/><PlanNotes ctx={ctx}/></>}

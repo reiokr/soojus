@@ -85,8 +85,19 @@ async function upstream(url, options = {}) {
   return text ? JSON.parse(text) : null;
 }
 const cache = new Map();
-async function cached(url, ttl = 60000, force = false) {
+async function cached(url, ttl = 60000, force = false, staleOk = false) {
   const old = cache.get(url);
+  // Lehe esimene värvimine ei tohi jääda myUplinki ootele: anna viimane hea vastus kohe
+  // ja uuenda seda taustal. Muudatused kasutavad force=true, mis välistab vana vastuse.
+  if (!force && staleOk && old?.value !== undefined) {
+    if (!(old.until > Date.now()) && !old.flight) {
+      const flight = upstream(url).then(value => { cache.set(url, { value, until: Date.now() + ttl }); return value; })
+        .catch(error => { const current = cache.get(url); if (current?.value !== undefined) cache.set(url, { ...current, flight: null }); else cache.delete(url); throw error; });
+      cache.set(url, { ...old, flight });
+      flight.catch(() => {});
+    }
+    return old.value;
+  }
   if (!force && old?.until > Date.now()) return old.value;
   if (old?.flight) return old.flight;
   const flight = upstream(url).then(value => { cache.set(url, { value, until: Date.now() + ttl }); return value; }).catch(error => { cache.delete(url); throw error; });
@@ -95,12 +106,12 @@ async function cached(url, ttl = 60000, force = false) {
 }
 const enc = encodeURIComponent;
 let systemsSavedJson = '';
-async function systems() {
+async function fetchSystems() {
   try {
     const all = [];
     let complete = false;
     for (let page = 1; page <= 50 && !complete; page++) {
-      const data = await cached(`/v2/systems/me?page=${page}&itemsPerPage=100`, 300000);
+      const data = await cached(`/v2/systems/me?page=${page}&itemsPerPage=100`, 300000, false, true);
       all.push(...(data.systems || []));
       if (!data.systems?.length || all.length >= data.numItems || data.systems.length < 100) complete = true;
     }
@@ -114,6 +125,16 @@ async function systems() {
     if (Array.isArray(saved) && saved.length && !getSetting('disconnected') && isUsable(luxState)) { upstreamProblem = e.message; return saved; }
     throw e;
   }
+}
+async function systems() {
+  const saved = getSetting('systemsSnapshot');
+  const key = '/v2/systems/me?page=1&itemsPerPage=100';
+  // Värske lehe avamisel ei pea ootama pilve: näita salvestatud seadmete loendit ja uuenda taustal.
+  if (Array.isArray(saved) && saved.length && !getSetting('disconnected') && !cache.get(key)?.value) {
+    fetchSystems().catch(() => {});
+    return saved;
+  }
+  return fetchSystems();
 }
 async function ownedDevice(id) { for (const s of await systems()) if (s.devices?.some(d => d.id === id)) return s; throw new AppError('Seadet ei leitud sinu süsteemidest.', 404); }
 async function ownedSystem(id) { const s = (await systems()).find(s => s.systemId === id); if (!s) throw new AppError('Süsteemi ei leitud.', 404); return s; }
@@ -186,10 +207,10 @@ function rememberPoints(id, data) {
   if (rememberedPump !== id) { rememberedPump = id; setSetting('pumpDevice', id); }
 }
 function snapshotFor(id) { const m = lastGood.get(id); if (m) return m; const saved = getSetting('pointsSnapshot'); return saved?.id === id && Array.isArray(saved.data) ? saved.data : null; }
-async function points(id, force = false) {
+async function fetchPoints(id, force = false) {
   let data, fromSnapshot = false;
   try {
-    data = await cached(`/v2/devices/${enc(id)}/points`, 60000, force);
+    data = await cached(`/v2/devices/${enc(id)}/points`, 60000, force, !force);
     if (!Array.isArray(data)) throw new AppError('Seadme näitude vastus ei olnud loend.', 502);
     rememberPoints(id, data); upstreamProblem = null;
     if (luxState.data && luxState.readAt) {
@@ -206,6 +227,19 @@ async function points(id, force = false) {
   if (isUsable(luxState)) data = overlayDirect(data, luxState.data, luxState.recordTime, { powerSource: powerChoice.source }).points;
   record(id, fromSnapshot ? data.filter(p => p.source === 'direct') : data);
   return data;
+}
+async function points(id, force = false) {
+  const url = `/v2/devices/${enc(id)}/points`;
+  // Pärast serveri taaskäivitust (tühi mäluvahemälu) anna viimane hea vastus kohe,
+  // lisa värsked otseandmed ja uuenda myUplinki andmeid taustal.
+  if (!force && !cache.get(url)?.value) {
+    const snapshot = snapshotFor(id);
+    if (snapshot) {
+      fetchPoints(id).catch(() => {});
+      return isUsable(luxState) ? overlayDirect(snapshot, luxState.data, luxState.recordTime, { powerSource: powerChoice.source }).points : snapshot;
+    }
+  }
+  return fetchPoints(id, force);
 }
 const app = express();
 app.disable('x-powered-by');
@@ -247,7 +281,7 @@ app.get('/auth/callback', async (req, res) => {
   try { await tokenRequest({ grant_type: 'authorization_code', code: req.query.code, redirect_uri: `${origin}/auth/callback` }); setSetting('disconnected', false); cache.clear(); res.redirect('/'); } catch { res.redirect('/?page=settings&authError=token'); }
 });
 app.get('/api/systems', async (req, res) => res.json(await systems()));
-app.get('/api/devices/:id', async (req, res) => { await ownedDevice(req.params.id); res.json(await cached(`/v2/devices/${enc(req.params.id)}`, 300000)); });
+app.get('/api/devices/:id', async (req, res) => { await ownedDevice(req.params.id); res.json(await cached(`/v2/devices/${enc(req.params.id)}`, 300000, false, true)); });
 app.get('/api/devices/:id/points', async (req, res) => { await ownedDevice(req.params.id); res.json(await points(req.params.id)); });
 // Parameetrite kirjutamine on eraldi funktsioon, sest sama teed kasutab ka legionella graafik.
 async function applyPointPatch(id, body) {
@@ -279,7 +313,7 @@ app.patch('/api/devices/:id/points', async (req, res) => {
   audit(req.params.id, 'Parameetrite muutmine', { requested: req.body, results: out.results });
   res.json(out);
 });
-for (const name of ['smart-home-categories', 'smart-home-zones', 'firmware-info', 'aidMode']) app.get(`/api/devices/:id/${name}`, async (req, res) => { await ownedDevice(req.params.id); res.json(await cached(`/v2/devices/${enc(req.params.id)}/${name}`, 300000)); });
+for (const name of ['smart-home-categories', 'smart-home-zones', 'firmware-info', 'aidMode']) app.get(`/api/devices/:id/${name}`, async (req, res) => { await ownedDevice(req.params.id); res.json(await cached(`/v2/devices/${enc(req.params.id)}/${name}`, 300000, false, true)); });
 app.patch('/api/devices/:id/zones/:zone', async (req, res) => {
   await ownedDevice(req.params.id);
   const url = `/v2/devices/${enc(req.params.id)}/smart-home-zones`;
@@ -372,11 +406,19 @@ app.get('/api/energy', async (req, res) => {
   res.json(energyReport(db, { deviceId: device, from: from.toISOString(), to: to.toISOString(), luxId: LUX_ID }));
 });
 // Börsihinna ajalugu (Nord Pool / Elering): tunnikeskmised hinnad kohalikus ajas, EUR/kWh ilma KM-ta.
-app.get('/api/prices', async (req, res) => {
+let priceSync = null;
+function syncPricesInBackground(from, to) {
+  if (priceSync) return priceSync;
+  priceSync = syncPrices(db, { from, to }).finally(() => { priceSync = null; });
+  return priceSync;
+}
+app.get('/api/prices', (req, res) => {
   const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
   const to = new Date(), from = new Date(to.getTime() - days * DAY_MS);
-  const sync = await syncPrices(db, { from, to });
-  res.json({ from: from.toISOString(), to: to.toISOString(), source: 'elering', ...sync, prices: pricesFor(db, { from, to }) });
+  const prices = pricesFor(db, { from, to });
+  const syncing = prices.length < days * 24 * 0.9;
+  if (syncing) syncPricesInBackground(from, to);
+  res.json({ from: from.toISOString(), to: to.toISOString(), source: 'elering', ok: !syncing, syncing, fetched: 0, error: null, prices });
 });
 app.get('/api/history/:id', async (req, res) => {
   if (req.params.id === 'climate') return climateHistory(req, res);
@@ -384,15 +426,17 @@ app.get('/api/history/:id', async (req, res) => {
   await historyDevice(req.params.id);
   const { since, until, hours } = historyWindow(req.query);
   const params = [req.params.id, since, until, req.query.point || '', req.query.point || ''];
+  const wantedPoints = String(req.query.points || '').split(',').filter(Boolean);
+  const pointFilter = wantedPoints.length ? `AND point IN (${wantedPoints.map(() => '?').join(',')})` : '';
   if (req.query.format === 'csv') {
     res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="soojus-ajalugu.csv"' });
     // pipeline käsitleb vastusurvet ja kliendi katkestust; käsitsi 'drain'-ootus jäi suurte failide puhul seisma.
     const { Readable } = await import('node:stream'), { pipeline } = await import('node:stream/promises');
-    const rows = db.prepare('SELECT point,time,value,label,unit FROM samples WHERE device=? AND time>=? AND time<? AND (?=\'\' OR point=?) ORDER BY time');
+    const rows = db.prepare(`SELECT point,time,value,label,unit FROM samples WHERE device=? AND time>=? AND time<? AND (?='' OR point=?) ${pointFilter} ORDER BY time`);
     async function* chunks() {
       yield '\uFEFFAeg;Parameeter;Nimetus;Väärtus;Ühik\n';
       let lines = [];
-      for (const r of rows.iterate(...params)) { lines.push([r.time, r.point, r.label, r.value, r.unit].map(csvCell).join(';') + '\n'); if (lines.length >= 500) { yield lines.join(''); lines = []; } }
+      for (const r of rows.iterate(...params, ...wantedPoints)) { lines.push([r.time, r.point, r.label, r.value, r.unit].map(csvCell).join(';') + '\n'); if (lines.length >= 500) { yield lines.join(''); lines = []; } }
       if (lines.length) yield lines.join('');
     }
     try { await pipeline(Readable.from(chunks()), res); } catch { /* klient katkestas */ }
@@ -405,7 +449,7 @@ app.get('/api/history/:id', async (req, res) => {
   }
   const bucketSeconds = hours <= 24 ? 60 : hours <= 168 ? 600 : hours <= 720 ? 3600 : 86400;
   const rows = db.prepare(`SELECT point, strftime('%Y-%m-%dT%H:%M:%fZ', CAST(unixepoch(time)/? AS INTEGER)*?, 'unixepoch') AS time,
-    AVG(value) AS value, label, unit FROM samples WHERE device=? AND time>=? AND time<? AND (?='' OR point=?) GROUP BY point, CAST(unixepoch(time)/? AS INTEGER) ORDER BY time`).all(bucketSeconds,bucketSeconds,...params,bucketSeconds);
+    AVG(value) AS value, label, unit FROM samples WHERE device=? AND time>=? AND time<? AND (?='' OR point=?) ${pointFilter} GROUP BY point, CAST(unixepoch(time)/? AS INTEGER) ORDER BY time`).all(bucketSeconds,bucketSeconds,...params,...wantedPoints,bucketSeconds);
   const gaps = dataGaps([req.params.id], since, until, bucketSeconds);
   res.json({ rows, count: rows.length, limited: false, bucketSeconds, source: 'local', since, gaps });
 });
@@ -700,6 +744,9 @@ async function collect() {
 if (process.argv.includes('--production')) { app.use(express.static(path.join(root, 'dist'))); app.get('/{*splat}', (req, res) => res.sendFile(path.join(root, 'dist/index.html'))); }
 else { const { createServer } = await import('vite'); const vite = await createServer({ root, server: { middlewareMode: true }, appType: 'spa' }); app.use(vite.middlewares); }
 app.use((err, req, res, next) => { if (res.headersSent) return next(err); res.status(err.status || 502).json({ error: err instanceof AppError ? err.message : 'Päring ebaõnnestus. Kontrolli võrguühendust ja proovi uuesti.' }); });
+// Börsihinna ajalugu laetakse taustal, et lehe päring ei peaks Eleringit ootama.
+setTimeout(() => { syncPricesInBackground(new Date(Date.now() - 2 * DAY_MS), new Date()).catch(() => {}); }, 8000).unref?.();
+setInterval(() => { syncPricesInBackground(new Date(Date.now() - 2 * DAY_MS), new Date()).catch(() => {}); }, 6 * 3600 * 1000).unref?.();
 app.listen(port, process.env.HOST || '127.0.0.1', () => { console.log(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); compact(); legionellaTick(); });
 setInterval(collect, 60000).unref();
 setInterval(pollLux, 10000).unref();

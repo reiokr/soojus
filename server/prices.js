@@ -59,9 +59,15 @@ export async function syncPrices(db, { from, to } = {}) {
     for (let cursor = start.getTime(); cursor < end.getTime(); cursor += CHUNK_DAYS * DAY_MS) {
       const chunkEnd = Math.min(end.getTime(), cursor + CHUNK_DAYS * DAY_MS);
       const rows = await fetchRange(new Date(cursor), new Date(chunkEnd));
-      db.exec('BEGIN');
-      try { for (const row of rows) { insert.run(row.day, row.hour, row.price); fetched++; } db.exec('COMMIT'); }
-      catch (error) { db.exec('ROLLBACK'); throw error; }
+      // Kirjutame väikeste pakkidena ja anname event loop'ile vahepeal aega,
+      // et suur ajaloo täitmine ei blokeeriks teisi lehepäringuid.
+      for (let i = 0; i < rows.length; i += 2000) {
+        const part = rows.slice(i, i + 2000);
+        db.exec('BEGIN');
+        try { for (const row of part) { insert.run(row.day, row.hour, row.price); fetched++; } db.exec('COMMIT'); }
+        catch (error) { db.exec('ROLLBACK'); throw error; }
+        await new Promise(resolve => setImmediate(resolve));
+      }
     }
     return { ok: true, fetched, error: null };
   } catch (error) {

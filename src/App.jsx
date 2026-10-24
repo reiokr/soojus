@@ -88,9 +88,18 @@ export default function App() {
       ['mode', `/systems/${sid}/mode`, d => setMode(d?.smartHomeMode)], ['subscriptions', `/systems/${sid}/subscriptions`, setSubscriptions],
       ['notices', `/systems/${sid}/notifications?active=true`, d => setNotices(d.notifications || [])],
     ];
-    const results = await Promise.allSettled(jobs.map(async ([key, url, setter]) => { const value = await api(url); if (rid === requestId.current) setter(value); }));
+    const run = async ([key, url, setter]) => {
+      try { const value = await api(url); if (rid === requestId.current) setter(value); return [key, null]; }
+      catch (e) { return [key, e.message]; }
+    };
+    // Esmalt ootame ainult põhinäite; ülejäänud (seade, tsoonid, teated, tellimused)
+    // laaditakse taustal, et aeglane pilv ei hoiaks tervet lehte kinni.
+    const core = jobs.filter(([key]) => key === 'points');
+    const secondary = jobs.filter(([key]) => key !== 'points');
+    for (const job of secondary) run(job).then(([key, error]) => { if (rid === requestId.current) setErrors(prev => ({ ...prev, [key]: error })); });
+    const results = await Promise.all(core.map(run));
     if (rid !== requestId.current) return;
-    setErrors(prev => ({ global: prev.global, ...Object.fromEntries(results.map((r,i) => [jobs[i][0], r.status === 'rejected' ? r.reason.message : null])) }));
+    setErrors(prev => ({ ...prev, global: prev.global, ...Object.fromEntries(results) }));
     setLastFetch(new Date().toISOString()); setTick(t => t+1); setLoading(false); setRefreshing(false);
   }, [selection, systemId]);
   useEffect(() => {
@@ -223,7 +232,8 @@ function HistoryChart({ deviceId, points, hours, tick, compact = false, theme, s
   const auxId = auxDeviceId || deviceId;
   const winQ = range ? `from=${encodeURIComponent(new Date(range.from).toISOString())}&to=${encodeURIComponent(new Date(range.to).toISOString())}` : `hours=${hours}`, winKey = range ? `${range.from}-${range.to}` : `h${hours}`;
   const winMs = range ? range.to - range.from : hours * 3600000;
-  useEffect(() => { if (!deviceId && !src) return; const c = new AbortController(); setBusy(true); api(src ? `${src}&${winQ}` : `/history/${encodeURIComponent(deviceId)}?${winQ}${extra}`, { signal: c.signal }).then(d => { setRows(d.rows); setBucket(d.bucketSeconds || 0); setGapList(d.gaps || []); setSinceMs(Date.parse(d.since)); setLimited(d.limited); setError(null); }).catch(e => { if (!c.signal.aborted) setError(e.message); }).finally(() => { if (!c.signal.aborted) setBusy(false); }); return () => c.abort(); }, [deviceId, winKey, tick, extra, src]);
+  const pointsKey = points.map(p => p.parameterId).join(',');
+  useEffect(() => { if (!deviceId && !src) return; const c = new AbortController(); setBusy(true); const pointQuery = !src && points.length ? `&points=${encodeURIComponent(pointsKey)}` : ''; api(src ? `${src}&${winQ}` : `/history/${encodeURIComponent(deviceId)}?${winQ}${extra}${pointQuery}`, { signal: c.signal }).then(d => { setRows(d.rows); setBucket(d.bucketSeconds || 0); setGapList(d.gaps || []); setSinceMs(Date.parse(d.since)); setLimited(d.limited); setError(null); }).catch(e => { if (!c.signal.aborted) setError(e.message); }).finally(() => { if (!c.signal.aborted) setBusy(false); }); return () => c.abort(); }, [deviceId, winKey, tick, extra, src, pointsKey]);
   useEffect(() => {
     if (!deviceId || !compare || compact) { setPrevRows([]); return; }
     const end = range ? range.from : Date.now() - winMs, c = new AbortController();

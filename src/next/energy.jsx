@@ -62,13 +62,16 @@ export default function EnergyPage({ ctx }) {
   }, [ctx.selection, days]);
 
   useEffect(() => {
-    let live = true;
+    let live = true, timer = null, attempts = 0;
     setPricesBusy(true); setPricesError(null);
-    api(`/prices?days=${days}`)
-      .then(result => { if (live) setPrices(result); })
-      .catch(e => { if (live) setPricesError(e.message); })
-      .finally(() => { if (live) setPricesBusy(false); });
-    return () => { live = false; };
+    const load = () => api(`/prices?days=${days}`).then(result => {
+      if (!live) return;
+      setPrices(result);
+      if (result.syncing && attempts < 5) { attempts += 1; timer = setTimeout(load, 1500); }
+      else setPricesBusy(false);
+    }).catch(e => { if (live) { setPricesError(e.message); setPricesBusy(false); } });
+    load();
+    return () => { live = false; if (timer) clearTimeout(timer); };
   }, [days]);
 
   const updateMeter = patch => {
