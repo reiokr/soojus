@@ -14,7 +14,8 @@ import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './sto
 import { energyReport, MAX_DAYS } from './energy.js';
 import { ensurePriceTable, syncPrices, pricesFor } from './prices.js';
 import { buildHeatingCurve } from './heating-curve.js';
-import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueNotifications, sendSms, kdeconnectDevices } from './notifications.js';
+import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueAlerts, dueNotifications, sendSms, kdeconnectDevices } from './notifications.js';
+import { createPushStore } from './push.js';
 import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
 import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
 
@@ -39,6 +40,7 @@ const { compact, archiveSamples } = createStore(db, root);
 ensurePriceTable(db);
 const getSetting = key => { const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key); return row ? JSON.parse(row.value) : null; };
 const setSetting = (key, value) => db.prepare('INSERT OR REPLACE INTO settings VALUES(?,?)').run(key, JSON.stringify(value));
+const pushStore = createPushStore(db, getSetting, setSetting);
 const audit = (device, action, detail) => db.prepare('INSERT INTO audit(time,device,action,detail) VALUES(?,?,?,?)').run(new Date().toISOString(), device, action, JSON.stringify(detail));
 function credentials() { return getSetting('credentials') || { clientId: process.env.MYUPLINK_CLIENT_ID, clientSecret: process.env.MYUPLINK_CLIENT_SECRET }; }
 let tokenFlight;
@@ -731,23 +733,32 @@ let notifyBusy = false;
 async function notificationTick() {
   if (notifyBusy) return;
   const config = getSetting(NOTIFY_KEY);
-  if (!config?.smsEnabled || !config.phone) return;
+  const sms = Boolean(config?.smsEnabled && config.phone);
+  const push = Boolean(config?.pushEnabled && pushStore.count() > 0);
+  if (!sms && !push) return;
   const log = getSetting(NOTIFY_LOG_KEY) || { lastSent: {}, sent: [] };
-  const due = dueNotifications({ settings: config, state: notificationState(), log, now: Date.now() });
+  const due = dueAlerts({ settings: config, state: notificationState(), log, now: Date.now() });
   if (!due.length) return;
   notifyBusy = true;
   try {
     for (const alert of due) {
       const time = new Date().toISOString();
-      try {
-        await sendSms(config, alert.text);
-        log.lastSent[alert.key] = time;
-        log.sent.unshift({ time, key: alert.key, text: alert.text, ok: true });
-      } catch (e) {
-        // Ka ebaõnnestunud katse jätab cooldown'i, et vigane konfiguratsioon ei saadaks iga 5 minuti tagant uut katset.
-        log.lastSent[alert.key] = time;
-        log.sent.unshift({ time, key: alert.key, text: alert.text, ok: false, error: e.message });
+      const errors = [];
+      let sent = false;
+      if (sms) {
+        try { await sendSms(config, alert.text); sent = true; }
+        catch (e) { errors.push(`SMS: ${e.message}`); }
       }
+      if (push) {
+        try {
+          const result = await pushStore.send({ title: 'Soojus', body: alert.text, url: '/', tag: alert.key });
+          if (result.sent > 0) sent = true;
+          if (result.failed > 0) errors.push(`Push: ${result.failed} ebaõnnestus`);
+        } catch (e) { errors.push(`Push: ${e.message}`); }
+      }
+      // Ka ebaõnnestunud katse jätab cooldown'i, et vigane konfiguratsioon ei saadaks iga 5 minuti tagant uut katset.
+      log.lastSent[alert.key] = time;
+      log.sent.unshift({ time, key: alert.key, text: alert.text, ok: sent, error: errors.join('; ') || undefined });
       log.sent = log.sent.slice(0, 100);
       setSetting(NOTIFY_LOG_KEY, log);
     }
@@ -759,7 +770,7 @@ app.post('/api/notifications/settings', (req, res) => {
   try {
     const next = parseNotifications(req.body, getSetting(NOTIFY_KEY));
     setSetting(NOTIFY_KEY, next);
-    audit('local', 'Teavitused', { smsEnabled: next.smsEnabled, provider: next.provider });
+    audit('local', 'Teavitused', { smsEnabled: next.smsEnabled, pushEnabled: next.pushEnabled, provider: next.provider });
     res.json(publicNotifications(next));
   } catch (e) { throw new AppError(e.message, 400); }
 });
@@ -779,6 +790,28 @@ app.post('/api/notifications/test', async (req, res) => {
   }
 });
 app.get('/api/notifications/log', (req, res) => res.json(getSetting(NOTIFY_LOG_KEY) || { lastSent: {}, sent: [] }));
+
+// ---- Web Push ---------------------------------------------------------------
+app.get('/api/push/key', (req, res) => res.json({ publicKey: pushStore.publicKey(), count: pushStore.count() }));
+app.get('/api/push/status', (req, res) => res.json({ publicKey: pushStore.publicKey(), count: pushStore.count() }));
+app.post('/api/push/subscribe', (req, res) => {
+  try {
+    const count = pushStore.subscribe(req.body?.subscription, req.body?.label);
+    audit('local', 'Push-tellimus', { devices: count });
+    res.json({ ok: true, count });
+  } catch (e) { throw new AppError(e.message, 400); }
+});
+app.post('/api/push/unsubscribe', (req, res) => {
+  const count = pushStore.unsubscribe(req.body?.endpoint);
+  audit('local', 'Push-tellimus eemaldatud', { devices: count });
+  res.json({ ok: true, count });
+});
+app.post('/api/push/test', async (req, res) => {
+  const result = await pushStore.send({ title: 'Soojus', body: 'Test-push. Teavitused töötavad.', url: '/', tag: 'test' });
+  if (!result.total) throw new AppError('Ükski seade pole push-teavitusi tellinud.', 400);
+  if (!result.sent) throw new AppError('Push-teavitust ei õnnestunud saata. Tellimus võib olla aegunud – luba push uuesti.', 502);
+  res.json(result);
+});
 
 // ---- Vigade analüüs ---------------------------------------------------------
 // Iga vea kohta keskmistame töötingimused vahetult enne viga ja võrdleme tavalise tööga

@@ -11,6 +11,7 @@ export const NOTIFY_LOG_KEY = 'notificationLog';
 
 export const DEFAULT_NOTIFICATIONS = Object.freeze({
   smsEnabled: false,
+  pushEnabled: false,
   phone: '',
   provider: 'kdeconnect',
   twilioSid: '',
@@ -43,6 +44,7 @@ export function parseNotifications(input = {}, previous = null) {
   const provider = ['kdeconnect', 'twilio', 'messagebird', 'webhook'].includes(merged.provider) ? merged.provider : 'kdeconnect';
   return {
     smsEnabled: bool(merged.smsEnabled, false),
+    pushEnabled: bool(merged.pushEnabled, false),
     phone,
     provider,
     twilioSid: text(merged.twilioSid),
@@ -104,9 +106,10 @@ export function notificationAlerts(state = {}) {
 
 const recentSent = (log, now) => (log?.sent || []).filter(entry => entry.ok && now - Date.parse(entry.time) < 86400000);
 
-export function dueNotifications({ settings, state, log, now = Date.now() }) {
+// Kanalist sõltumatu hindamine: reeglid, vaikne aeg, cooldown ja päevapiir.
+// SMS ja push saavad sama nimekirja, et mõlemad kanalid järgiksid samu seadeid.
+export function dueAlerts({ settings, state, log, now = Date.now() }) {
   const config = parseNotifications(settings);
-  if (!config.smsEnabled || !config.phone) return [];
   const date = new Date(now);
   if (inQuietHours(date, config.quietFrom, config.quietTo)) return [];
   const sent = recentSent(log, now);
@@ -120,6 +123,12 @@ export function dueNotifications({ settings, state, log, now = Date.now() }) {
     due.push(alert);
   }
   return due;
+}
+
+export function dueNotifications({ settings, state, log, now = Date.now() }) {
+  const config = parseNotifications(settings);
+  if (!config.smsEnabled || !config.phone) return [];
+  return dueAlerts({ settings: config, state, log, now });
 }
 
 // KDE Connecti paardunud seadmed (telefonid). Kasutab kasutaja D-Busi (systemd user-teenusel on see olemas).

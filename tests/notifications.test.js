@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_NOTIFICATIONS, parseNotifications, publicNotifications, inQuietHours, notificationAlerts, dueNotifications, sendSms, kdeconnectDevices } from '../server/notifications.js';
+import { DEFAULT_NOTIFICATIONS, parseNotifications, publicNotifications, inQuietHours, notificationAlerts, dueAlerts, dueNotifications, sendSms, kdeconnectDevices } from '../server/notifications.js';
 
 test('parseNotifications normalises the phone, keeps secrets and validates values', () => {
   const config = parseNotifications({ smsEnabled: true, phone: '+372 5555 1234', provider: 'messagebird', messagebirdKey: 'key-1', quietFrom: 23, quietTo: 8, cooldownMinutes: 60, rules: { co2: false } });
@@ -21,6 +21,15 @@ test('publicNotifications never exposes secrets', () => {
   assert.equal(publicConfig.twilioToken, undefined);
   assert.equal(publicConfig.messagebirdKey, undefined);
   assert.deepEqual(publicConfig.secrets, { twilioToken: true, messagebirdKey: true, webhookToken: true });
+});
+
+test('dueAlerts evaluates rules independently of SMS so push can reuse it', () => {
+  const at = new Date(2026, 0, 1, 12, 0).getTime();
+  const settings = { smsEnabled: false, pushEnabled: true, phone: '', quietFrom: 0, quietTo: 0, dailyLimit: 10, cooldownMinutes: 60, rules: { pumpError: true, ventFilter: true, co2: true, legionella: true, stale: false } };
+  const due = dueAlerts({ settings, state: { ventFilter: true }, log: { lastSent: {}, sent: [] }, now: at });
+  assert.equal(due.length, 1);
+  assert.equal(due[0].key, 'vent:filter');
+  assert.deepEqual(dueNotifications({ settings, state: { ventFilter: true }, log: { lastSent: {}, sent: [] }, now: at }), []);
 });
 
 test('quiet hours work across midnight and can be disabled', () => {

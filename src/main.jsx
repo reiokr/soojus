@@ -12,4 +12,8 @@ import { initLocale } from './i18n/index.js';
 import './styles.css';
 
 initLocale();
+// PWA: service worker ainult tootmisbuildis (arenduses segaks Vite'i HMR-i).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
 createRoot(document.getElementById('root')).render(<App />);

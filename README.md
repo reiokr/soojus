@@ -104,12 +104,47 @@ Ajaloo lehel on ventilatsiooni näidud soojuspumba omadega samas valijas: sama �
 - Ilm ja asukoht Open-Meteost (ilmapaneel, 24 h ja 7 päeva prognoos) ilma API-võtmeta.
 - Kohalik mõõtmisajalugu: eri perioodid, kuni viis sama ühikuga graafikuseeriat, CSV eksport.
 - **Nutikad SMS-teavitused:** lisa oma mobiilinumber ja vali teenusepakkuja. **KDE Connect** on tasuta ja saadab SMS-i sinu telefoni SIM-kaardi kaudu: pairista telefon arvutiga, luba telefonis SMS-plugin ja vali seade. Alternatiivid: Twilio, MessageBird või üldine webhook (nt kohalik GSM gateway). Reeglid: soojuspumba viga, ventilatsiooni filter, kõrge CO₂, legionella ebaõnnestumine ja vananenud andmed. Lisaks vaikne aeg, kordusvahemik ja päevane piirmäär; test-SMS ja viimaste teavituste logi. Võtmed ja number jäävad kohalikku andmebaasi, GET ei tagasta saladusi. SMS-id on teenusepakkuja hinnakirja järgi tasulised; sõnumid on eesti keeles. Seaded: *Seaded ja ühendus → Nutikad teavitused*.
+- **PWA ja push-teavitused:** rakenduse saab paigaldada avaekraanile (manifest + service worker), offline-kest kuvab rakenduse kesta ka siis, kui server ei vasta, ja **Web Push** saadab tasuta teavitusi ilma SMS-ita. Luba *Seaded ja ühendus → Nutikad teavitused → Push-teavitused*; server genereerib VAPID-võtmed ja hoiab brauserite tellimusi kohalikus andmebaasis. Tellimus on brauseripõhine ja server saadab teavituse kõigile tellinud seadmetele. Push ja PWA paigaldus nõuavad **HTTPS-i või localhosti**; telefonis LAN-i HTTP-aadressil need ei tööta (SMS töötab edasi). Vt täpsemalt [PWA ja push-teavitused](#pwa-ja-push-teavitused).
 - **Küttekõver** (uus liides: *Veel → Küttekõver*): tagasivoolu siht välisõhu suhtes, ajalooline hajuvus ja sobitatud kõver, praegune tööpunkt, välisõhupiir ning kütte nihke eelvaade ja salvestus (punkt 5001). Kõver tuletatakse ajaloolistest sihtväärtustest, sest seadme enda kõveraparameetrid API kaudu ei ole.
 - **Energia ja kulu** (uus liides: *Veel → Energia*): pakettide võrdlus (praegune, fikseeritud, kahetariifne ja börsihind). Börsihinna ajalugu tuleb Nord Pooli / Eleringi avalikust API-st, salvestatakse kohalikku andmebaasi (`power_prices`) ja arvutatakse tunni spot-hinna + marginaali + võrgukomponentide + KM järgi; võrdlus näitab kulu, keskmist €/kWh ja vahet.  soojus- ja elektrivõimsuse ööpäevane integraal pumba kohalikust liidesest, COP, elektrihinna järgi arvutatud kulu ning CSV eksport (7/30/90/365 päeva). Elektrikulu mõõdetakse pumba kohaliku liidese `power_ac` näidust; myUplink ei anna elektrivõimsust. Kui kohalik server ei tööta, tekivad lüngad — aruanne näitab **andmete katvust** ja hoiatab alahindamise eest. Kogu mõõtepunkti (arve) koguse saab eraldi sisestada, et võrrelda soojuspumba osa ja arvutada kogu mõõtepunkti kulu (näiteks september 2026: 410,338 kWh → arvutus 99,25 €, arve 100 €). Valida saab ühe- või kahetariifse paketi, sisestada päeva- ja ööhinnad ning öise aja (kohalik kell), või sisestada **arve komponendid** (energia hind, võrgu päev/öö, varustuskindlus, aktsiis, taastuvenergia, käibemaks ja kuutasu) — rakendus arvutab neist päeva/öö lõpphinna. Kulu arvutatakse elektri tunnijaotuse järgi; kuutasu saab soovi korral kulusse lisada (vaikimisi eraldi, sest see on mõõtepunkti, mitte ainult soojuspumba kulu). Vaikimisi on ees Elektrum Eesti september 2026 Pilka mõõtepunkti komponendid: energia 0,10398 €/kWh (sisaldab tasakaalustamist), võrk 0,0607/0,0351 €/kWh, varustuskindlus 0,00758 €/kWh, aktsiis 0,0021 €/kWh, taastuvenergia 0,0084 €/kWh, käibemaks 24%, kuutasu 8,34 + 1,54 €/kuu. Energiahind muutub kuu kaupa ja tuleb uuelt arvelt üle kirjutada; müüja kuutasu võib arvel olla ka 2,92 € (teine mõõtepunkt). Ventilatsiooni elektrikulu on eraldi **hinnang** ventilaatori õhuvoolu ja tootja SFP-kõvera järgi (S2: 1,33 kW/(m³/s) @ 277 m³/h, max 0,34 kW; eelsoojendit see ei sisalda). Airoboti Modbus-kaardis võimsuse/energia registrit ei ole. Ilma kohaliku liideseta näidatakse ainult soojusvõimsust.
 - Püsivara versioonid ja fail, tellimused, seadme võimekused, abirežiimi olek.
 - Serveripoolne sisendite ja skaleerimise kontroll; muudatuste audit; osaliste vigade käsitlus.
 - Mobiilivaade, klaviatuuriga kasutatavad dialoogid, reduced-motion tugi, kohalikud fondid.
 - Hele ja tume teema ühe klõpsuga; valik salvestub ja esmakordsel avamisel järgitakse seadme eelistust.
+
+## PWA ja push-teavitused
+
+Rakendus on paigaldatav PWA: `public/manifest.webmanifest` annab nime, ikoonid (192/512 ja maskable) ja seisundi `standalone`; `public/sw.js` vahemällu salvestab rakenduse kesta ja staatilised failid. Service worker registreeritakse ainult tootmisbuildis (`npm run build` + `npm start`), mitte arendusserveris.
+
+**Paigaldamine**
+
+- **Arvuti (Chrome/Edge):** ava `http://localhost:3210` ja vali aadressiribalt „Install” / „Paigalda rakendus”.
+- **Android (Chrome):** ava rakendus HTTPS-i kaudu ja vali menüüst „Add to Home screen” / „Lisa avaekraanile”.
+- **iPhone/iPad (Safari):** ava HTTPS-i kaudu, vajuta „Share” → „Add to Home Screen”. iOS 16.4+ toetab push-teavitusi paigaldatud PWA-le.
+
+**Offline-kest:** pärast esimest laadimist (ja teist laadimist, kui service worker alles aktiveerus) avaneb rakendus ka võrguühenduseta. API-päringud jäävad alati võrku; offline-režiimis kuvatakse rakenduse kest ja andmete laadimise vead, mitte vananenud andmeid. Värsked andmed tulevad kohe, kui server on jälle kättesaadav.
+
+**Push-teavitused**
+
+1. Ava *Seaded ja ühendus → Nutikad teavitused*.
+2. Märgi **„Luba push-teavitused selles seadmes”**. Brauser küsib teavituste luba; rakendus tellib push-teenuse ja salvestab tellimuse serverisse.
+3. Kasuta **„Saada test-push”**, et kontrollida.
+4. Teavitused järgivad samu reegleid, vaikset aega, kordusvahemikku ja päevapiiri nagu SMS-id. Kui SMS ja push on mõlemad sees, saadetakse mõlemad; soovi korral lülita üks välja.
+
+Server genereerib VAPID-võtmed esimesel kasutamisel ja hoiab neid `settings` tabelis (`pushVapid`); avalik võti on `GET /api/push/key`, tellimused on `push_subscriptions` tabelis. Aegunud tellimused (HTTP 404/410) eemaldatakse automaatselt. Lõpp-punktid: `GET /api/push/status`, `POST /api/push/subscribe`, `POST /api/push/unsubscribe`, `POST /api/push/test`.
+
+**HTTPS-i nõue:** service worker, paigaldamine ja Push API töötavad ainult **turvalises kontekstis** — HTTPS või `localhost`. Telefonist `http://192.168.x.x:3210` avades need ei tööta; kasuta sel juhul SMS-teavitusi või sea ette HTTPS-pöördproksi (nt Caddy automaatse Let's Encrypti sertifikaadiga, Tailscale Serve või usaldusväärne kohalik sertifikaat). Iseallkirjastatud sertifikaati ei pruugi Android/iOS service workerile usaldusväärseks lugeda.
+
+Pöördproksiga tuleb serverile anda õige avalik aadress, muidu blokeerib hosti- ja CSRF-kontroll päringud: lisa `.env`-i `APP_ORIGIN=https://sinu-aadress` ja lase proksil `Host` päis muutmata läbi. Caddy näide:
+
+```caddyfile
+soojus.kodu {
+  tls internal
+  reverse_proxy 127.0.0.1:3210
+}
+```
+
+Seejärgselt impordi Caddy lokaalne juursertifikaat telefonis usaldusväärsete sertifikaatide hulka (Android: *Settings → Security → Encryption & credentials → Install a certificate → CA certificate*) ja ava `https://soojus.kodu`. Kui kasutad Tailscale'i, piisab `tailscale serve`-st ja Tailscale'i HTTPS-sertifikaadist.
 
 ## Andmed
 

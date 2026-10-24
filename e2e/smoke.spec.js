@@ -47,3 +47,46 @@ test('notification settings panel renders in both interfaces', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Nutikad teavitused' })).toBeVisible();
   await expect(page.locator('.notify-panel .notify-checks input')).toHaveCount(5);
 });
+
+test('PWA manifest is served and the app shell loads offline', async ({ page, context }) => {
+  const manifest = await page.request.get('/manifest.webmanifest');
+  expect(manifest.ok()).toBe(true);
+  const data = await manifest.json();
+  expect(data.short_name).toBe('Soojus');
+  expect(data.display).toBe('standalone');
+  expect(data.icons.some(icon => icon.purpose === 'maskable')).toBe(true);
+
+  await page.goto('/?ui=classic&page=overview');
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  await page.reload({ waitUntil: 'networkidle' });
+  expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+
+  await context.setOffline(true);
+  try {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('a.brand')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('a.brand')).toContainText('soojus');
+  } finally {
+    await context.setOffline(false);
+  }
+});
+
+test('push API issues a VAPID key and stores subscriptions', async ({ request }) => {
+  const origin = (process.env.E2E_BASE_URL || 'http://localhost:3210').replace(/\/$/, '');
+  const headers = { Origin: origin, 'X-Soojus-Request': '1' };
+  const keyResponse = await request.get('/api/push/key');
+  expect(keyResponse.ok()).toBe(true);
+  const key = await keyResponse.json();
+  expect(key.publicKey).toMatch(/^B[A-Za-z0-9_-]{80,}$/);
+
+  const subscribe = await request.post('/api/push/subscribe', {
+    headers,
+    data: { subscription: { endpoint: 'https://e2e.invalid/push/1', keys: { p256dh: 'test-key', auth: 'test-auth' } }, label: 'e2e' }
+  });
+  expect(subscribe.ok()).toBe(true);
+  expect((await subscribe.json()).count).toBe(key.count + 1);
+
+  const unsubscribe = await request.post('/api/push/unsubscribe', { headers, data: { endpoint: 'https://e2e.invalid/push/1' } });
+  expect(unsubscribe.ok()).toBe(true);
+  expect((await unsubscribe.json()).count).toBe(key.count);
+});

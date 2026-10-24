@@ -5,6 +5,11 @@ import { t } from './i18n/index.js';
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const hourLabel = hour => `${String(hour).padStart(2, '0')}:00`;
 const ruleKeys = ['pumpError', 'ventFilter', 'co2', 'legionella', 'stale'];
+const pushCapable = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
+const urlBase64ToUint8Array = base64 => {
+  const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(padded), character => character.charCodeAt(0));
+};
 
 export default function NotificationSettings({ notify }) {
   const [form, setForm] = useState(null);
@@ -14,12 +19,21 @@ export default function NotificationSettings({ notify }) {
   const [error, setError] = useState(null);
   const [devices, setDevices] = useState([]);
   const [devicesError, setDevicesError] = useState(null);
+  const [pushStatus, setPushStatus] = useState(null);
+  const [localPush, setLocalPush] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   const load = async () => {
     try {
-      const [settings, activity] = await Promise.all([api('/notifications/settings'), api('/notifications/log')]);
+      const [settings, activity, push] = await Promise.all([api('/notifications/settings'), api('/notifications/log'), api('/push/status')]);
       setForm({ ...settings, twilioToken: '', messagebirdKey: '', webhookToken: '' });
       setLog(activity || { sent: [] });
+      setPushStatus(push);
+      if (pushCapable()) {
+        const registration = await navigator.serviceWorker.getRegistration().catch(() => null);
+        const subscription = await registration?.pushManager?.getSubscription?.().catch(() => null);
+        setLocalPush(Boolean(subscription));
+      }
       setError(null);
     } catch (e) { setError(e.message); }
   };
@@ -55,6 +69,50 @@ export default function NotificationSettings({ notify }) {
       setLog(activity || { sent: [] });
     } catch (e) { setError(e.message); } finally { setTestBusy(false); }
   }
+  async function savePushFlag(enabled) {
+    const saved = await api('/notifications/settings', { method: 'POST', body: JSON.stringify({ ...form, pushEnabled: enabled }) });
+    setForm({ ...saved, twilioToken: '', messagebirdKey: '', webhookToken: '' });
+  }
+  async function enablePush() {
+    setPushBusy(true); setError(null);
+    try {
+      if (!pushCapable()) throw new Error(t('notify.pushUnsupported'));
+      if (!window.isSecureContext) throw new Error(t('notify.pushInsecure'));
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) throw new Error(t('notify.pushNoWorker'));
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') throw new Error(t('notify.pushDenied'));
+      const { publicKey } = await api('/push/key');
+      const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+      await api('/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: subscription.toJSON(), label: navigator.platform || 'Brauser' }) });
+      await savePushFlag(true);
+      setLocalPush(true);
+      setPushStatus(await api('/push/status'));
+      notify?.(t('notify.pushEnabled'));
+    } catch (e) { setError(e.message); } finally { setPushBusy(false); }
+  }
+  async function disablePush() {
+    setPushBusy(true); setError(null);
+    try {
+      const registration = await navigator.serviceWorker?.getRegistration?.();
+      const subscription = await registration?.pushManager?.getSubscription?.();
+      if (subscription) {
+        await api('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint: subscription.endpoint }) });
+        await subscription.unsubscribe();
+      }
+      await savePushFlag(false);
+      setLocalPush(false);
+      setPushStatus(await api('/push/status'));
+      notify?.(t('notify.pushDisabled'));
+    } catch (e) { setError(e.message); } finally { setPushBusy(false); }
+  }
+  async function testPush() {
+    setPushBusy(true); setError(null);
+    try {
+      await api('/push/test', { method: 'POST', body: '{}' });
+      notify?.(t('notify.pushTestSent'));
+    } catch (e) { setError(e.message); } finally { setPushBusy(false); }
+  }
 
   return <section className="panel notify-panel">
     <div className="panel-title"><div><h3>{t('notify.title')}</h3><p>{t('notify.hint')}</p></div></div>
@@ -70,6 +128,14 @@ export default function NotificationSettings({ notify }) {
       </div>
       <label className="check-filter notify-toggle"><input type="checkbox" checked={form.smsEnabled} onChange={e => update({ smsEnabled: e.target.checked })}/>{t('notify.smsEnabled')}</label>
       <p className="muted notify-hint">{t('notify.providerHint')}</p>
+
+      <h4 className="notify-subhead">{t('notify.pushTitle')}</h4>
+      <label className="check-filter notify-toggle"><input type="checkbox" checked={Boolean(localPush && form.pushEnabled)} disabled={pushBusy || !pushCapable() || !window.isSecureContext} onChange={e => (e.target.checked ? enablePush() : disablePush())}/>{pushBusy ? t('notify.pushBusy') : t('notify.pushToggle')}</label>
+      <p className="muted notify-hint">{!pushCapable() ? t('notify.pushUnsupported') : !window.isSecureContext ? t('notify.pushInsecure') : t('notify.pushHint')}</p>
+      {pushStatus && <p className="muted notify-hint">{t('notify.pushDevices', { count: pushStatus.count })} {t('notify.pushServerHint')}</p>}
+      <div className="button-row">
+        <button type="button" className="button" onClick={testPush} disabled={pushBusy || !pushStatus?.count}>{t('notify.pushTest')}</button>
+      </div>
 
       {form.provider === 'kdeconnect' && <>
         <label className="field"><span>{t('notify.kdeconnectDevice')}</span><select value={form.kdeconnectDevice || ''} onChange={e => update({ kdeconnectDevice: e.target.value })}>
