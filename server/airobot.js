@@ -96,6 +96,16 @@ export function flowForLevel(level) {
   return S2_FLOW_CURVE.at(-1)[1];
 }
 
+// Ventilaatori elektriVÕIMSUSE hinnang (W) õhuvoolu järgi.
+// Airobot S2 andmeleht: SFP 1,33 kW/(m³/s) @ 277 m³/h / 50 Pa; max 0,34 kW @ 500 m³/h ilma eelsoojendita.
+// See on hinnang: filtritakistus, paigaldus ja eelsoojendi (kuni 1,35 kW) ei ole arvestatud.
+export function ventPowerW(flow) {
+  const q = Number(flow);
+  if (!Number.isFinite(q) || q <= 0) return 0;
+  if (q <= 277) return 1.33 * q / 3.6;
+  return 102.4 + (q - 277) * (340 - 102.4) / (500 - 277);
+}
+
 export const MODES = { 1: 'Automaatne', 2: 'Manuaalne' };
 export const MODE_TEXT = { auto: 'Automaatne', manual: 'Manuaalne', boost: 'Õhutus', overpressure: 'Ülerõhk' };
 

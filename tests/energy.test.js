@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { dailyEnergy, energyReport } from '../server/energy.js';
+import { dailyEnergy, energyReport, ventilationEnergy } from '../server/energy.js';
 
 const close = (a, b, eps = 0.01) => assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);
 // Testid jooksevad Europe/Tallinn ajavööndis (vt package.json "test"), seega kohalikud ajad on deterministlikud.
@@ -113,4 +113,15 @@ test('energyReport falls back to myUplink heat output when the local interface i
   close(report.totals.heatKwh, 4);
   assert.equal(report.totals.electricKwh, null);
   assert.equal(report.totals.cop, null);
+});
+
+test('ventilationEnergy integrates estimated fan power from airflow history', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec('CREATE TABLE samples (device TEXT, point TEXT, time TEXT, value REAL, label TEXT, unit TEXT, PRIMARY KEY(device,point,time))');
+  const insert = db.prepare('INSERT INTO samples VALUES(?,?,?,?,?,?)');
+  for (let minute = 0; minute <= 60; minute += 10) insert.run('airobot', 'supply_flow', at(2026, 1, 1, 0, minute), 128, 'Sissepuhke õhuvool', 'm³/h');
+  const result = ventilationEnergy(db, { from: at(2026, 1, 1, 0), to: at(2026, 1, 1, 1) });
+  close(result.kwh, 0.0473, 0.002); // 47,3 W × 1 h
+  close(result.hours, 1, 0.01);
+  close(result.coverage, 1, 0.01);
 });

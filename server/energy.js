@@ -2,6 +2,8 @@
 // Andmed tulevad pumba kohalikust liidesest (Luxtronik): power_heat ja power_ac.
 // Kui kohalikku liidest pole, saab soojusvõimsuse myUplinki punktist 21, aga elektrit ja COP-i siis ei arvutata.
 
+import { ventPowerW } from './airobot.js';
+
 const DAY_MS = 86400000;
 export const MAX_GAP_SECONDS = 900; // pikem vaheaeg ei ole usaldusväärne mõõtmine
 export const MAX_DAYS = 366;
@@ -121,6 +123,25 @@ function pivot(rows) {
   return [...byTime].map(([time, entry]) => ({ time, ...entry }));
 }
 
+// Ventilatsiooni elektrienergia hinnang airoboti õhuvoolu ajaloost (W × aeg).
+export function ventilationEnergy(db, { from, to, maxGap = MAX_GAP_SECONDS, deviceId = 'airobot' } = {}) {
+  const rows = db.prepare(`SELECT time, value FROM samples WHERE device=? AND point='supply_flow' AND time>=? AND time<? ORDER BY time`).all(deviceId, from, to)
+    .map(row => ({ time: row.time, flow: finite(row.value) })).filter(row => row.flow != null);
+  let kwh = 0, seconds = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i], next = rows[i + 1], start = Date.parse(row.time);
+    if (!Number.isFinite(start)) continue;
+    let end = next ? Date.parse(next.time) : start + maxGap * 1000;
+    if (to && Number.isFinite(Date.parse(to))) end = Math.min(end, Date.parse(to));
+    if (!Number.isFinite(end) || end <= start) continue;
+    const dt = Math.min((end - start) / 1000, maxGap);
+    kwh += ventPowerW(row.flow) * dt / 3600 / 1000;
+    seconds += dt;
+  }
+  const expected = from && to ? (Date.parse(to) - Date.parse(from)) / 1000 : seconds;
+  return { kwh: round(kwh, 3), hours: round(seconds / 3600, 1), coverage: expected > 0 ? round(Math.min(1, seconds / expected), 3) : 1 };
+}
+
 export function energyReport(db, { deviceId, from, to, luxId = 'luxtronik', maxGap } = {}) {
   const luxRows = db.prepare(`SELECT time, point, value FROM samples WHERE device=? AND point IN ('power_ac','power_heat') AND time>=? AND time<? ORDER BY time`).all(luxId, from, to);
   const samples = pivot(luxRows);
@@ -145,5 +166,5 @@ export function energyReport(db, { deviceId, from, to, luxId = 'luxtronik', maxG
   }
   const outdoor = new Map([...outdoorByDay].map(([day, entry]) => [day, round(entry.sum / entry.count, 1)]));
   for (const day of series.days) day.outdoor = outdoor.get(day.day) ?? null;
-  return { from, to, source, electricKnown, days: series.days, totals: series.totals };
+  return { from, to, source, electricKnown, days: series.days, totals: series.totals, ventilation: ventilationEnergy(db, { from, to, maxGap }) };
 }

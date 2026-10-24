@@ -479,7 +479,7 @@ export default {
     summary: 'Kokkuvõte', chartTitle: 'Päevane energia', tableTitle: 'Päevade kaupa',
     period: 'Ajavahemik', d7: '7 päeva', d30: '30 päeva', d90: '90 päeva', d365: '365 päeva',
     coverage: 'Andmete katvus {percent}%', coverageWarn: 'osa perioodist on mõõtmata (kohalik server oli väljas); kulu ja kWh on alahinnatud.',
-    heat: 'Toodetud soojus', electric: 'Kompressori elekter', cop: 'COP', cost: 'Kulu', hours: 'Kompressori tööaeg',
+    heat: 'Toodetud soojus', electric: 'Kompressori elekter', cop: 'COP', cost: 'Kulu (kompressor)', hours: 'Kompressori tööaeg',
     detail: 'Arve järgi', energyPrice: 'Energia hind, €/kWh', networkDay: 'Võrk päev, €/kWh', networkNight: 'Võrk öö, €/kWh',
     security: 'Varustuskindlus, €/kWh', excise: 'Aktsiis, €/kWh', renewable: 'Taastuvenergia, €/kWh', vat: 'Käibemaks, %',
     monthlyNetwork: 'Võrgu kuutasu, €/kuu', monthlySeller: 'Müüja kuutasu, €/kuu', monthlyUnit: '€/kuu', includeMonthly: 'Arvesta kuutasu kulus',
@@ -500,6 +500,7 @@ export default {
     noElectric: 'Elektriandmed pärinevad pumba kohalikust liidesest. Ühenda see seadetes, et näha tarbitud elektrit, COP-i ja kulu.',
     note: 'Soojus ja elekter on arvutatud pumba enda võimsusnäitude ajalisest integraalist; elekter on kompressori sisend, mis ei sisalda ringluspumpasid ega juhtelektroonikat. COP = soojus / elekter. Tulemus on hinnanguline, mitte kalibreeritud arvesti.',
     sourceLux: 'Allikas: pumba kohalik liides (soojus- ja elektrivõimsus).', sourceUplink: 'Allikas: myUplink (ainult soojusvõimsus).',
+    ventilation: 'Ventilatsioon (hinnang)', ventCoverage: 'katvus {percent}%', ventNote: 'Ventilatsiooni kWh on hinnang ventilaatori õhuvoolu ja tootja SFP-kõvera järgi; eelsoojendi tarbimist see ei sisalda.',
     total: 'Kokku', kwh: 'kWh', h: 'h'
   },
   meter: {

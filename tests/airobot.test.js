@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
-import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, ModbusTcp, effectiveMode, parseControl, applyControl, ControlError, flowForLevel } from '../server/airobot.js';
+import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, ModbusTcp, effectiveMode, parseControl, applyControl, ControlError, flowForLevel, ventPowerW } from '../server/airobot.js';
 
 function fakeUnit({ input = {}, holding = {}, coils = {}, exceptionFor = null } = {}) {
   const writes = [];
@@ -138,4 +138,12 @@ test('reading reports the extra switches and setpoints', async () => {
     assert.equal(d.switches.bypass, true); assert.equal(d.switches.humidityControl, true); assert.equal(d.switches.vocControl, false); assert.equal(d.switches.pmControl, true);
     assert.equal(d.settings.vocSetpoint, 150); assert.equal(d.settings.pmSetpoint, 30);
   } finally { unit.close(); }
+});
+
+test('ventilation power estimate follows the S2 SFP curve', () => {
+  assert.equal(ventPowerW(0), 0);
+  assert.equal(ventPowerW(null), 0);
+  assert.ok(Math.abs(ventPowerW(128) - 47.3) < 0.2);
+  assert.ok(Math.abs(ventPowerW(277) - 102.3) < 0.2);
+  assert.ok(Math.abs(ventPowerW(500) - 340) < 0.2);
 });

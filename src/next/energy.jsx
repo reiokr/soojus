@@ -3,7 +3,7 @@ import { AlertCircle, Download } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api, number } from '../lib.js';
 import { t } from '../i18n/index.js';
-import { DEFAULT_TARIFF, parseTariff, dayCost, totalCost, monthlyCost, effectiveRates, splitElectric } from './tariff.js';
+import { DEFAULT_TARIFF, parseTariff, dayCost, totalCost, monthlyCost, effectiveRates, splitElectric, nightHours } from './tariff.js';
 
 const TARIFF_KEY = 'soojus.energy.tariff';
 const LEGACY_PRICE_KEY = 'soojus.energy.price';
@@ -85,6 +85,11 @@ export default function EnergyPage({ ctx }) {
   const wholeCost = wholeVariable == null ? null : wholeVariable + wholeFixed;
   const pumpCost = electricKnown && data ? (data.days ?? []).reduce((sum, day) => sum + (dayCost(day, tariff) ?? 0), 0) : null;
   const coverage = data?.totals?.coverage ?? null;
+  const ventKwh = data?.ventilation?.kwh ?? null;
+  const ventCoverage = data?.ventilation?.coverage ?? null;
+  const nightHoursCount = nightHours(tariff.nightStart, tariff.nightEnd).length;
+  const ventRate = (rates.day * (24 - nightHoursCount) + rates.night * nightHoursCount) / 24;
+  const ventCost = ventKwh != null ? ventKwh * ventRate : null;
   const pumpEstimate = coverage != null && coverage > 0.05 && totals.electricKwh != null ? totals.electricKwh / coverage : null;
   const pumpCostEstimate = coverage != null && coverage > 0.05 && pumpCost != null ? pumpCost / coverage : null;
   const effectivePumpKwh = pumpEstimate ?? totals.electricKwh;
@@ -181,6 +186,7 @@ export default function EnergyPage({ ctx }) {
           <Card label={t('energy.cop')} value={electricKnown && totals.cop != null ? number(totals.cop, 2) : '—'}/>
           <Card label={t('energy.cost')} value={cost != null ? number(cost, 2) : '—'} unit={cost != null ? '€' : null} hint={detail && electricKnown && fixedCost > 0 ? t('energy.includesFixed', { value: number(fixedCost, 2) }) : null}/>
           <Card label={t('energy.hours')} value={electricKnown ? number(totals.hours, 1) : '—'} unit={electricKnown ? t('energy.h') : null}/>
+          {ventKwh != null && <Card label={t('energy.ventilation')} value={number(ventKwh, 1)} unit={t('energy.kwh')} hint={`${ventCost != null ? `${number(ventCost, 2)} €` : ''}${ventCoverage != null && ventCoverage < 0.9 ? ` · ${t('energy.ventCoverage', { percent: Math.round(ventCoverage * 100) })}` : ''}`}/>}
         </div>
         {coverage != null && <p className="en-coverage">{t('energy.coverage', { percent: Math.round(coverage * 100) })}{coverage < 0.9 ? ` · ${t('energy.coverageWarn')}` : ''}</p>}
         {tariffFields}
@@ -251,7 +257,7 @@ export default function EnergyPage({ ctx }) {
           })}</tbody>
         </table>
       </div>
-      <p className="en-note">{t('energy.note')}{detail ? ` ${t('energy.detailNote')}` : ''}</p>
+      <p className="en-note">{t('energy.note')}{detail ? ` ${t('energy.detailNote')}` : ''} {t('energy.ventNote')}</p>
     </section>}
   </>;
 }

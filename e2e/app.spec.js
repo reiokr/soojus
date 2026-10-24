@@ -114,7 +114,7 @@ test('mobile layout and navigation stay within viewport',async({page})=>{
 test('energy page shows daily heat, electricity, COP, cost and exports CSV', async ({ page }) => {
   await page.goto('/?ui=next&page=energy');
   await expect(page.getByRole('heading', { name: 'Energia ja kulu', exact: true })).toBeVisible();
-  await expect(page.locator('.en-card')).toHaveCount(5);
+  await expect(page.locator('.en-card')).toHaveCount(6);
   await expect(page.locator('.en-card').filter({ hasText: 'Toodetud soojus' })).toContainText(/kWh/);
   await expect(page.locator('.en-card').filter({ hasText: 'COP' })).toContainText(/\d/);
   await expect(page.locator('.en-table tbody tr').first()).toBeVisible();

@@ -479,7 +479,7 @@ export default {
     summary: 'Summary', chartTitle: 'Daily energy', tableTitle: 'By day',
     period: 'Period', d7: '7 days', d30: '30 days', d90: '90 days', d365: '365 days',
     coverage: 'Data coverage {percent}%', coverageWarn: 'part of the period is unmeasured (the local server was off); cost and kWh are underestimated.',
-    heat: 'Heat produced', electric: 'Compressor electricity', cop: 'COP', cost: 'Cost', hours: 'Compressor run time',
+    heat: 'Heat produced', electric: 'Compressor electricity', cop: 'COP', cost: 'Cost (compressor)', hours: 'Compressor run time',
     detail: 'From bill', energyPrice: 'Energy price, €/kWh', networkDay: 'Grid day, €/kWh', networkNight: 'Grid night, €/kWh',
     security: 'Supply security, €/kWh', excise: 'Excise, €/kWh', renewable: 'Renewable energy, €/kWh', vat: 'VAT, %',
     monthlyNetwork: 'Grid monthly fee, €/mo', monthlySeller: 'Seller monthly fee, €/mo', monthlyUnit: '€/mo', includeMonthly: 'Include monthly fee in cost',
@@ -500,6 +500,7 @@ export default {
     noElectric: 'Electricity data comes from the heat pump local interface. Connect it in settings to see electricity used, COP and cost.',
     note: 'Heat and electricity are integrated over time from the pump’s own power readings; electricity is the compressor input and excludes circulation pumps and control electronics. COP = heat / electricity. The result is an estimate, not a calibrated meter.',
     sourceLux: 'Source: heat pump local interface (heat and electric power).', sourceUplink: 'Source: myUplink (heat output only).',
+    ventilation: 'Ventilation (estimate)', ventCoverage: 'coverage {percent}%', ventNote: 'Ventilation kWh is estimated from fan airflow and the manufacturer SFP curve; it does not include the preheater.',
     total: 'Total', kwh: 'kWh', h: 'h'
   },
   meter: {
