@@ -3,7 +3,7 @@ import { AlertCircle, Download } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api, number } from '../lib.js';
 import { t } from '../i18n/index.js';
-import { DEFAULT_TARIFF, parseTariff, dayCost, totalCost, splitElectric } from './tariff.js';
+import { DEFAULT_TARIFF, parseTariff, dayCost, totalCost, monthlyCost, effectiveRates, splitElectric } from './tariff.js';
 
 const TARIFF_KEY = 'soojus.energy.tariff';
 const LEGACY_PRICE_KEY = 'soojus.energy.price';
@@ -58,7 +58,11 @@ export default function EnergyPage({ ctx }) {
   const totals = data?.totals ?? {};
   const electricKnown = data?.electricKnown !== false;
   const dual = tariff.type === 'dual';
-  const cost = electricKnown && data ? totalCost(data.days, tariff) : null;
+  const detail = tariff.type === 'detail';
+  const splitMode = dual || detail;
+  const rates = effectiveRates(tariff);
+  const fixedCost = monthlyCost(tariff, days);
+  const cost = electricKnown && data ? totalCost(data.days, tariff, days) : null;
   const split = useMemo(() => (data?.days ?? []).reduce((sum, day) => {
     const value = splitElectric(day, tariff.nightStart, tariff.nightEnd);
     return { day: sum.day + value.dayKwh, night: sum.night + value.nightKwh };
@@ -73,13 +77,13 @@ export default function EnergyPage({ ctx }) {
 
   const exportCsv = () => {
     if (!data) return;
-    const head = [t('energy.tableDay'), t('energy.tableHeat'), ...(dual ? [t('energy.tableDayKwh'), t('energy.tableNightKwh')] : [t('energy.tableElectric')]), t('energy.tableCop'), t('energy.tableCost'), t('energy.tableHours'), t('energy.tableOutdoor')];
+    const head = [t('energy.tableDay'), t('energy.tableHeat'), ...(splitMode ? [t('energy.tableDayKwh'), t('energy.tableNightKwh')] : [t('energy.tableElectric')]), t('energy.tableCop'), t('energy.tableCost'), t('energy.tableHours'), t('energy.tableOutdoor')];
     const lines = rows.map(day => {
-      const value = dual ? splitElectric(day, tariff.nightStart, tariff.nightEnd) : null;
+      const value = splitMode ? splitElectric(day, tariff.nightStart, tariff.nightEnd) : null;
       return [
         day.day,
         number(day.heatKwh, 2),
-        ...(dual ? [number(value.dayKwh, 2), number(value.nightKwh, 2)] : [electricKnown ? number(day.electricKwh, 2) : '']),
+        ...(splitMode ? [number(value.dayKwh, 2), number(value.nightKwh, 2)] : [electricKnown ? number(day.electricKwh, 2) : '']),
         electricKnown && day.cop != null ? number(day.cop, 2) : '',
         electricKnown ? number(dayCost(day, tariff), 2) : '',
         electricKnown && day.hours != null ? number(day.hours, 1) : '',
@@ -100,14 +104,35 @@ export default function EnergyPage({ ctx }) {
 
   const tariffFields = <div className="en-tariff">
     <div className="segmented en-tariff-type" role="group" aria-label={t('energy.tariff')}>
-      <button type="button" className={!dual ? 'selected' : ''} aria-pressed={!dual} onClick={() => updateTariff({ type: 'single' })}>{t('energy.single')}</button>
+      <button type="button" className={tariff.type === 'single' ? 'selected' : ''} aria-pressed={tariff.type === 'single'} onClick={() => updateTariff({ type: 'single' })}>{t('energy.single')}</button>
       <button type="button" className={dual ? 'selected' : ''} aria-pressed={dual} onClick={() => updateTariff({ type: 'dual' })}>{t('energy.dual')}</button>
+      <button type="button" className={detail ? 'selected' : ''} aria-pressed={detail} onClick={() => updateTariff({ type: 'detail' })}>{t('energy.detail')}</button>
     </div>
-    {!dual ? <label className="en-price"><span>{t('energy.price')}</span><input type="number" min="0" step="0.01" value={tariff.price} onChange={e => updateTariff({ price: e.target.value })} aria-label={t('energy.price')}/><b>{t('energy.priceUnit')}</b></label> : <>
+    {tariff.type === 'single' && <label className="en-price"><span>{t('energy.price')}</span><input type="number" min="0" step="0.01" value={tariff.price} onChange={e => updateTariff({ price: e.target.value })} aria-label={t('energy.price')}/><b>{t('energy.priceUnit')}</b></label>}
+    {dual && <>
       <label className="en-price"><span>{t('energy.dayPrice')}</span><input type="number" min="0" step="0.01" value={tariff.dayPrice} onChange={e => updateTariff({ dayPrice: e.target.value })} aria-label={t('energy.dayPrice')}/><b>{t('energy.priceUnit')}</b></label>
       <label className="en-price"><span>{t('energy.nightPrice')}</span><input type="number" min="0" step="0.01" value={tariff.nightPrice} onChange={e => updateTariff({ nightPrice: e.target.value })} aria-label={t('energy.nightPrice')}/><b>{t('energy.priceUnit')}</b></label>
       <label className="en-price"><span>{t('energy.nightStart')}</span><select value={tariff.nightStart} onChange={e => updateTariff({ nightStart: Number(e.target.value) })} aria-label={t('energy.nightStart')}>{hourOptions.map(hour => <option key={hour} value={hour}>{hourLabel(hour)}</option>)}</select></label>
       <label className="en-price"><span>{t('energy.nightEnd')}</span><select value={tariff.nightEnd} onChange={e => updateTariff({ nightEnd: Number(e.target.value) })} aria-label={t('energy.nightEnd')}>{hourOptions.map(hour => <option key={hour} value={hour}>{hourLabel(hour)}</option>)}</select></label>
+    </>}
+    {detail && <>
+      <div className="en-detail-grid">
+        {[
+          ['energyPrice', 'energy.energyPrice', tariff.energyPrice, '0.00001'],
+          ['networkDay', 'energy.networkDay', tariff.networkDay, '0.00001'],
+          ['networkNight', 'energy.networkNight', tariff.networkNight, '0.00001'],
+          ['security', 'energy.security', tariff.security, '0.00001'],
+          ['excise', 'energy.excise', tariff.excise, '0.00001'],
+          ['renewable', 'energy.renewable', tariff.renewable, '0.00001'],
+          ['vat', 'energy.vat', tariff.vat, '1'],
+          ['monthlyNetwork', 'energy.monthlyNetwork', tariff.monthlyNetwork, '0.01'],
+          ['monthlySeller', 'energy.monthlySeller', tariff.monthlySeller, '0.01']
+        ].map(([field, key, value, step]) => <label className="en-price" key={field}><span>{t(key)}</span><input type="number" min="0" max={field === 'vat' ? 100 : undefined} step={step} value={value} onChange={e => updateTariff({ [field]: e.target.value })} aria-label={t(key)}/></label>)}
+        <label className="en-price"><span>{t('energy.nightStart')}</span><select value={tariff.nightStart} onChange={e => updateTariff({ nightStart: Number(e.target.value) })} aria-label={t('energy.nightStart')}>{hourOptions.map(hour => <option key={hour} value={hour}>{hourLabel(hour)}</option>)}</select></label>
+        <label className="en-price"><span>{t('energy.nightEnd')}</span><select value={tariff.nightEnd} onChange={e => updateTariff({ nightEnd: Number(e.target.value) })} aria-label={t('energy.nightEnd')}>{hourOptions.map(hour => <option key={hour} value={hour}>{hourLabel(hour)}</option>)}</select></label>
+      </div>
+      <label className="en-check"><input type="checkbox" checked={tariff.includeMonthly} onChange={e => updateTariff({ includeMonthly: e.target.checked })}/>{t('energy.includeMonthly')}</label>
+      <small className="en-monthly-hint">{t('energy.monthlyHint')}</small>
     </>}
   </div>;
 
@@ -121,14 +146,14 @@ export default function EnergyPage({ ctx }) {
       {hasData ? <>
         <div className="en-cards">
           <Card label={t('energy.heat')} value={number(totals.heatKwh, 1)} unit={t('energy.kwh')}/>
-          <Card label={t('energy.electric')} value={electricKnown ? number(totals.electricKwh, 1) : '—'} unit={electricKnown ? t('energy.kwh') : null} hint={dual && electricKnown ? t('energy.split', { day: number(split.day, 1), night: number(split.night, 1) }) : null}/>
+          <Card label={t('energy.electric')} value={electricKnown ? number(totals.electricKwh, 1) : '—'} unit={electricKnown ? t('energy.kwh') : null} hint={splitMode && electricKnown ? t('energy.split', { day: number(split.day, 1), night: number(split.night, 1) }) : null}/>
           <Card label={t('energy.cop')} value={electricKnown && totals.cop != null ? number(totals.cop, 2) : '—'}/>
-          <Card label={t('energy.cost')} value={cost != null ? number(cost, 2) : '—'} unit={cost != null ? '€' : null}/>
+          <Card label={t('energy.cost')} value={cost != null ? number(cost, 2) : '—'} unit={cost != null ? '€' : null} hint={detail && electricKnown && fixedCost > 0 ? t('energy.includesFixed', { value: number(fixedCost, 2) }) : null}/>
           <Card label={t('energy.hours')} value={electricKnown ? number(totals.hours, 1) : '—'} unit={electricKnown ? t('energy.h') : null}/>
         </div>
         {tariffFields}
         <div className="en-tariff-foot">
-          <small>{t('energy.priceHint')}{dual ? ` ${t('energy.nightHint', { start: hourLabel(tariff.nightStart), end: hourLabel(tariff.nightEnd) })}` : ''}</small>
+          <small>{detail ? `${t('energy.detailHint')} ${t('energy.effective', { day: number(rates.day, 4), night: number(rates.night, 4) })}${rates.fixedMonthly > 0 ? ` · ${t('energy.fixed', { value: number(rates.fixedMonthly, 2) })}` : ''}` : `${t('energy.priceHint')}${tariff.type !== 'single' ? ` ${t('energy.nightHint', { start: hourLabel(tariff.nightStart), end: hourLabel(tariff.nightEnd) })}` : ''}`}</small>
           <button type="button" className="nx-edit" onClick={exportCsv}><Download size={14}/>{t('energy.export')}</button>
         </div>
       </> : <p className="nx-muted">{t('energy.empty')}</p>}
@@ -157,13 +182,13 @@ export default function EnergyPage({ ctx }) {
       <div className="nx-panel-head"><h2>{t('energy.tableTitle')}</h2><span className="nx-muted">{t('energy.total')}: {number(totals.heatKwh, 1)} {t('energy.kwh')}{electricKnown ? ` · ${number(totals.electricKwh, 1)} ${t('energy.kwh')} · COP ${number(totals.cop, 2)}${cost != null ? ` · ${number(cost, 2)} €` : ''}` : ''}</span></div>
       <div className="en-table-wrap">
         <table className="en-table">
-          <thead><tr><th>{t('energy.tableDay')}</th><th>{t('energy.tableHeat')}</th>{dual ? <><th>{t('energy.tableDayKwh')}</th><th>{t('energy.tableNightKwh')}</th></> : <th>{t('energy.tableElectric')}</th>}<th>{t('energy.tableCop')}</th><th>{t('energy.tableCost')}</th><th>{t('energy.tableHours')}</th><th>{t('energy.tableOutdoor')}</th></tr></thead>
+          <thead><tr><th>{t('energy.tableDay')}</th><th>{t('energy.tableHeat')}</th>{splitMode ? <><th>{t('energy.tableDayKwh')}</th><th>{t('energy.tableNightKwh')}</th></> : <th>{t('energy.tableElectric')}</th>}<th>{t('energy.tableCop')}</th><th>{t('energy.tableCost')}</th><th>{t('energy.tableHours')}</th><th>{t('energy.tableOutdoor')}</th></tr></thead>
           <tbody>{rows.map(day => {
-            const splitDay = dual ? splitElectric(day, tariff.nightStart, tariff.nightEnd) : null;
+            const splitDay = splitMode ? splitElectric(day, tariff.nightStart, tariff.nightEnd) : null;
             return <tr key={day.day}>
               <td>{day.day}</td>
               <td>{number(day.heatKwh, 1)}</td>
-              {dual ? <><td>{number(splitDay.dayKwh, 1)}</td><td>{number(splitDay.nightKwh, 1)}</td></> : <td>{electricKnown ? number(day.electricKwh, 1) : '—'}</td>}
+              {splitMode ? <><td>{number(splitDay.dayKwh, 1)}</td><td>{number(splitDay.nightKwh, 1)}</td></> : <td>{electricKnown ? number(day.electricKwh, 1) : '—'}</td>}
               <td>{electricKnown && day.cop != null ? number(day.cop, 2) : '—'}</td>
               <td>{electricKnown ? number(dayCost(day, tariff), 2) : '—'}</td>
               <td>{electricKnown && day.hours != null ? number(day.hours, 1) : '—'}</td>
@@ -172,7 +197,7 @@ export default function EnergyPage({ ctx }) {
           })}</tbody>
         </table>
       </div>
-      <p className="en-note">{t('energy.note')}</p>
+      <p className="en-note">{t('energy.note')}{detail ? ` ${t('energy.detailNote')}` : ''}</p>
     </section>}
   </>;
 }

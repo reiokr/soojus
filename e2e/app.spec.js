@@ -122,6 +122,10 @@ test('energy page shows daily heat, electricity, COP, cost and exports CSV', asy
   await expect(page.locator('.en-table thead')).toContainText('Päevane, kWh');
   await expect(page.locator('.en-table thead')).toContainText('Öine, kWh');
   await expect(page.locator('.en-card').filter({ hasText: 'Kulu' })).not.toContainText('—');
+  await page.getByRole('button', { name: 'Arve järgi', exact: true }).click();
+  await expect(page.locator('.en-tariff-foot')).toContainText('0,2266');
+  await page.locator('.en-check input').check();
+  await expect(page.locator('.en-card').filter({ hasText: 'Kulu' })).toContainText('kuutasu');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Ekspordi CSV' }).click();
   const download = await downloadPromise;

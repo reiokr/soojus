@@ -3006,6 +3006,28 @@ html[data-ui="next"] .nx-liide .segmented {
   margin: 4px 0 10px;
 }
 .en-tariff-type { margin-right: 2px; }
+.en-detail-grid {
+  flex-basis: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px 14px;
+  margin-top: 6px;
+}
+.en-detail-grid .en-price { justify-content: flex-start; gap: 6px; }
+.en-detail-grid .en-price span { flex: 1; min-width: 66px; }
+.en-detail-grid .en-price input { flex: 0 0 84px; width: 84px; }
+.en-detail-grid .en-price select { flex: 0 0 auto; }
+.en-detail-grid .en-price b { flex: 0 0 auto; }
+.en-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-basis: 100%;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.en-check input { accent-color: var(--nx-ok); }
+.en-monthly-hint { flex-basis: 100%; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
 .en-tariff-foot {
   display: flex;
   align-items: center;
