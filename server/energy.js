@@ -28,7 +28,7 @@ export function dailyEnergy(samples, { from = null, to = null, maxGap = MAX_GAP_
 
   const days = new Map();
   const ensure = day => {
-    if (!days.has(day)) days.set(day, { day, electricKwh: 0, heatKwh: 0, hours: 0, segments: 0, electricByHour: Array(24).fill(0) });
+    if (!days.has(day)) days.set(day, { day, electricKwh: 0, heatKwh: 0, hours: 0, segments: 0, coveredSeconds: 0, compacted: false, electricByHour: Array(24).fill(0) });
     return days.get(day);
   };
 
@@ -55,9 +55,21 @@ export function dailyEnergy(samples, { from = null, to = null, maxGap = MAX_GAP_
       if (row.heat != null) entry.heatKwh += row.heat * seconds / 3600;
       if ((row.ac ?? 0) > 0.1) entry.hours += seconds / 3600;
       entry.segments += 1;
+      entry.coveredSeconds += seconds;
+      if (compacted) entry.compacted = true;
       cursor = segmentEnd;
     }
   }
+
+  // Katvus: kui suur osa päeva (valitud vahemikust) on mõõtmistega kaetud.
+  const expectedSeconds = day => {
+    const [year, month, date] = day.split('-').map(Number);
+    const start = new Date(year, month - 1, date).getTime();
+    const end = new Date(year, month - 1, date + 1).getTime();
+    const fromMs = from ? Math.max(start, Date.parse(from)) : start;
+    const toMs = to ? Math.min(end, Date.parse(to)) : end;
+    return Math.max(0, (toMs - fromMs) / 1000);
+  };
 
   const keys = [...days.keys()].sort();
   const first = from ? dayOf(from) : keys[0];
@@ -65,9 +77,14 @@ export function dailyEnergy(samples, { from = null, to = null, maxGap = MAX_GAP_
   const list = [];
   if (first && last && first <= last) {
     for (let day = first, guard = 0; day <= last && guard < MAX_DAYS + 1; day = addDay(day), guard++) {
-      const entry = days.get(day) ?? { day, electricKwh: 0, heatKwh: 0, hours: 0, segments: 0, electricByHour: Array(24).fill(0) };
+      const entry = days.get(day) ?? { day, electricKwh: 0, heatKwh: 0, hours: 0, segments: 0, coveredSeconds: 0, compacted: false, electricByHour: Array(24).fill(0) };
+      const expected = expectedSeconds(day);
+      const coverage = entry.compacted ? (expected > 0 ? 1 : 0) : expected > 0 ? Math.min(1, entry.coveredSeconds / expected) : 0;
       list.push({
         ...entry,
+        coverage: round(coverage, 3),
+        coveredSeconds: Math.round(entry.coveredSeconds),
+        expectedSeconds: Math.round(expected),
         electricKwh: round(entry.electricKwh),
         heatKwh: round(entry.heatKwh),
         electricByHour: entry.electricByHour.map(value => round(value)),
@@ -80,12 +97,15 @@ export function dailyEnergy(samples, { from = null, to = null, maxGap = MAX_GAP_
   const totals = list.reduce((sum, day) => ({
     electricKwh: sum.electricKwh + day.electricKwh,
     heatKwh: sum.heatKwh + day.heatKwh,
-    hours: sum.hours + day.hours
-  }), { electricKwh: 0, heatKwh: 0, hours: 0 });
+    hours: sum.hours + day.hours,
+    coveredSeconds: sum.coveredSeconds + day.coveredSeconds,
+    expectedSeconds: sum.expectedSeconds + day.expectedSeconds
+  }), { electricKwh: 0, heatKwh: 0, hours: 0, coveredSeconds: 0, expectedSeconds: 0 });
   totals.electricKwh = round(totals.electricKwh);
   totals.heatKwh = round(totals.heatKwh);
   totals.hours = round(totals.hours, 1);
   totals.cop = totals.electricKwh > 0.001 ? round(totals.heatKwh / totals.electricKwh, 2) : null;
+  totals.coverage = totals.expectedSeconds > 0 ? round(Math.min(1, totals.coveredSeconds / totals.expectedSeconds), 3) : 1;
   return { days: list, totals };
 }
 

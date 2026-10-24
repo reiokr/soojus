@@ -7,6 +7,7 @@ import { DEFAULT_TARIFF, parseTariff, dayCost, totalCost, monthlyCost, effective
 
 const TARIFF_KEY = 'soojus.energy.tariff';
 const LEGACY_PRICE_KEY = 'soojus.energy.price';
+const METER_KEY = 'soojus.energy.meter';
 
 const readTariff = () => {
   try {
@@ -16,6 +17,11 @@ const readTariff = () => {
     if (legacy != null) return parseTariff({ ...DEFAULT_TARIFF, price: Number(legacy) });
   } catch { /* privaatne režiim või vigane salvestus */ }
   return { ...DEFAULT_TARIFF };
+};
+
+const readMeter = () => {
+  try { const raw = JSON.parse(localStorage.getItem(METER_KEY) || '{}'); return { total: raw.total ?? '', day: raw.day ?? '', night: raw.night ?? '', bill: raw.bill ?? '' }; }
+  catch { return { total: '', day: '', night: '', bill: '' }; }
 };
 
 const hourOptions = Array.from({ length: 24 }, (_, hour) => hour);
@@ -30,6 +36,7 @@ export default function EnergyPage({ ctx }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [tariff, setTariff] = useState(readTariff);
+  const [meter, setMeter] = useState(readMeter);
 
   useEffect(() => {
     if (!ctx.selection) return;
@@ -40,6 +47,12 @@ export default function EnergyPage({ ctx }) {
       .catch(e => { if (live) setError(e.message); });
     return () => { live = false; };
   }, [ctx.selection, days]);
+
+  const updateMeter = patch => {
+    const next = { ...meter, ...patch };
+    setMeter(next);
+    try { localStorage.setItem(METER_KEY, JSON.stringify(next)); } catch { /* privaatne režiim */ }
+  };
 
   const updateTariff = patch => {
     const next = parseTariff({ ...tariff, ...patch });
@@ -63,6 +76,24 @@ export default function EnergyPage({ ctx }) {
   const rates = effectiveRates(tariff);
   const fixedCost = monthlyCost(tariff, days);
   const cost = electricKnown && data ? totalCost(data.days, tariff, days) : null;
+  const meterTotal = Number(meter.total) || (Number(meter.day) || 0) + (Number(meter.night) || 0);
+  const meterDay = Number(meter.day) || 0, meterNight = Number(meter.night) || 0;
+  const hasMeter = meterTotal > 0;
+  const billTotal = Number(meter.bill) || null;
+  const wholeFixed = detail ? (tariff.monthlyNetwork + tariff.monthlySeller) * (1 + tariff.vat / 100) * days / 30.44 : 0;
+  const wholeVariable = !hasMeter ? null : tariff.type === 'single' ? meterTotal * tariff.price : (meterDay + meterNight > 0 ? (detail ? meterDay * rates.day + meterNight * rates.night : meterDay * tariff.dayPrice + meterNight * tariff.nightPrice) : null);
+  const wholeCost = wholeVariable == null ? null : wholeVariable + wholeFixed;
+  const pumpCost = electricKnown && data ? (data.days ?? []).reduce((sum, day) => sum + (dayCost(day, tariff) ?? 0), 0) : null;
+  const coverage = data?.totals?.coverage ?? null;
+  const pumpEstimate = coverage != null && coverage > 0.05 && totals.electricKwh != null ? totals.electricKwh / coverage : null;
+  const pumpCostEstimate = coverage != null && coverage > 0.05 && pumpCost != null ? pumpCost / coverage : null;
+  const effectivePumpKwh = pumpEstimate ?? totals.electricKwh;
+  const effectivePumpCost = pumpCostEstimate ?? pumpCost;
+  const otherKwh = hasMeter && effectivePumpKwh != null ? Math.max(0, meterTotal - effectivePumpKwh) : null;
+  const otherCost = wholeCost != null && effectivePumpCost != null ? Math.max(0, wholeCost - effectivePumpCost) : null;
+  const pumpShare = hasMeter && effectivePumpKwh != null ? effectivePumpKwh / meterTotal : null;
+  const estimated = coverage != null && coverage < 0.9;
+  const billDiff = billTotal != null && wholeCost != null ? wholeCost - billTotal : null;
   const split = useMemo(() => (data?.days ?? []).reduce((sum, day) => {
     const value = splitElectric(day, tariff.nightStart, tariff.nightEnd);
     return { day: sum.day + value.dayKwh, night: sum.night + value.nightKwh };
@@ -151,6 +182,7 @@ export default function EnergyPage({ ctx }) {
           <Card label={t('energy.cost')} value={cost != null ? number(cost, 2) : '—'} unit={cost != null ? '€' : null} hint={detail && electricKnown && fixedCost > 0 ? t('energy.includesFixed', { value: number(fixedCost, 2) }) : null}/>
           <Card label={t('energy.hours')} value={electricKnown ? number(totals.hours, 1) : '—'} unit={electricKnown ? t('energy.h') : null}/>
         </div>
+        {coverage != null && <p className="en-coverage">{t('energy.coverage', { percent: Math.round(coverage * 100) })}{coverage < 0.9 ? ` · ${t('energy.coverageWarn')}` : ''}</p>}
         {tariffFields}
         <div className="en-tariff-foot">
           <small>{detail ? `${t('energy.detailHint')} ${t('energy.effective', { day: number(rates.day, 4), night: number(rates.night, 4) })}${rates.fixedMonthly > 0 ? ` · ${t('energy.fixed', { value: number(rates.fixedMonthly, 2) })}` : ''}` : `${t('energy.priceHint')}${tariff.type !== 'single' ? ` ${t('energy.nightHint', { start: hourLabel(tariff.nightStart), end: hourLabel(tariff.nightEnd) })}` : ''}`}</small>
@@ -158,6 +190,28 @@ export default function EnergyPage({ ctx }) {
         </div>
       </> : <p className="nx-muted">{t('energy.empty')}</p>}
     </section>
+
+    {hasData && <section className="nx-panel">
+      <div className="nx-panel-head"><h2>{t('meter.title')}</h2><span className="nx-muted">{t('meter.hint')}</span></div>
+      <div className="en-meter-inputs">
+        <label className="en-price"><span>{t('meter.total')}</span><input type="number" min="0" step="0.1" value={meter.total} onChange={e => updateMeter({ total: e.target.value })} aria-label={t('meter.total')}/></label>
+        <label className="en-price"><span>{t('meter.day')}</span><input type="number" min="0" step="0.1" value={meter.day} onChange={e => updateMeter({ day: e.target.value })} aria-label={t('meter.day')}/></label>
+        <label className="en-price"><span>{t('meter.night')}</span><input type="number" min="0" step="0.1" value={meter.night} onChange={e => updateMeter({ night: e.target.value })} aria-label={t('meter.night')}/></label>
+        <label className="en-price"><span>{t('meter.bill')}</span><input type="number" min="0" step="0.01" value={meter.bill} onChange={e => updateMeter({ bill: e.target.value })} aria-label={t('meter.bill')}/></label>
+      </div>
+      {!hasMeter ? <p className="nx-muted">{t('meter.empty')}</p> : <>
+        {wholeVariable == null && tariff.type !== 'single' && <p className="nx-warn"><AlertCircle size={15}/>{t('meter.needSplit')}</p>}
+        <dl className="en-meter-list">
+          <div><dt>{t('meter.whole')}</dt><dd>{number(meterTotal, 1)} kWh{wholeCost != null ? ` · ${number(wholeCost, 2)} €` : ''}</dd></div>
+          <div><dt>{t('meter.pump')}</dt><dd>{totals.electricKwh != null ? `${number(totals.electricKwh, 1)} kWh` : '—'}{pumpCost != null ? ` · ${number(pumpCost, 2)} €` : ''}</dd></div>
+          <div><dt>{estimated ? t('meter.otherEstimated') : t('meter.other')}</dt><dd>{otherKwh != null ? `${number(otherKwh, 1)} kWh` : '—'}{otherCost != null ? ` · ${number(otherCost, 2)} €` : ''}</dd></div>
+          {pumpShare != null && <div><dt>{estimated ? t('meter.shareEstimated') : t('meter.share')}</dt><dd>{number(pumpShare * 100, 0)}%</dd></div>}
+        </dl>
+        {estimated && pumpEstimate != null && <p className="en-meter-bill">{t('meter.estimate', { kwh: number(pumpEstimate, 1), cost: number(pumpCostEstimate ?? 0, 2) })}</p>}
+        {wholeFixed > 0 && <p className="en-meter-bill">{t('energy.includesFixed', { value: number(wholeFixed, 2) })}</p>}
+        {billDiff != null && <p className="en-meter-bill">{t('meter.billLine', { bill: number(billTotal, 2), computed: number(wholeCost, 2), diff: `${billDiff > 0 ? '+' : ''}${number(billDiff, 2)}` })}</p>}
+      </>}
+    </section>}
 
     {hasData && <section className="nx-panel">
       <div className="nx-panel-head"><h2>{t('energy.chartTitle')}</h2><span className="nx-muted">{data.source === 'lux' ? t('energy.sourceLux') : t('energy.sourceUplink')}</span></div>

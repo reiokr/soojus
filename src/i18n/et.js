@@ -478,6 +478,7 @@ export default {
     title: 'Energia ja kulu', subtitle: 'Toodetud soojus, tarbitud elekter, COP ja kulu valitud perioodil.',
     summary: 'Kokkuvõte', chartTitle: 'Päevane energia', tableTitle: 'Päevade kaupa',
     period: 'Ajavahemik', d7: '7 päeva', d30: '30 päeva', d90: '90 päeva', d365: '365 päeva',
+    coverage: 'Andmete katvus {percent}%', coverageWarn: 'osa perioodist on mõõtmata (kohalik server oli väljas); kulu ja kWh on alahinnatud.',
     heat: 'Toodetud soojus', electric: 'Tarbitud elekter', cop: 'COP', cost: 'Kulu', hours: 'Kompressori tööaeg',
     detail: 'Arve järgi', energyPrice: 'Energia hind, €/kWh', networkDay: 'Võrk päev, €/kWh', networkNight: 'Võrk öö, €/kWh',
     security: 'Varustuskindlus, €/kWh', excise: 'Aktsiis, €/kWh', renewable: 'Taastuvenergia, €/kWh', vat: 'Käibemaks, %',
@@ -500,6 +501,14 @@ export default {
     note: 'Soojus ja elekter on arvutatud pumba enda võimsusnäitude ajalisest integraalist. COP = soojus / elekter. Tulemus on hinnanguline, mitte kalibreeritud arvesti.',
     sourceLux: 'Allikas: pumba kohalik liides (soojus- ja elektrivõimsus).', sourceUplink: 'Allikas: myUplink (ainult soojusvõimsus).',
     total: 'Kokku', kwh: 'kWh', h: 'h'
+  },
+  meter: {
+    title: 'Kogu mõõtepunkt', hint: 'Sisesta arvesti näidud valitud perioodi kohta (nt elektriarvelt). Soojuspump on sellest üks osa.',
+    total: 'Kokku, kWh', day: 'Päev, kWh', night: 'Öö, kWh', bill: 'Arve summa, €',
+    empty: 'Sisesta arvesti kogus, et võrrelda soojuspumba osa kogu tarbimisega.',
+    whole: 'Kogu mõõtepunkt', pump: 'Soojuspump (mõõdetud)', other: 'Muu tarbimine', otherEstimated: 'Muu tarbimine (hinnang)', share: 'Soojuspumba osa', shareEstimated: 'Soojuspumba osa (hinnang)',
+    needSplit: 'Päevase ja öise hinnaga kulu jaoks sisesta ka päevane ja öine kWh.',
+    billLine: 'Arve {bill} € · arvutus {computed} € · vahe {diff} €', estimate: 'Hinnang kogu perioodile: {kwh} kWh · {cost} €'
   },
   settings: {
     ui: { title: 'Liides', subtitle: 'Vali, kuidas rakendus välja näeb. Andmed ja seadistused on mõlemas samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },

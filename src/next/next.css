@@ -2960,6 +2960,26 @@ html[data-ui="next"] .nx-liide .segmented {
 }
 
 /* Energia ja kulu */
+.en-coverage { color: var(--muted); font-size: 12px; line-height: 1.5; margin: -4px 0 10px; }
+.en-meter-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 14px;
+  margin: 10px 0 12px;
+}
+.en-meter-inputs .en-price span { flex: 1; }
+.en-meter-inputs .en-price input { flex: 0 0 90px; width: 90px; }
+.en-meter-list { display: grid; gap: 4px; max-width: 560px; margin: 8px 0 0; }
+.en-meter-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--nx-line);
+}
+.en-meter-list dt { color: var(--muted); }
+.en-meter-list dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.en-meter-bill { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 8px 0 0; }
 .en-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

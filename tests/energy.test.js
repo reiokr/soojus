@@ -40,6 +40,7 @@ test('dailyEnergy caps long measurement gaps but keeps compacted daily rows', ()
   ], { from: at(2026, 1, 1, 0), to: at(2026, 1, 1, 6) });
   close(gap.days[0].electricKwh, 0.5); // 15 min × 2 kW
   close(gap.days[0].heatKwh, 1.5);
+  close(gap.days[0].coverage, 900 / 21600, 0.001); // 6 h perioodist on kaetud 15 min
 
   // Kokkusurutud rida on salvestatud UTC keskööl (kohalikus ajas 02:00/03:00).
   const compacted = dailyEnergy([
@@ -51,6 +52,8 @@ test('dailyEnergy caps long measurement gaps but keeps compacted daily rows', ()
   close(compacted.totals.heatKwh, 144);
   close(compacted.days[0].electricKwh, 44);
   close(compacted.days[1].electricKwh, 4);
+  assert.equal(compacted.days[0].coverage, 1);
+  assert.equal(compacted.days[1].coverage, 1);
   const byHour = compacted.days[0].electricByHour;
   assert.equal(byHour.length, 24);
   close(byHour[2], 2); close(byHour[23], 2); close(byHour[0], 0);
