@@ -479,7 +479,7 @@ export default {
     summary: 'Kokkuvõte', chartTitle: 'Päevane energia', tableTitle: 'Päevade kaupa',
     period: 'Ajavahemik', d7: '7 päeva', d30: '30 päeva', d90: '90 päeva', d365: '365 päeva',
     coverage: 'Andmete katvus {percent}%', coverageWarn: 'osa perioodist on mõõtmata (kohalik server oli väljas); kulu ja kWh on alahinnatud.',
-    heat: 'Toodetud soojus', electric: 'Tarbitud elekter', cop: 'COP', cost: 'Kulu', hours: 'Kompressori tööaeg',
+    heat: 'Toodetud soojus', electric: 'Kompressori elekter', cop: 'COP', cost: 'Kulu', hours: 'Kompressori tööaeg',
     detail: 'Arve järgi', energyPrice: 'Energia hind, €/kWh', networkDay: 'Võrk päev, €/kWh', networkNight: 'Võrk öö, €/kWh',
     security: 'Varustuskindlus, €/kWh', excise: 'Aktsiis, €/kWh', renewable: 'Taastuvenergia, €/kWh', vat: 'Käibemaks, %',
     monthlyNetwork: 'Võrgu kuutasu, €/kuu', monthlySeller: 'Müüja kuutasu, €/kuu', monthlyUnit: '€/kuu', includeMonthly: 'Arvesta kuutasu kulus',
@@ -498,15 +498,15 @@ export default {
     export: 'Ekspordi CSV', loading: 'Laadin energiaandmeid…', error: 'Energiaandmeid ei saanud laadida.',
     empty: 'Valitud perioodil pole piisavalt andmeid.',
     noElectric: 'Elektriandmed pärinevad pumba kohalikust liidesest. Ühenda see seadetes, et näha tarbitud elektrit, COP-i ja kulu.',
-    note: 'Soojus ja elekter on arvutatud pumba enda võimsusnäitude ajalisest integraalist. COP = soojus / elekter. Tulemus on hinnanguline, mitte kalibreeritud arvesti.',
+    note: 'Soojus ja elekter on arvutatud pumba enda võimsusnäitude ajalisest integraalist; elekter on kompressori sisend, mis ei sisalda ringluspumpasid ega juhtelektroonikat. COP = soojus / elekter. Tulemus on hinnanguline, mitte kalibreeritud arvesti.',
     sourceLux: 'Allikas: pumba kohalik liides (soojus- ja elektrivõimsus).', sourceUplink: 'Allikas: myUplink (ainult soojusvõimsus).',
     total: 'Kokku', kwh: 'kWh', h: 'h'
   },
   meter: {
-    title: 'Kogu mõõtepunkt', hint: 'Sisesta arvesti näidud valitud perioodi kohta (nt elektriarvelt). Soojuspump on sellest üks osa.',
+    title: 'Kogu mõõtepunkt', hint: 'Sisesta arvesti näidud valitud perioodi kohta (nt elektriarvelt). Soojuspump on sellest üks osa; mõõdetud elekter on kompressori oma.',
     total: 'Kokku, kWh', day: 'Päev, kWh', night: 'Öö, kWh', bill: 'Arve summa, €',
     empty: 'Sisesta arvesti kogus, et võrrelda soojuspumba osa kogu tarbimisega.',
-    whole: 'Kogu mõõtepunkt', pump: 'Soojuspump (mõõdetud)', other: 'Muu tarbimine', otherEstimated: 'Muu tarbimine (hinnang)', share: 'Soojuspumba osa', shareEstimated: 'Soojuspumba osa (hinnang)',
+    whole: 'Kogu mõõtepunkt', pump: 'Soojuspump / kompressor (mõõdetud)', other: 'Muu tarbimine', otherEstimated: 'Muu tarbimine (hinnang)', share: 'Soojuspumba osa', shareEstimated: 'Soojuspumba osa (hinnang)',
     needSplit: 'Päevase ja öise hinnaga kulu jaoks sisesta ka päevane ja öine kWh.',
     billLine: 'Arve {bill} € · arvutus {computed} € · vahe {diff} €', estimate: 'Hinnang kogu perioodile: {kwh} kWh · {cost} €'
   },

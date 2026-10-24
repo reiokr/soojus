@@ -479,7 +479,7 @@ export default {
     summary: 'Summary', chartTitle: 'Daily energy', tableTitle: 'By day',
     period: 'Period', d7: '7 days', d30: '30 days', d90: '90 days', d365: '365 days',
     coverage: 'Data coverage {percent}%', coverageWarn: 'part of the period is unmeasured (the local server was off); cost and kWh are underestimated.',
-    heat: 'Heat produced', electric: 'Electricity used', cop: 'COP', cost: 'Cost', hours: 'Compressor run time',
+    heat: 'Heat produced', electric: 'Compressor electricity', cop: 'COP', cost: 'Cost', hours: 'Compressor run time',
     detail: 'From bill', energyPrice: 'Energy price, €/kWh', networkDay: 'Grid day, €/kWh', networkNight: 'Grid night, €/kWh',
     security: 'Supply security, €/kWh', excise: 'Excise, €/kWh', renewable: 'Renewable energy, €/kWh', vat: 'VAT, %',
     monthlyNetwork: 'Grid monthly fee, €/mo', monthlySeller: 'Seller monthly fee, €/mo', monthlyUnit: '€/mo', includeMonthly: 'Include monthly fee in cost',
@@ -498,15 +498,15 @@ export default {
     export: 'Export CSV', loading: 'Loading energy data…', error: 'Could not load energy data.',
     empty: 'Not enough data for the selected period.',
     noElectric: 'Electricity data comes from the heat pump local interface. Connect it in settings to see electricity used, COP and cost.',
-    note: 'Heat and electricity are integrated over time from the pump’s own power readings. COP = heat / electricity. The result is an estimate, not a calibrated meter.',
+    note: 'Heat and electricity are integrated over time from the pump’s own power readings; electricity is the compressor input and excludes circulation pumps and control electronics. COP = heat / electricity. The result is an estimate, not a calibrated meter.',
     sourceLux: 'Source: heat pump local interface (heat and electric power).', sourceUplink: 'Source: myUplink (heat output only).',
     total: 'Total', kwh: 'kWh', h: 'h'
   },
   meter: {
-    title: 'Whole metering point', hint: 'Enter the meter readings for the selected period (e.g. from the electricity bill). The heat pump is one part of it.',
+    title: 'Whole metering point', hint: 'Enter the meter readings for the selected period (e.g. from the electricity bill). The heat pump is one part of it; the measured electricity is the compressor input.',
     total: 'Total, kWh', day: 'Day, kWh', night: 'Night, kWh', bill: 'Bill total, €',
     empty: 'Enter the meter total to compare the heat pump share with the whole consumption.',
-    whole: 'Whole metering point', pump: 'Heat pump (measured)', other: 'Other consumption', otherEstimated: 'Other consumption (estimate)', share: 'Heat pump share', shareEstimated: 'Heat pump share (estimate)',
+    whole: 'Whole metering point', pump: 'Heat pump / compressor (measured)', other: 'Other consumption', otherEstimated: 'Other consumption (estimate)', share: 'Heat pump share', shareEstimated: 'Heat pump share (estimate)',
     needSplit: 'To calculate with day/night prices, enter the day and night kWh too.',
     billLine: 'Bill {bill} € · calculated {computed} € · difference {diff} €', estimate: 'Estimate for the whole period: {kwh} kWh · {cost} €'
   },
