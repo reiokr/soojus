@@ -1,20 +1,52 @@
+import { getLocale, t } from './i18n/index.js';
+
 export async function api(url, options = {}) {
   const response = await fetch(`/api${url}`, { ...options, headers: { 'Content-Type': 'application/json', 'X-Soojus-Request': '1', ...options.headers }, signal: options.signal || AbortSignal.timeout(40000) });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Päring ebaõnnestus.');
+  if (!response.ok) throw new Error(data.error || t('common.requestFailed'));
   return data;
 }
-export const number = (n, decimals = 1) => n == null || n === '' || !Number.isFinite(Number(n)) ? '—' : new Intl.NumberFormat('et-EE', { maximumFractionDigits: decimals }).format(Number(n));
+export const number = (n, decimals = 1) => n == null || n === '' || !Number.isFinite(Number(n)) ? '—' : new Intl.NumberFormat(getLocale(), { maximumFractionDigits: decimals }).format(Number(n));
 export function date(value, options = {}) {
   if (!value) return '—';
   const d = new Date(typeof value === 'number' ? value : String(value).replace(/\+0$/, '+00:00'));
-  return Number.isNaN(d.valueOf()) ? String(value) : new Intl.DateTimeFormat('et-EE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', ...options }).format(d);
+  return Number.isNaN(d.valueOf()) ? String(value) : new Intl.DateTimeFormat(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', ...options }).format(d);
 }
-export const time = value => value ? new Intl.DateTimeFormat('et-EE', { hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : '—';
-export const enumText = text => ({ off: 'Väljas', on: 'Sees', heat: 'Kütmine', cool: 'Jahutamine', auto: 'Automaatne', Party: 'Peorežiim', Normal: 'Tavarežiim', Default: 'Vaikimisi', Home: 'Kodus', Away: 'Eemal', Vacation: 'Puhkus' }[text] || text);
+export const time = value => value ? new Intl.DateTimeFormat(getLocale(), { hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : '—';
+const ENUM_ALIASES = {
+  'Automaatika': 'enum.auto', 'Manuaalne': 'enum.manual', 'Küte': 'enum.heat', 'Kütmine': 'enum.heat', 'Jahutamine': 'enum.cool', 'Jahutus': 'enum.cooling',
+  'Väljas': 'enum.off', 'Sees': 'enum.on', 'Puudub vajadus': 'enum.noDemand', 'Vajadus': 'enum.demand',
+  'Kütterežiim': 'enum.heatMode', 'Soe tarbevesi': 'enum.hwMode', 'Basseiniküte': 'enum.pool', 'Sulatus': 'enum.defrost',
+  'Lisaküte': 'enum.aux', 'Õhutus': 'enum.boost', 'Ülerõhk': 'enum.overpressure'
+};
+export const enumText = text => { const key = ENUM_ALIASES[text] || `enum.${text}`; const value = t(key); return value === key ? text : value; };
 // This model exposes missing category translations and several ambiguous names.
+const NAME_ALIASES = {
+  'Välisõhutemperatuur': 'name.outdoorTemp', 'Kütteringipump HUP': 'name.circPump', 'El.kü.keha': 'name.elHeater',
+  'Elektritenn aktiivne': 'name.elHeaterActive', 'Veateade': 'name.errorMessage', 'Tööaeg': 'name.operatingTime',
+  'Sul/.Prim.r./ Läbiv.': 'name.defrostFlow', 'Ülerõhupressostaat': 'name.highPressure', 'Mootorikaitse': 'name.motorProtection',
+  'Alarõhupressostaat': 'name.lowPressure', 'Ventilaat. BOSUP': 'name.fanBosup', 'Soojuspumba katmine': 'name.pumpCoverage',
+  'Soovitud parameetrid :': 'name.desiredParams', 'Töötunnid soojuspump': 'name.hoursPump', 'Töötunnid VD1': 'name.hoursVd1',
+  'Töötunnid ZWE1': 'name.hoursZwe1', 'Impulsid kompr. 1': 'name.compressorPulses', 'Küttepiirang': 'name.heatingLimit',
+  'Töötunnid küte.': 'name.hoursHeating', 'Peab väärt': 'name.targetValue', 'Ekstra soe vesi kestvus': 'name.extraHwDuration',
+  'output min.': 'name.outputMin', 'output max.': 'name.outputMax', 'output': 'name.output',
+  'Sissepuhke temperatuur': 'name.supplyTemp', 'Väljatõmbe temperatuur': 'name.extractTemp',
+  'Välisõhu temperatuur (ventilatsioon)': 'name.outdoorVent', 'Sissepuhke niiskus': 'name.supplyHum',
+  'Väljatõmbe niiskus': 'name.extractHum', 'Välisõhu niiskus': 'name.outdoorHum', 'VOC indeks': 'name.voc',
+  'Sissepuhke ventilaator': 'name.supplyFan', 'Väljatõmbe ventilaator': 'name.extractFan',
+  'Sissepuhke õhuvool (hinnang)': 'name.supplyFlow', 'Väljatõmbe õhuvool (hinnang)': 'name.extractFlow',
+  'Soojustagastus': 'name.heatRecovery', 'Temperatuur + -': 'name.tempOffset',
+  'Soojakandja maast (sisse pumpa)': 'name.brineInLux', 'Soojakandja maasse (pumbast välja)': 'name.brineOutLux',
+  'Kuumgaas': 'name.hotGas', 'Imemistemperatuur kompressorisse': 'name.suction', 'Kõrgrõhk': 'name.pressureHigh',
+  'Madalrõhk': 'name.pressureLow', 'Soojakandja temperatuuride vahe': 'name.brineSpread', 'Soojakandja vahe siht': 'name.brineSpreadSet',
+  'Elektrivõimsus (pump otse)': 'name.powerAc', 'Soojusvõimsus (pump otse)': 'name.powerHeat'
+};
+export const pointNameText = name => NAME_ALIASES[name] ? t(NAME_ALIASES[name]) : name;
+const GROUPS = { 'Küte': 'group.heating', 'Väliskliima': 'group.climate', 'Tarbevesi': 'group.water', 'Olek': 'group.state', 'Energia': 'group.energy', 'Väljundid': 'group.outputs', 'Sisendid': 'group.inputs', 'Muu': 'group.other', 'Töötunnid': 'group.hours', 'Temperatuurid': 'group.temps' };
+export const groupText = group => GROUPS[group] ? t(GROUPS[group]) : group;
+
 // Only confirmed WZSV 92H3M ids get these presentation aliases. Every other model uses API metadata.
-const aliases = { '0': 'Pealevool', '1': 'Tagasivool', '2': 'Tagasivoolu siht', '3': 'Akupaagi temperatuur', '6': 'Tarbevee temperatuur', '7': 'Tarbevee siht', '17': 'Seadme tööolek', '21': 'Hetkevõimsus', '31': 'Vooluhulk', '39': 'Välisõhu keskmine', '46': 'Tarbevee olek', '5001': 'Kütte temperatuuri nihe', '5003': 'Kütte töörežiim', '5004': 'Tarbevee töörežiim', '5105': 'Tarbevee sihttemperatuur', '5700': 'Kütte välisõhupiir', '6146': 'Kõrgendatud tarbevee siht', '6147': 'Ekstra sooja vee kestus', '40001': 'Kütteringi režiim', '40007': 'Tarbeveetsooni režiim', '40009': 'Kõrgendatud tarbevee režiim', '40010': 'Tarbeveetsooni temperatuur' };
+const aliases = { '0': 'point.supply', '1': 'point.return', '2': 'point.returnTarget', '3': 'point.buffer', '6': 'point.water', '7': 'point.waterTarget', '17': 'point.workState', '21': 'point.power', '31': 'point.flow', '39': 'point.outdoorAvg', '45': 'point.heatState', '46': 'point.waterState', '5729': 'point.hwHours', '25000': 'point.quickCharge', '25001': 'point.boost', '5001': 'point.heatOffset', '5003': 'point.heatMode', '5004': 'point.waterMode', '5105': 'point.waterSetpoint', '5700': 'point.outdoorLimit', '6146': 'point.boostTarget', '6147': 'point.boostDuration', '40001': 'point.heatCircuitMode', '40007': 'point.waterZoneMode', '40009': 'point.boostMode', '40010': 'point.waterZoneTemp' };
 export function enhance(points, model) {
   const wzsv = model === 'WZSV 92H3M';
   return points.map(p => {
@@ -31,7 +63,7 @@ export function enhance(points, model) {
     else if (p.parameterUnit === '°C') group = 'Temperatuurid';
     else if (p.parameterUnit === 'kW' || p.parameterUnit === 'kWh') group = 'Energia';
     else if (/olek|olukord|veateade/i.test(p.parameterName)) group = 'Olek';
-    return { ...p, label: wzsv && aliases[id] || p.parameterName, group, min: scaled(p.minValue), max: scaled(p.maxValue), step: scaled(p.stepValue), display: p.enumValues?.length ? enumText(p.enumValues.find(e => String(e.value) === String(p.value))?.text || p.strVal) : p.strVal ?? String(p.value ?? '—') };
+    return { ...p, label: wzsv && aliases[id] ? t(aliases[id]) : pointNameText(p.parameterName), group, min: scaled(p.minValue), max: scaled(p.maxValue), step: scaled(p.stepValue), display: p.enumValues?.length ? enumText(p.enumValues.find(e => String(e.value) === String(p.value))?.text || p.strVal) : p.strVal ?? String(p.value ?? '—') };
   });
 }
 export function metric(points, model, id, category, pattern) {

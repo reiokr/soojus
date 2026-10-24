@@ -11,6 +11,8 @@ import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, effectiveMode,
 import { listAudio } from './audio.js';
 import { AppError, validatePoint, validateZone, pointResults, csvCell } from './domain.js';
 import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './store.js';
+import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
+import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT || 3210);
@@ -38,7 +40,7 @@ let tokenFlight;
 async function tokenRequest(params) {
   const c = credentials();
   if (!c.clientId || !c.clientSecret) throw new AppError('Ühendamiseks sisesta myUplinki rakenduse võtmed.', 401);
-  const response = await fetch(`${apiBase}/oauth/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: c.clientId, client_secret: c.clientSecret, ...params }), signal: AbortSignal.timeout(20000) });
+  const response = await fetch(`${apiBase}/oauth/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: c.clientId, client_secret: c.clientSecret, ...params }), signal: AbortSignal.timeout(20000) }).catch(e => { throw timeoutError(e, 20); });
   if (!response.ok) throw new AppError('myUplink ei kinnitanud ühendust. Kontrolli rakenduse võtmeid või logi uuesti sisse.', 401);
   const value = await response.json();
   if (!value.access_token) throw new AppError('myUplink ei tagastanud ligipääsutõendit.', 502);
@@ -54,9 +56,22 @@ async function accessToken() {
   return (await tokenFlight).access_token;
 }
 let backoffUntil = 0;
+// Ajastus- ja võrguvead tõlgime arusaadavaks, mitte ei näita "The operation was aborted due to timeout".
+function timeoutError(e, seconds = 25) {
+  if (e?.name === 'TimeoutError' || e?.name === 'AbortError') return new AppError(`myUplink ei vastanud ${seconds} sekundi jooksul. Proovi uuesti.`, 504);
+  return e;
+}
+// Korduvkatse lühikeste võrgutõrgete puhul (nt aeglane myUplink) – üksik tõrge ei tohi tsüklit rikkuda.
+async function retry(fn, attempts = 3, delayMs = 1500) {
+  let last;
+  for (let i = 0; i < attempts; i++) {
+    try { return await fn(); } catch (e) { last = e; if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs)); }
+  }
+  throw last;
+}
 async function upstream(url, options = {}) {
   if (Date.now() < backoffUntil) throw new AppError('myUplink palus päringutega oodata. Proovi minuti pärast.', 429);
-  const response = await fetch(`${apiBase}${url}`, { ...options, headers: { Authorization: `Bearer ${await accessToken()}`, Accept: 'application/json', 'Accept-Language': 'et-EE', ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers }, signal: AbortSignal.timeout(25000) });
+  const response = await fetch(`${apiBase}${url}`, { ...options, headers: { Authorization: `Bearer ${await accessToken()}`, Accept: 'application/json', 'Accept-Language': 'et-EE', ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers }, signal: AbortSignal.timeout(25000) }).catch(e => { throw timeoutError(e, 25); });
   if (!response.ok) {
     if (response.status === 429) backoffUntil = Date.now() + Math.min(300000, Math.max(60000, Number(response.headers.get('retry-after') || 60) * 1000));
     const messages = { 401: 'myUplinki sessioon vajab uuesti ühendamist.', 403: 'myUplink ei luba seda toimingut. Kontrolli õigusi ja Premium-teenust.', 404: 'Seade ei paku seda funktsiooni.', 409: 'Seadistus on vastuolus seadme praeguse olekuga.', 429: 'myUplinki päringulimiit on täis. Proovi minuti pärast.' };
@@ -231,29 +246,35 @@ app.get('/auth/callback', async (req, res) => {
 app.get('/api/systems', async (req, res) => res.json(await systems()));
 app.get('/api/devices/:id', async (req, res) => { await ownedDevice(req.params.id); res.json(await cached(`/v2/devices/${enc(req.params.id)}`, 300000)); });
 app.get('/api/devices/:id/points', async (req, res) => { await ownedDevice(req.params.id); res.json(await points(req.params.id)); });
-app.patch('/api/devices/:id/points', async (req, res) => {
-  await ownedDevice(req.params.id);
-  if (!req.body || Array.isArray(req.body) || Object.keys(req.body).length < 1 || Object.keys(req.body).length > 20) throw new AppError('Vali 1–20 parameetrit.');
-  const current = await points(req.params.id, true); const patch = {};
-  for (const [id, val] of Object.entries(req.body)) patch[id] = validatePoint(current.find(p => p.parameterId === id), val);
+// Parameetrite kirjutamine on eraldi funktsioon, sest sama teed kasutab ka legionella graafik.
+async function applyPointPatch(id, body) {
+  const current = await points(id, true); const patch = {};
+  for (const [pid, val] of Object.entries(body)) patch[pid] = validatePoint(current.find(p => p.parameterId === pid), val);
   // Zone temperature commands need the dedicated endpoint on some manufacturers.
   const result = {};
   const zoneCandidates = current.filter(p => Object.hasOwn(patch, p.parameterId) && p.zoneId && p.smartHomeCategories?.some(c => ['sh-indoorSpHeat', 'sh-indoorSpCool'].includes(c)));
-  const zoneUrl = `/v2/devices/${enc(req.params.id)}/smart-home-zones`;
+  const zoneUrl = `/v2/devices/${enc(id)}/smart-home-zones`;
   const availableZones = zoneCandidates.length ? await cached(zoneUrl, 60000, true) : [];
   for (const p of zoneCandidates) {
     const field = p.smartHomeCategories.includes('sh-indoorSpCool') ? 'setpointCool' : 'setpointHeat';
     const zone = availableZones.find(z => z.zoneId === p.zoneId);
     if (!zone || zone[field] == null) continue;
-    const body = validateZone(zone, { [field]: Number(patch[p.parameterId]) });
-    const reply = await upstream(`/v2/devices/${enc(req.params.id)}/zones/${enc(p.zoneId)}`, { method: 'PATCH', body: JSON.stringify(body) });
+    const patchBody = validateZone(zone, { [field]: Number(patch[p.parameterId]) });
+    const reply = await upstream(`/v2/devices/${enc(id)}/zones/${enc(p.zoneId)}`, { method: 'PATCH', body: JSON.stringify(patchBody) });
     result[p.parameterId] = reply && Object.values(reply).length && Object.values(reply).every(v => String(v).toLowerCase() === 'modified') ? 'modified' : 'unknown';
     delete patch[p.parameterId]; cache.delete(zoneUrl);
   }
-  if (Object.keys(patch).length) Object.assign(result, await upstream(`/v2/devices/${enc(req.params.id)}/points`, { method: 'PATCH', body: JSON.stringify(patch) }));
-  const results = pointResults(result, Object.keys(req.body));
-  audit(req.params.id, 'Parameetrite muutmine', { requested: req.body, results }); cache.delete(`/v2/devices/${enc(req.params.id)}/points`);
-  res.json({ results, allModified: results.every(x => x.success) });
+  if (Object.keys(patch).length) Object.assign(result, await upstream(`/v2/devices/${enc(id)}/points`, { method: 'PATCH', body: JSON.stringify(patch) }));
+  const results = pointResults(result, Object.keys(body));
+  cache.delete(`/v2/devices/${enc(id)}/points`);
+  return { results, allModified: results.every(x => x.success) };
+}
+app.patch('/api/devices/:id/points', async (req, res) => {
+  await ownedDevice(req.params.id);
+  if (!req.body || Array.isArray(req.body) || Object.keys(req.body).length < 1 || Object.keys(req.body).length > 20) throw new AppError('Vali 1–20 parameetrit.');
+  const out = await applyPointPatch(req.params.id, req.body);
+  audit(req.params.id, 'Parameetrite muutmine', { requested: req.body, results: out.results });
+  res.json(out);
 });
 for (const name of ['smart-home-categories', 'smart-home-zones', 'firmware-info', 'aidMode']) app.get(`/api/devices/:id/${name}`, async (req, res) => { await ownedDevice(req.params.id); res.json(await cached(`/v2/devices/${enc(req.params.id)}/${name}`, 300000)); });
 app.patch('/api/devices/:id/zones/:zone', async (req, res) => {
@@ -505,6 +526,139 @@ app.delete('/api/airobot', (req, res) => {
   Object.assign(airobotState, { data: null, values: [], time: null, error: null });
   res.json(airobotView());
 });
+// ---- Legionella (bakterikaitse) graafik ------------------------------------
+// Seadme oma programm on ainult nädalane; siin juhime "kõrgendatud tarbevett" ise ja lülitame
+// selle pärast kestust välja, et kuu-/kahenädalane rütm oleks võimalik ja miski ei jääks sisse.
+const LEGIONELLA_KEY = 'legionella';
+const legionellaConfig = () => getSetting(LEGIONELLA_KEY);
+const saveLegionella = cfg => setSetting(LEGIONELLA_KEY, cfg);
+
+async function legionellaDevice() {
+  const all = await systems();
+  const ids = all.flatMap(s => (s.devices || []).map(d => d.id));
+  const saved = getSetting('pumpDevice');
+  return saved && ids.includes(saved) ? saved : ids[0] || null;
+}
+
+async function legionellaStart(cfg, device, now = Date.now(), manual = false) {
+  // 6146 = kõrgendatud siht (tsooni kaudu), 6147 = kestus sekundites, 25001 = kõrgendatud tarbevesi sisse.
+  const out = await retry(() => applyPointPatch(device, { 6146: cfg.target, 6147: cfg.durationMin * 60, 25001: 1 }));
+  if (!out.allModified) throw new AppError('Seade ei kinnitanud kõrgendatud tarbevee käivitamist.');
+  const next = beginRun(cfg, now);
+  next.startFailures = 0; next.lastError = null;
+  if (manual) next.nextRun = shiftAfterManual(next, now);
+  saveLegionella(next);
+  audit(device, 'Legionella programm', { action: 'start', manual, target: cfg.target, durationMin: cfg.durationMin });
+  return next;
+}
+
+async function legionellaTick() {
+  const cfg = legionellaConfig();
+  if (!cfg || (!cfg.enabled && !cfg.running)) return;
+  const now = Date.now();
+  if (cfg.running) {
+    try {
+      const device = await legionellaDevice();
+      let temp = null;
+      if (device) {
+        const list = await points(device);
+        temp = Number(list.find(p => p.parameterId === '6')?.value);
+        if (Number.isFinite(temp) && (cfg.running.maxTemp == null || temp > cfg.running.maxTemp)) { cfg.running.maxTemp = temp; saveLegionella(cfg); }
+        // Jälgi, millal temperatuur viimati tõusis – kui see jääb 30 miniks seisma, lõpetame.
+        if (Number.isFinite(temp) && (cfg.running.lastTemp == null || temp > cfg.running.lastTemp + 0.2)) {
+          cfg.running.lastTemp = temp; cfg.running.lastTempAt = new Date(now).toISOString(); saveLegionella(cfg);
+        }
+      }
+      if (legionellaStop(cfg, temp, now) || legionellaPlateau(cfg, temp, now)) {
+        // Lõpetame ka tsooni režiimi, et seade jääks tavalisse olekusse.
+        if (device) await retry(() => applyPointPatch(device, { 25001: 0, 40009: 0 }));
+        audit(device || 'local', 'Legionella programm', { action: 'stop', maxTemp: cfg.running.maxTemp });
+        saveLegionella({ ...endRun(cfg, now), lastError: null });
+        return;
+      }
+      // Seadme 30-minutiline boost-aken lõpeb enne 63 °C-d – kinnitame sihi uuesti.
+      if (device && legionellaPoke(cfg, temp, now)) {
+        await retry(() => applyPointPatch(device, { 6146: cfg.running.target, 6147: cfg.durationMin * 60, 25001: 1 }));
+        cfg.running.pokeAt = new Date(now).toISOString(); cfg.lastError = null;
+        saveLegionella(cfg);
+        audit(device, 'Legionella programm', { action: 're-arm', temp });
+      }
+    } catch (e) {
+      saveLegionella({ ...cfg, lastError: e.message });
+    }
+    return;
+  }
+  const action = legionellaAction(cfg, now);
+  if (action === 'skip') { saveLegionella({ ...cfg, nextRun: advanceNext(cfg, now) }); return; }
+  if (action !== 'start') return;
+  try {
+    const device = await legionellaDevice();
+    if (!device) throw new AppError('Seadet ei leitud.');
+    await legionellaStart(cfg, device, now);
+  } catch (e) {
+    const fails = (cfg.startFailures || 0) + 1;
+    const lastError = e.message || 'Tundmatu viga.';
+    // Anna paar minutit järjest proovida (aeglane myUplink), alles siis jäta see kord vahele.
+    if (fails >= 5) saveLegionella({ ...cfg, startFailures: 0, lastError, nextRun: advanceNext(cfg, now) });
+    else saveLegionella({ ...cfg, startFailures: fails, lastError });
+    audit('local', 'Legionella programm', { action: 'error', attempt: fails, error: lastError });
+  }
+}
+
+app.get('/api/legionella', async (req, res) => {
+  const cfg = legionellaConfig() || defaultLegionella();
+  let device = null;
+  try { device = await legionellaDevice(); } catch { /* ühenduseta */ }
+  res.json({ ...cfg, device, weekdays: WEEKDAY_NAMES });
+});
+app.post('/api/legionella', (req, res) => {
+  const cfg = normalizeLegionella(req.body, legionellaConfig());
+  // Kui jooks on parasjagu käimas, järgib see uut sihti (nt 63 → 60 lõpetab jooksu kohe,
+  // kui paak on juba 60 °C juures).
+  if (cfg.running && Number(cfg.target) !== Number(cfg.running.target)) cfg.running = { ...cfg.running, target: cfg.target };
+  cfg.lastError = null; cfg.startFailures = 0;
+  saveLegionella(cfg);
+  audit('local', 'Legionella programm', { enabled: cfg.enabled, weeks: cfg.weeks, weekday: cfg.weekday, time: cfg.time, target: cfg.target, durationMin: cfg.durationMin });
+  res.json(cfg);
+});
+app.post('/api/legionella/run', async (req, res) => {
+  const cfg = legionellaConfig() || defaultLegionella();
+  if (cfg.running) throw new AppError('Legionella programm juba töötab.');
+  const device = await legionellaDevice();
+  if (!device) throw new AppError('Seadet ei leitud.');
+  res.json(await legionellaStart(cfg, device, Date.now(), true));
+});
+
+// ---- Vigade analüüs ---------------------------------------------------------
+// Iga vea kohta keskmistame töötingimused vahetult enne viga ja võrdleme tavalise tööga
+// (kompressor töötab). Vastus sobib nii tabeliks kui ka koodipõhiseks võrdluseks.
+app.get('/api/analysis/errors', (req, res) => {
+  const days = Math.min(3650, Math.max(1, Number(req.query.days) || 90));
+  const from = new Date(Date.now() - days * 86400000).toISOString();
+  const errors = db.prepare('SELECT time, code FROM pump_errors WHERE time>=? ORDER BY time DESC LIMIT 500').all(from);
+  const codes = db.prepare('SELECT code, COUNT(*) n, MAX(time) last FROM pump_errors WHERE time>=? GROUP BY code ORDER BY n DESC').all(from).map(c => ({ ...c, name: errorName(c.code) }));
+  const daily = db.prepare("SELECT substr(time,1,10) day, COUNT(*) n FROM pump_errors WHERE time>=? GROUP BY day ORDER BY day").all(from);
+  const ids = ANALYSIS_PARAMS.map(p => p[0]);
+  const baselineRows = db.prepare(`SELECT s.point, AVG(s.value) v, COUNT(*) n FROM samples s JOIN samples c ON c.time=s.time AND c.point='70' AND c.value=1 WHERE s.time>=? AND s.point IN (${ids.map(() => '?').join(',')}) GROUP BY s.point`).all(from, ...ids);
+  const baseline = Object.fromEntries(baselineRows.map(r => [r.point, r.v]));
+  const avg = db.prepare('SELECT AVG(value) v FROM samples WHERE point=? AND time>=? AND time<?');
+  const modeAt = db.prepare('SELECT value FROM samples WHERE point=? AND time<? ORDER BY time DESC LIMIT 1');
+  const list = errors.map(e => {
+    const w = errorWindow(e.time), ctx = {};
+    if (w) for (const [id] of ANALYSIS_PARAMS) ctx[id] = avg.get(id, w.from, w.to)?.v ?? null;
+    const mode = modeAt.get('17', e.time)?.value;
+    return { time: e.time, code: e.code, name: errorName(e.code), mode: MODE_NAMES[mode] || null, ctx };
+  });
+  const compare = codes.map(c => ({
+    code: c.code, name: errorName(c.code), count: c.n, last: c.last,
+    params: Object.fromEntries(ANALYSIS_PARAMS.map(([id]) => {
+      const vals = list.filter(e => e.code === c.code).map(e => e.ctx[id]).filter(v => Number.isFinite(v));
+      return [id, vals.length ? { error: mean(vals), base: baseline[id] ?? null, n: vals.length } : null];
+    }))
+  }));
+  res.json({ from, days, params: ANALYSIS_PARAMS.map(([id, label, unit]) => ({ id, label, unit })), codes, daily, errors: list, baseline, compare });
+});
+
 app.get('/api/audit', (req, res) => res.json(db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT 100').all()));
 app.get('/api/ping', async (req, res) => { await upstream('/v2/protected-ping'); res.json({ ok: true, time: new Date().toISOString() }); });
 app.get('/api/firmware/:type/:version/download', async (req, res) => {
@@ -528,8 +682,9 @@ async function collect() {
 if (process.argv.includes('--production')) { app.use(express.static(path.join(root, 'dist'))); app.get('/{*splat}', (req, res) => res.sendFile(path.join(root, 'dist/index.html'))); }
 else { const { createServer } = await import('vite'); const vite = await createServer({ root, server: { middlewareMode: true }, appType: 'spa' }); app.use(vite.middlewares); }
 app.use((err, req, res, next) => { if (res.headersSent) return next(err); res.status(err.status || 502).json({ error: err instanceof AppError ? err.message : 'Päring ebaõnnestus. Kontrolli võrguühendust ja proovi uuesti.' }); });
-app.listen(port, process.env.HOST || '127.0.0.1', () => { console.log(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); compact(); });
+app.listen(port, process.env.HOST || '127.0.0.1', () => { console.log(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); compact(); legionellaTick(); });
 setInterval(collect, 60000).unref();
 setInterval(pollLux, 10000).unref();
 setInterval(pollAirobot, 60000).unref();
 setInterval(compact, 3600000).unref();
+setInterval(legionellaTick, 60000).unref();

@@ -1,8 +1,11 @@
 import React from 'react';
 import { number } from '../lib.js';
 import { tempColor, scalePosition } from './logic.js';
+import { t } from '../i18n/index.js';
 
 const VIEWS = { full: [0, 40, 1000, 470], heat: [180, 168, 540, 312], water: [655, 205, 265, 230] };
+const VENT_MODES = { Automaatne: 'vent.automatic', Manuaalne: 'vent.manual', Õhutus: 'vent.boost', Ülerõhk: 'vent.overpressure' };
+const ventMode = text => !text ? '—' : (VENT_MODES[text] ? t(VENT_MODES[text]) : text);
 
 function Pill({ view, x, y, title, value, unit, note, tone, below, onClick, label }) {
   const [vx, vy, vw, vh] = VIEWS[view];
@@ -56,7 +59,7 @@ export default function HousePlan({ view = 'full', supply, returnT, returnTarget
         <path d="M440 205V400M690 205V400" strokeWidth="1.5" opacity=".6"/>
       </g>
       <g className="nx-room-labels" fill="var(--nx-ink)" opacity=".7" fontSize="10" letterSpacing="2.2" fontWeight="700">
-        <text x="312" y="446" textAnchor="middle">TEHNORUUM</text><text x="565" y="446" textAnchor="middle">ELUTUBA</text><text x="790" y="446" textAnchor="middle">VANNITUBA</text>
+        <text x="312" y="446" textAnchor="middle">{t('plan.techRoom')}</text><text x="565" y="446" textAnchor="middle">{t('plan.livingRoom')}</text><text x="790" y="446" textAnchor="middle">{t('plan.bathroom')}</text>
       </g>
 
       <g className="nx-pipes" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4">
@@ -136,16 +139,16 @@ export default function HousePlan({ view = 'full', supply, returnT, returnTarget
         {hwOn && <g className="nx-bubbles" fill="none" stroke="var(--surface)" strokeWidth="1.4">{[810, 825, 840].map((x, i) => <circle key={x} cx={x} cy="380" r="3" style={{ animationDelay: `${i * .5}s` }}/>)}</g>}
       </g>
 
-      <text x="905" y="500" textAnchor="end" fontSize="10" letterSpacing="2" fill="var(--nx-ink)" opacity=".55" fontWeight="700">KODU-PLAAN · 1:50</text>
+      <text x="905" y="500" textAnchor="end" fontSize="10" letterSpacing="2" fill="var(--nx-ink)" opacity=".55" fontWeight="700">{t('plan.footer')}</text>
     </svg>
 
-    {view === 'full' && vent && <Pill view={view} x={541} y={143} title="Ventilatsioon" value={vd ? vent.modeText : '—'} tone={vd && vd.co2 >= 1000 ? 'heat' : 'cold'} note={vd ? `kiirus ${vd.fans.supplyLevel}/10 · CO₂ ${vd.co2}` : 'ühendus puudub'} onClick={open('ventilation')} label="Ava ventilatsiooni leht"/>}
-    {view === 'full' && climate?.indoor != null && <Pill view={view} x={712} y={153} below title="Toas" value={number(climate.indoor, 1)} unit="°C"/>}
-    <Pill view={view} x={95} y={118} below title="Väljas" value={climate?.outdoor != null ? number(climate.outdoor, 1) : fmt(outdoor)} unit="°C"/>
-    <Pill view={view} x={262} y={236} title="Hetkevõimsus" value={number(powerKw, 1)} unit="kW" tone={powerKw > 0 ? 'active' : ''} onClick={open('device')} label="Ava seadme leht"/>
-    <Pill view={view} x={377} y={250} title="Akupaak" value={fmt(buffer)} unit="°C" onClick={open('heating')} label="Ava kütte leht"/>
-    <Pill view={view} x={480} y={270} title="Pealevool" value={fmt(supply)} unit="°C" tone="heat" onClick={open('heating')} label="Ava kütte leht"/>
-    <Pill view={view} x={430} y={428} below title="Tagasivool" value={fmt(returnT)} unit="°C" tone="cold" note={returnTarget?.value != null ? `siht ${number(returnTarget.value, 1)} °C` : undefined} onClick={open('heating')} label="Ava kütte leht"/>
-    <Pill view={view} x={825} y={236} title="Tarbevesi" value={fmt(water)} unit="°C" tone="cold" note={Number.isFinite(target) ? `siht ${number(target, 0)} °C` : undefined} onClick={open('water')} label="Ava tarbevee leht"/>
+    {view === 'full' && vent && <Pill view={view} x={541} y={143} title={t('plan.ventilation')} value={vd ? ventMode(vd.modeText) : '—'} tone={vd && vd.co2 >= 1000 ? 'heat' : 'cold'} note={vd ? t('plan.ventSpeed', { level: vd.fans.supplyLevel, co2: vd.co2 }) : t('plan.noConnection')} onClick={open('ventilation')} label={t('plan.openVent')}/>}
+    {view === 'full' && climate?.indoor != null && <Pill view={view} x={712} y={153} below title={t('plan.indoor')} value={number(climate.indoor, 1)} unit="°C"/>}
+    <Pill view={view} x={95} y={118} below title={t('plan.outdoor')} value={climate?.outdoor != null ? number(climate.outdoor, 1) : fmt(outdoor)} unit="°C"/>
+    <Pill view={view} x={262} y={236} title={t('plan.power')} value={number(powerKw, 1)} unit="kW" tone={powerKw > 0 ? 'active' : ''} onClick={open('device')} label={t('plan.openDevice')}/>
+    <Pill view={view} x={377} y={250} title={t('plan.buffer')} value={fmt(buffer)} unit="°C" onClick={open('heating')} label={t('plan.openHeat')}/>
+    <Pill view={view} x={480} y={270} title={t('plan.supply')} value={fmt(supply)} unit="°C" tone="heat" onClick={open('heating')} label={t('plan.openHeat')}/>
+    <Pill view={view} x={430} y={428} below title={t('plan.return')} value={fmt(returnT)} unit="°C" tone="cold" note={returnTarget?.value != null ? t('plan.target', { value: number(returnTarget.value, 1) }) : undefined} onClick={open('heating')} label={t('plan.openHeat')}/>
+    <Pill view={view} x={825} y={236} title={t('plan.water')} value={fmt(water)} unit="°C" tone="cold" note={Number.isFinite(target) ? t('plan.target', { value: number(target, 0) }) : undefined} onClick={open('water')} label={t('plan.openWater')}/>
   </div>;
 }

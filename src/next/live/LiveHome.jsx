@@ -11,11 +11,15 @@ import ForecastRail from './ForecastRail.jsx';
 import SoundControl from './SoundControl.jsx';
 import { getAmbience } from './ambience.js';
 import { LocationPanel } from '../../location.jsx';
+import { t as tr, getLocale } from '../../i18n/index.js';
 
-const dayName = new Intl.DateTimeFormat('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
-const SEASONS = { winter: 'talv', spring: 'kevad', summer: 'suvi', autumn: 'sügis', late: 'hilissügis' };
+const dayName = date => new Intl.DateTimeFormat(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(date);
+const SEASONS = { winter: 'live.seasonWinter', spring: 'live.seasonSpring', summer: 'live.seasonSummer', autumn: 'live.seasonAutumn', late: 'live.seasonLate' };
+const HOT_KEYS = { pump: 'live.hotspotPump', ground: 'live.hotspotGround', vent: 'live.hotspotVent', boiler: 'live.hotspotBoiler' };
+const INFO_KEYS = { pump: 'live.infoPump', vent: 'live.infoVent', boiler: 'live.infoBoiler' };
+const VENT_MODES = { Automaatne: 'vent.automatic', Manuaalne: 'vent.manual', Õhutus: 'vent.boost', Ülerõhk: 'vent.overpressure' };
 // Täisekraanis ei ole pildi peal klõpsatavaid seadmeid (hotspotid on peidetud), seepärast saab ülaservast hiireliigutusel (nagu muusikanupud) otse lehtedele liikuda.
-const FULL_NAV = [['heating', 'Küte', Thermometer], ['water', 'Tarbevesi', Droplets], ['ventilation', 'Ventilatsioon', Fan]];
+const FULL_NAV = [['heating', 'nav.heating', Thermometer], ['water', 'nav.water', Droplets], ['ventilation', 'nav.ventilation', Fan]];
 
 // embedded: Kodu lehe versioon ainult päris andmetega (ilma demo, kellaaja liuguri, prognoosi ja selgitusteta).
 export default function LiveHome({ ctx, embedded = false }) {
@@ -90,79 +94,80 @@ export default function LiveHome({ ctx, embedded = false }) {
   const dark = useMemo(() => darkness(sunPosition(live.time, live.place).elevation), [live.time, live.place.lat, live.place.lon]);
   const w = live.weather, days = forecast?.days ?? [];
   const summary = `${liveSummary(live)}${w ? `, ilm: ${w.label}` : ''}${live.demo ? ' (demo)' : ''}`;
-  const t = v => v == null ? '—' : `${number(v, 1)} °C`;
+  const temp = v => v == null ? '—' : `${number(v, 1)} °C`;
   // Asukoht protsentides: brauseri mõõtmised on CSS-i suurendusega (zoom) juba skaleeritud, pikslid läheksid topelt suureks.
   const zoomFactor = (typeof document !== 'undefined' && parseFloat(getComputedStyle(document.documentElement).zoom)) || 1;
   const fitScale = size.w ? Math.min(size.w / W, size.h / VIEW.h) : 0, offX = (size.w - W * fitScale) / 2, offY = (size.h - VIEW.h * fitScale) / 2 - VIEW.y * fitScale;
   const kw = v => `${number(v, 1)} kW`;
+  const ventMode = live.vent.modeText ? (VENT_MODES[live.vent.modeText] ? tr(VENT_MODES[live.vent.modeText]) : live.vent.modeText) : tr('live.ventLabel');
   const nowText = {
-    pump: live.hwOn && live.heatOn ? `Kütab maja ja tarbevett · ${kw(live.powerKw)}` : live.hwOn ? `Soojendab tarbevett · ${kw(live.powerKw)}` : live.heatOn ? `Kütab maja · ${kw(live.powerKw)}` : live.compressor ? `Kompressor töötab · ${kw(live.powerKw)}` : live.heatDemand || live.hwDemand ? 'Ootab käivitamist' : 'Puhkab',
-    ground: live.brine.present ? `Soojakandja maast ${number(live.brine.in, 1)} °C, maasse ${number(live.brine.out, 1)} °C${live.compressor ? ` · maa andis ${number(live.brine.in - live.brine.out, 1)} K soojust` : ' · kompressor seisab'}` : live.compressor ? 'Kompressor töötab, soojakandja võtab maast soojust' : 'Kompressor seisab',
-    vent: live.vent.running ? `${live.vent.modeText || 'Töötab'} · kiirus ${live.vent.level}/10 · CO₂ ${live.vent.co2} ppm` : 'Seisab',
-    boiler: live.water == null ? '' : `${number(live.water, 1)} °C${live.waterTarget != null ? ` (siht ${number(live.waterTarget, 0)} °C)` : ''}${live.hwOn ? ' · soojeneb' : ''}`
+    pump: live.hwOn && live.heatOn ? tr('live.pumpBoth', { kw: kw(live.powerKw) }) : live.hwOn ? tr('live.pumpWater', { kw: kw(live.powerKw) }) : live.heatOn ? tr('live.pumpHeat', { kw: kw(live.powerKw) }) : live.compressor ? tr('live.pumpCompressor', { kw: kw(live.powerKw) }) : live.heatDemand || live.hwDemand ? tr('live.pumpWaiting') : tr('live.pumpResting'),
+    ground: live.brine.present ? tr('live.groundPresent', { in: number(live.brine.in, 1), out: number(live.brine.out, 1) }) + (live.compressor ? tr('live.groundGave', { delta: number(live.brine.in - live.brine.out, 1) }) : tr('live.groundIdle')) : live.compressor ? tr('live.groundRunning') : tr('live.groundStopped'),
+    vent: live.vent.running ? tr('live.ventStatus', { mode: ventMode, level: live.vent.level, co2: live.vent.co2 }) : tr('live.ventStopped'),
+    boiler: live.water == null ? '' : tr('live.boiler', { water: number(live.water, 1), target: live.waterTarget == null ? '—' : number(live.waterTarget, 0) }) + (live.hwOn ? tr('live.boilerHeating') : '')
   };
   const targets = Object.entries(HOTSPOTS).filter(([id]) => id !== 'vent' || live.vent.present);
   const hoursValue = hour ?? live.time.getHours() + live.time.getMinutes() / 60;
 
-  return <section className={`live ${embedded ? 'is-embedded' : ''} ${full ? 'is-full' : ''} ${idle ? 'is-idle' : ''}`} aria-label="Elav kodu" onMouseMove={wake} onTouchStart={wake} onKeyDown={wake}>
+  return <section className={`live ${embedded ? 'is-embedded' : ''} ${full ? 'is-full' : ''} ${idle ? 'is-idle' : ''}`} aria-label={tr('nav.live')} onMouseMove={wake} onTouchStart={wake} onKeyDown={wake}>
     <div className="live-stage" ref={stageRef}>
       <div className="live-view" ref={viewRef}>
-      <canvas ref={canvasRef} role="img" aria-label={`Elav kodu: ${summary}. Toas ${t(live.indoor)}, väljas ${t(live.outdoor)}, tarbevesi ${t(live.water)}.`}/>
+      <canvas ref={canvasRef} role="img" aria-label={tr('live.aria', { summary, indoor: temp(live.indoor), outdoor: temp(live.outdoor), water: temp(live.water) })}/>
       <div className="live-vignette" aria-hidden="true" style={{ '--vig': (0.28 + dark * 0.3).toFixed(3) }}/>
       {fitScale > 0 && !full && <div className="live-hotspots">{targets.map(([id, h]) => {
         const flip = id === 'boiler';
         return <button key={id} type="button" className={`live-hot ${hot === id ? 'hot' : ''} ${flip ? 'flip' : ''}`} style={{ left: `${(offX + h.x * fitScale) / size.w * 100}%`, top: `${(offY + h.y * fitScale) / size.h * 100}%`, width: `${h.w * fitScale / size.w * 100}%`, height: `${h.h * fitScale / size.h * 100}%`, borderRadius: `${h.r * fitScale / zoomFactor}px`, '--hot': h.color }}
-          aria-label={`${h.label}. ${nowText[id]}. ${id === 'ground' && live.brine.present ? 'Soojakandja temperatuurid soojuspumbalt.' : h.info} Ava leht ${h.go}.`} onClick={() => ctx.navigate(h.page)} onMouseEnter={() => !full && setHot(id)} onMouseLeave={() => setHot(null)} onFocus={e => e.currentTarget.matches(':focus-visible') && setHot(id)} onBlur={() => setHot(null)}>
-          <span className="live-hot-label" role="tooltip"><b>{h.label}</b><em>{nowText[id]}</em><span>{id === 'ground' && live.brine.present ? 'Toru maa sees, kus soojakandja võtab maapinnast soojust ja viib selle pumbani. Temperatuurid tulevad soojuspumba enda kohtvõrguliidesest.' : h.info}</span><i>Ava leht: {h.go} <ArrowRight size={12}/></i></span>
+          aria-label={`${tr(HOT_KEYS[id])}. ${nowText[id]}. ${id === 'ground' && live.brine.present ? tr('live.groundTag') : id === 'ground' ? tr('live.infoGround') : tr(INFO_KEYS[id])} ${tr('live.openPageAria', { page: tr('nav.' + h.page) })}.`} onClick={() => ctx.navigate(h.page)} onMouseEnter={() => !full && setHot(id)} onMouseLeave={() => setHot(null)} onFocus={e => e.currentTarget.matches(':focus-visible') && setHot(id)} onBlur={() => setHot(null)}>
+          <span className="live-hot-label" role="tooltip"><b>{tr(HOT_KEYS[id])}</b><em>{nowText[id]}</em><span>{id === 'ground' && live.brine.present ? tr('live.groundInfo') : id === 'ground' ? tr('live.infoGround') : tr(INFO_KEYS[id])}</span><i>{tr('live.openPage', { page: tr('nav.' + h.page) })} <ArrowRight size={12}/></i></span>
         </button>; })}</div>}
       <div className="live-hud live-clock">
         <em className="live-greeting">{greeting(live.time)}</em>
         <b>{time(live.time)}</b>
-        <span>{dayName.format(live.time).replace(/^./, c => c.toUpperCase())} · {SEASONS[seasonKey]}</span>
+        <span>{dayName(live.time).replace(/^./, c => c.toUpperCase())} · {tr(SEASONS[seasonKey])}</span>
         <small className="live-place"><MapPin size={13}/> {live.place.name}</small>
         <small>{sun.rise && <><Sunrise size={13}/> {time(sun.rise)}</>}{sun.set && <> <Sunset size={13}/> {time(sun.set)}</>} <Moon size={13}/> {moonName(phase)} {Math.round(phase.illumination * 100)}%</small>
       </div>
-      <ul className="live-hud live-temps" aria-label="Temperatuurid">
-        <li><HomeIcon size={15}/><span>Toas</span><b>{t(live.indoor)}</b></li>
-        <li><Thermometer size={15}/><span>Väljas</span><b>{t(live.outdoor)}</b></li>
-        <li><Droplets size={15}/><span>Tarbevesi</span><b>{t(live.water)}</b></li>
-        {w && <li className="live-weather"><CloudRain size={15}/><span>{live.place.name}: {w.label}</span><b>{t(w.temperature)}</b></li>}
+      <ul className="live-hud live-temps" aria-label={tr('live.temperatures')}>
+        <li><HomeIcon size={15}/><span>{tr('live.indoor')}</span><b>{temp(live.indoor)}</b></li>
+        <li><Thermometer size={15}/><span>{tr('live.outdoor')}</span><b>{temp(live.outdoor)}</b></li>
+        <li><Droplets size={15}/><span>{tr('live.water')}</span><b>{temp(live.water)}</b></li>
+        {w && <li className="live-weather"><CloudRain size={15}/><span>{live.place.name}: {w.label}</span><b>{temp(w.temperature)}</b></li>}
       </ul>
-      {full && <nav className="live-topnav" aria-label="Kiirlingid lehtedele">
-        {FULL_NAV.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => openPage(id)} aria-label={`Ava leht ${label}`} title={`Ava leht ${label}`}><Icon size={16}/><span>{label}</span></button>)}
+      {full && <nav className="live-topnav" aria-label={tr('live.fullscreenNav')}>
+        {FULL_NAV.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => openPage(id)} aria-label={tr('live.openPageAria', { page: tr(label) })} title={tr('live.openPageAria', { page: tr(label) })}><Icon size={16}/><span>{tr(label)}</span></button>)}
       </nav>}
       {full && w && <ForecastRail scene={w} forecast={forecast} place={live.place}/>}
       </div>
       <div className="live-bottom">
-      {full && <div className="live-hud live-devices" role="group" aria-label="Seadmete seis">
-        <div className="live-device"><span className={`live-dot ${live.heatOn || live.hwOn ? 'on' : ''}`}/><div><small><Flame size={13}/> Maasoojuspump</small><b>{nowText.pump}</b><em>Kompressor {live.compressor ? 'töötab' : 'seisab'} · pealevool {t(live.supply)} · tagasivool {t(live.returnT)}</em></div></div>
-        {live.vent.present && <div className="live-device"><span className={`live-dot ${live.vent.running ? 'air' : 'off'}`}/><div><small><Fan size={13}/> Ventilatsioon</small><b>{nowText.vent}</b><em>Õhuvool {number(live.vent.airflow, 0)} m³/h{live.vent.humidity != null && ` · õhuniiskus ${number(live.vent.humidity, 0)}%`}{live.vent.bypass && ` · möödaviik ${live.vent.bypassOpen == null ? 'auto' : live.vent.bypassOpen ? 'avatud' : 'suletud'}`}</em></div></div>}
-        <div className="live-device"><span className={`live-dot ${live.hwOn ? 'on' : ''}`}/><div><small><Droplets size={13}/> Tarbevesi</small><b>{nowText.boiler}</b><em>Toas {t(live.indoor)} · väljas {t(live.outdoor)}</em></div></div>
+      {full && <div className="live-hud live-devices" role="group" aria-label={tr('live.devices')}>
+        <div className="live-device"><span className={`live-dot ${live.heatOn || live.hwOn ? 'on' : ''}`}/><div><small><Flame size={13}/> {tr('live.hotspotPump')}</small><b>{nowText.pump}</b><em>{tr('live.compressorState', { state: tr(live.compressor ? 'live.compressorOn' : 'live.compressorOff'), supply: temp(live.supply), return: temp(live.returnT) })}</em></div></div>
+        {live.vent.present && <div className="live-device"><span className={`live-dot ${live.vent.running ? 'air' : 'off'}`}/><div><small><Fan size={13}/> {tr('live.ventLabel')}</small><b>{nowText.vent}</b><em>{tr('live.airflow', { value: number(live.vent.airflow, 0) })}{live.vent.humidity != null ? tr('live.humidity', { value: number(live.vent.humidity, 0) }) : ''}{live.vent.bypass ? tr('live.bypass', { state: live.vent.bypassOpen == null ? tr('live.bypassAuto') : live.vent.bypassOpen ? tr('live.bypassOpen') : tr('live.bypassClosed') }) : ''}</em></div></div>}
+        <div className="live-device"><span className={`live-dot ${live.hwOn ? 'on' : ''}`}/><div><small><Droplets size={13}/> {tr('live.water')}</small><b>{nowText.boiler}</b><em>{tr('live.indoor')} {temp(live.indoor)} · {tr('live.outdoor')} {temp(live.outdoor)}</em></div></div>
         {live.demo && <em className="live-demo-tag">DEMO</em>}
       </div>}
       {!full && <div className="live-hud live-status">
         <span className={`live-dot ${live.heatOn || live.hwOn ? 'on' : ''}`}/>
-        <div><b>{liveSummary(live).replace(/^./, c => c.toUpperCase())}</b>{live.vent.present && <small><Fan size={12}/> {live.vent.modeText || 'Ventilatsioon'} · kiirus {live.vent.level}/10 · CO₂ {live.vent.co2} ppm</small>}</div>
+        <div><b>{liveSummary(live).replace(/^./, c => c.toUpperCase())}</b>{live.vent.present && <small><Fan size={12}/> {tr('live.ventLine', { mode: ventMode, level: live.vent.level, co2: live.vent.co2 })}</small>}</div>
         {live.demo && <em>DEMO</em>}
       </div>}
       <div className="live-controls">
         {!embedded && <>
-        <div className="live-modes" role="group" aria-label="Demo: näita animatsioone">
-          {Object.entries(DEMOS).map(([id, label]) => <button key={id} type="button" className={demo === id ? 'selected' : ''} aria-pressed={demo === id} onClick={() => setDemo(id)}>{id === 'heat' ? <Flame size={13}/> : id === 'water' ? <Droplets size={13}/> : id === 'vent' ? <Fan size={13}/> : null}{label}</button>)}
+        <div className="live-modes" role="group" aria-label={tr('live.demoGroup')}>
+          {Object.entries(DEMOS).map(([id, label]) => <button key={id} type="button" className={demo === id ? 'selected' : ''} aria-pressed={demo === id} onClick={() => setDemo(id)}>{id === 'heat' ? <Flame size={13}/> : id === 'water' ? <Droplets size={13}/> : id === 'vent' ? <Fan size={13}/> : null}{tr(label)}</button>)}
         </div>
-        <label className="live-select"><span>Ilm</span><select value={weatherDemo} onChange={e => setWeatherDemo(e.target.value)} aria-label="Ilma demo">{Object.entries(WEATHER_DEMOS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
-        <label className="live-scrub"><span>Kellaaeg</span><input type="range" min="0" max="24" step="0.25" value={hoursValue} onChange={e => setHour(Number(e.target.value))} aria-label="Kellaaeg tundides"/><button type="button" onClick={() => setHour(null)} disabled={hour == null}>Praegu</button></label>
+        <label className="live-select"><span>{tr('live.weather')}</span><select value={weatherDemo} onChange={e => setWeatherDemo(e.target.value)} aria-label={tr('live.weatherDemo')}>{Object.entries(WEATHER_DEMOS).map(([id, label]) => <option key={id} value={id}>{tr(label)}</option>)}</select></label>
+        <label className="live-scrub"><span>{tr('live.clock')}</span><input type="range" min="0" max="24" step="0.25" value={hoursValue} onChange={e => setHour(Number(e.target.value))} aria-label={tr('live.clockAria')}/><button type="button" onClick={() => setHour(null)} disabled={hour == null}>{tr('live.nowBtn')}</button></label>
         <button type="button" className="live-loc" onClick={() => setShowLoc(!showLoc)} aria-expanded={showLoc}><MapPin size={14}/>{live.place.name}</button>
         </>}
-        {embedded && <button type="button" className="live-loc" onClick={() => ctx.navigate('live')}><Sparkles size={14}/>Demo ja ilmaprognoos</button>}
+        {embedded && <button type="button" className="live-loc" onClick={() => ctx.navigate('live')}><Sparkles size={14}/>{tr('live.demo')}</button>}
         <SoundControl/>
-        <button type="button" className="live-full" onClick={toggleFull} aria-label={full ? 'Välju täisekraanist' : 'Täisekraan'} title={full ? 'Välju täisekraanist' : 'Täisekraan'}>{full ? <Minimize2 size={17}/> : <Maximize2 size={17}/>}</button>
+        <button type="button" className="live-full" onClick={toggleFull} aria-label={full ? tr('live.exitFullscreen') : tr('live.fullscreen')} title={full ? tr('live.exitFullscreen') : tr('live.fullscreen')}>{full ? <Minimize2 size={17}/> : <Maximize2 size={17}/>}</button>
       </div>
       </div>
     </div>
     {!embedded && w && <WeatherPanel scene={w} forecast={forecast} place={live.place} sensor={live.outdoor}/>}
     {!embedded && showLoc && ctx.weather && <LocationPanel weather={ctx.weather} notify={ctx.notify} compact/>}
-    {!embedded && ctx.weather?.view?.error && !forecast && <p className="live-note" role="status">Ilmaandmeid ei õnnestunud laadida ({ctx.weather.view.error}). Vaade töötab ilma ilmata edasi.</p>}
-    {!embedded && <p className="live-note">Taevas, päike ja kuu järgivad päris kellaaega sinu asukoha ({live.place.name}) kohal. Akende hõõgus tuleb toatemperatuurist, torude voolud soojuspumba olekust ja võimsusest, õhuvool ventilatsiooni pööretest ning tolm toas CO₂ tasemest. Pilv, vihm, lumi, udu, äike ja tuul tulevad ilmateenusest Open-Meteo sinu asukoha järgi. Demo-nupud, ilma valik ja kellaaja liugur muudavad ainult pilti, mitte seadmeid.</p>}
+    {!embedded && ctx.weather?.view?.error && !forecast && <p className="live-note" role="status">{tr('live.weatherError', { error: ctx.weather.view.error })}</p>}
+    {!embedded && <p className="live-note">{tr('live.note', { place: live.place.name })}</p>}
   </section>;
 }

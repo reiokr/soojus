@@ -2,6 +2,7 @@ import React from 'react';
 import { Cloud, Droplets, Eye, Gauge, MapPin, Navigation, Snowflake, Sun, Sunrise, Thermometer, Umbrella, Wind } from 'lucide-react';
 import { number } from '../../lib.js';
 import { compassName, daylight, dewPoint, outlook, pressureLabel, uvLabel, visibilityLabel, weatherKind, weatherLabel, windLabel } from '../../weather-logic.js';
+import { t, getLocale } from '../../i18n/index.js';
 
 const CLOUD = 'M20 48C12 48 8 42 10 36C11 31 15 28 20 28C21 20 28 15 35 17C41 18 45 22 46 27C52 27 56 32 55 38C54 44 50 48 44 48Z';
 const hhmm = v => v ? v.slice(11, 16) : '—';
@@ -54,11 +55,11 @@ function HourStrip({ hourly, now }) {
   if (!hourly.length) return null;
   const W = 62, H = 46, temps = hourly.map(h => h.temperature), lo = Math.min(...temps), hi = Math.max(...temps), span = Math.max(1, hi - lo);
   const pts = hourly.map((h, i) => [i * W + W / 2, H - 8 - ((h.temperature - lo) / span) * (H - 18)]);
-  return <div className="wx-hourly-wrap"><h4>Järgmised 24 tundi</h4><div className="wx-hourly" role="list" tabIndex={0} aria-label="Tunniprognoos">
+  return <div className="wx-hourly-wrap"><h4>{t('wx.next24')}</h4><div className="wx-hourly" role="list" tabIndex={0} aria-label={t('wx.hourlyAria')}>
     <div className="wx-hourly-inner" style={{ width: hourly.length * W }}>
       <svg className="wx-spark" width={hourly.length * W} height={H} aria-hidden="true"><polyline points={pts.map(p => p.join(',')).join(' ')} fill="none"/>{pts.map(([x, y], i) => (temps[i] === lo || temps[i] === hi) && <circle key={i} cx={x} cy={y} r="3"/>)}</svg>
       <div className="wx-hours">{hourly.map((h, i) => <div key={h.time} role="listitem" className={`wx-hour ${h.isDay === false ? 'night' : ''}`}>
-        <small>{i === 0 ? 'Nüüd' : clockOf(h.time)}</small>
+        <small>{i === 0 ? t('wx.now') : clockOf(h.time)}</small>
         <WeatherIcon kind={weatherKind(h.code)} night={h.isDay === false} size={34} still/>
         <b>{Math.round(h.temperature)}°</b>
         <em className={h.rainChance >= 10 || h.precipitation >= 0.1 ? '' : 'dry'}><Droplets size={11}/>{h.rainChance != null ? `${Math.round(h.rainChance)}%` : `${number(h.precipitation, 1)}`}</em>
@@ -71,11 +72,11 @@ function HourStrip({ hourly, now }) {
 function DayList({ days }) {
   if (!days.length) return null;
   const lo = Math.min(...days.map(d => d.min ?? d.max ?? 0)), hi = Math.max(...days.map(d => d.max ?? d.min ?? 0)), span = Math.max(1, hi - lo);
-  return <div className="wx-days-wrap"><h4>{days.length} päeva prognoos</h4><ol className="wx-days">{days.map((d, i) => {
+  return <div className="wx-days-wrap"><h4>{t('wx.daysForecast', { count: days.length })}</h4><ol className="wx-days">{days.map((d, i) => {
     const kind = weatherKind(d.code), left = ((d.min ?? d.max) - lo) / span * 100, width = Math.max(6, (((d.max ?? d.min) - (d.min ?? d.max)) / span) * 100);
-    const name = i === 0 ? 'Täna' : i === 1 ? 'Homme' : new Intl.DateTimeFormat('et-EE', { weekday: 'long' }).format(new Date(`${d.date}T12:00:00`)).replace(/^./, c => c.toUpperCase());
-    return <li key={d.date} className="wx-day" title={d.sunrise && d.sunset ? `Päike ${hhmm(d.sunrise)}–${hhmm(d.sunset)}${d.uv != null ? ` · UV ${number(d.uv, 0)}` : ''}` : undefined}>
-      <b className="wx-day-name">{name}<small>{new Intl.DateTimeFormat('et-EE', { day: 'numeric', month: 'numeric' }).format(new Date(`${d.date}T12:00:00`))}</small></b>
+    const name = i === 0 ? t('wx.today') : i === 1 ? t('wx.tomorrow') : new Intl.DateTimeFormat(getLocale(), { weekday: 'long' }).format(new Date(`${d.date}T12:00:00`)).replace(/^./, c => c.toUpperCase());
+    return <li key={d.date} className="wx-day" title={d.sunrise && d.sunset ? t('wx.sunTitle', { rise: hhmm(d.sunrise), set: hhmm(d.sunset), uv: d.uv != null ? t('wx.uvPart', { value: number(d.uv, 0) }) : '' }) : undefined}>
+      <b className="wx-day-name">{name}<small>{new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'numeric' }).format(new Date(`${d.date}T12:00:00`))}</small></b>
       <WeatherIcon kind={kind} size={34} still/>
       <span className="wx-day-label">{weatherLabel(d.code)}</span>
       <span className={`wx-day-rain ${(d.precipitation ?? 0) > 0.2 || (d.rainChance ?? 0) >= 30 ? '' : 'dry'}`}><Droplets size={12}/>{d.rainChance != null ? `${Math.round(d.rainChance)} %` : ''}{(d.precipitation ?? 0) > 0.2 && <i> {number(d.precipitation, 1)} mm</i>}</span>
@@ -90,33 +91,33 @@ export default function WeatherPanel({ scene: w, forecast, place, sensor }) {
   if (!w) return null;
   const f = forecast ?? {}, today = f.days?.[0], hourly = f.hourly ?? [], night = f.isDay === false, kind = w.kind;
   const dew = dewPoint(f.temperature, f.humidity), out = outlook(hourly), light = daylight(today?.sunrise, today?.sunset);
-  const t = v => v == null ? '—' : `${number(v, 1)} °C`;
+  const fmt = v => v == null ? '—' : `${number(v, 1)} °C`;
   const mismatch = !w.demo && sensor != null && f.temperature != null && Math.abs(sensor - f.temperature) >= 3;
-  return <div className="live-forecast wx" aria-label="Ilm ja prognoos">
+  return <div className="live-forecast wx" aria-label={t('wx.detailsAria')}>
     <section className={`wx-hero ${kind} ${night ? 'night' : 'day'}`}>
       <Effects kind={kind} night={night}/>
       <div className="wx-hero-icon"><WeatherIcon kind={kind} night={night} size={104}/></div>
       <div className="wx-hero-text">
         <small className="wx-place"><MapPin size={13}/> {place?.name ?? ''}{w.demo && ' · DEMO'}</small>
-        <b className="wx-temp">{t(w.temperature)}</b>
-        <span className="wx-desc">{w.label.replace(/^./, c => c.toUpperCase())}{w.feelsLike != null && ` · tuntub nagu ${t(w.feelsLike)}`}</span>
-        {today && <small className="wx-range-today"><Thermometer size={13}/> Täna {today.min == null ? '—' : Math.round(today.min)}° … {today.max == null ? '—' : Math.round(today.max)}°</small>}
-        {mismatch && <small className="wx-mismatch">Soojuspumba välisandur näitab {t(sensor)} (ilmateenus {t(f.temperature)}).</small>}
+        <b className="wx-temp">{fmt(w.temperature)}</b>
+        <span className="wx-desc">{w.label.replace(/^./, c => c.toUpperCase())}{w.feelsLike != null && t('wx.feels', { value: fmt(w.feelsLike) })}</span>
+        {today && <small className="wx-range-today"><Thermometer size={13}/> {t('wx.todayRange', { min: today.min == null ? '—' : Math.round(today.min), max: today.max == null ? '—' : Math.round(today.max) })}</small>}
+        {mismatch && <small className="wx-mismatch">{t('wx.mismatch', { sensor: fmt(sensor), temp: fmt(f.temperature) })}</small>}
       </div>
     </section>
-    <ul className="wx-tiles" aria-label="Ilma üksikasjad">
-      <Tile icon={Wind} label="Tuul" value={`${number(w.windMs, 1)} m/s`} sub={`${windLabel(w.windMs)}${f.gust != null ? ` · puhangud ${number(f.gust, 0)} m/s` : ''}${f.windDirection != null ? ` · ${compassName(f.windDirection)}` : ''}`}>
-        {f.windDirection != null && <Navigation className="wx-compass" size={18} style={{ transform: `rotate(${Math.round(f.windDirection + 180 - 45)}deg)`, '--wind': `${Math.min(2.4, 0.4 + (w.windMs ?? 0) / 6)}s` }} aria-label={`Tuul puhub suunas ${Math.round((f.windDirection + 180) % 360)}°`}/>}
+    <ul className="wx-tiles" aria-label={t('wx.detailsAria')}>
+      <Tile icon={Wind} label={t('wx.wind')} value={`${number(w.windMs, 1)} m/s`} sub={`${windLabel(w.windMs)}${f.gust != null ? t('wx.gust', { value: number(f.gust, 0) }) : ''}${f.windDirection != null ? ` · ${compassName(f.windDirection)}` : ''}`}>
+        {f.windDirection != null && <Navigation className="wx-compass" size={18} style={{ transform: `rotate(${Math.round(f.windDirection + 180 - 45)}deg)`, '--wind': `${Math.min(2.4, 0.4 + (w.windMs ?? 0) / 6)}s` }} aria-label={t('wx.windDirAria', { deg: Math.round((f.windDirection + 180) % 360) })}/>}
       </Tile>
-      <Tile icon={Droplets} label="Niiskus" value={f.humidity == null ? '—' : `${Math.round(f.humidity)} %`} sub={dew == null ? undefined : `kastepunkt ${number(dew, 1)} °C`} bar={f.humidity}/>
-      <Tile icon={Gauge} label="Õhurõhk" value={f.pressure == null ? '—' : `${Math.round(f.pressure)} hPa`} sub={pressureLabel(f.pressure)}/>
-      <Tile icon={Cloud} label="Pilvisus" value={w.cloud == null ? '—' : `${Math.round(w.cloud * 100)} %`} sub={f.visibility == null ? undefined : `nähtavus ${number(f.visibility / 1000, 0)} km (${visibilityLabel(f.visibility)})`} bar={w.cloud == null ? null : w.cloud * 100}/>
-      <Tile icon={Umbrella} label="Sademed" value={`${number(f.precipitation ?? 0, 1)} mm`} sub={today ? `täna ${number(today.precipitation ?? 0, 1)} mm${today.rainChance != null ? ` · tõenäosus ${Math.round(today.rainChance)} %` : ''}` : 'praegu'}/>
-      <Tile icon={Sunrise} label="Päike" value={`${hhmm(today?.sunrise)} – ${hhmm(today?.sunset)}`} sub={light ? `päev ${minutesText(light)}` : undefined}/>
-      {today?.uv != null && <Tile icon={Sun} label="UV-indeks (max)" value={number(today.uv, 1)} sub={uvLabel(today.uv)} bar={(today.uv / 11) * 100}/>}
-      {f.snowDepth > 0.005 && <Tile icon={Snowflake} label="Lumikate" value={`${number(f.snowDepth * 100, 0)} cm`}/>}
+      <Tile icon={Droplets} label={t('wx.humidity')} value={f.humidity == null ? '—' : `${Math.round(f.humidity)} %`} sub={dew == null ? undefined : t('wx.dewPoint', { value: number(dew, 1) })} bar={f.humidity}/>
+      <Tile icon={Gauge} label={t('wx.pressure')} value={f.pressure == null ? '—' : `${Math.round(f.pressure)} hPa`} sub={pressureLabel(f.pressure)}/>
+      <Tile icon={Cloud} label={t('wx.cloud')} value={w.cloud == null ? '—' : `${Math.round(w.cloud * 100)} %`} sub={f.visibility == null ? undefined : t('wx.visibility', { km: number(f.visibility / 1000, 0), label: visibilityLabel(f.visibility) })} bar={w.cloud == null ? null : w.cloud * 100}/>
+      <Tile icon={Umbrella} label={t('wx.precip')} value={`${number(f.precipitation ?? 0, 1)} mm`} sub={today ? t('wx.todayPrecip', { mm: number(today.precipitation ?? 0, 1), p: Math.round(today.rainChance ?? 0) }) : t('wx.nowLower')}/>
+      <Tile icon={Sunrise} label={t('wx.sun')} value={`${hhmm(today?.sunrise)} – ${hhmm(today?.sunset)}`} sub={light ? t('wx.daylight', { duration: minutesText(light) }) : undefined}/>
+      {today?.uv != null && <Tile icon={Sun} label={t('wx.uv')} value={number(today.uv, 1)} sub={uvLabel(today.uv)} bar={(today.uv / 11) * 100}/>}
+      {f.snowDepth > 0.005 && <Tile icon={Snowflake} label={t('wx.snow')} value={`${number(f.snowDepth * 100, 0)} cm`}/>}
     </ul>
-    {out && <p className="wx-outlook"><Eye size={14}/> Järgmise 24 h külmim <b>{Math.round(out.min.temperature)} °C</b> kell {hhmm(out.min.time)}, soojim <b>{Math.round(out.max.temperature)} °C</b> kell {hhmm(out.max.time)}. {out.rainStart ? <>Sademeid oodata alates kella {hhmm(out.rainStart)} (kokku {number(out.rainTotal, 1)} mm).</> : 'Sademeid lähitundidel ei ole.'}</p>}
+    {out && <p className="wx-outlook"><Eye size={14}/> {t('wx.outlookMin')} <b>{Math.round(out.min.temperature)} °C</b> {t('wx.outlookAt', { time: hhmm(out.min.time) })}, <b>{Math.round(out.max.temperature)} °C</b> {t('wx.outlookEnd', { time: hhmm(out.max.time) })} {out.rainStart ? t('wx.rainExpected', { time: hhmm(out.rainStart), total: number(out.rainTotal, 1) }) : t('wx.rainNone')}</p>}
     <HourStrip hourly={hourly}/>
     <DayList days={f.days ?? []}/>
   </div>;

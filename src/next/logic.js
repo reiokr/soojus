@@ -1,4 +1,5 @@
 import { clipSpans, stateSpans, wzsvWorkState } from '../lib.js';
+import { t } from '../i18n/index.js';
 
 const HOUR = 3600000;
 
@@ -15,10 +16,34 @@ export function pumpState({ workMode, heatingState, hwState, compressor }) {
   return { heatOn, hwOn, heatDemand, hwDemand, running: heatOn || hwOn, stalled: comp === false && (modeHeat || modeHw), stalledFor: modeHw && !modeHeat ? 'tarbevee soojendus' : 'küte' };
 }
 
+// Tarbevee temperatuur seatud sihi suhtes: mida kaugemal allpool, seda tugevam hoiatus.
+// (Kütte puhul ei sobi pealevoolu ja tagasivoolu absoluutväärtusi hinnata, sest tarbevee
+// kütmise ajal tõusevad need ajutiselt – seepärast on norm ainult akupaagil ja toatemperatuuril.)
+export function dhwQuality(temp, target) {
+  const cur = temp == null || temp === '' ? NaN : Number(temp), g = target == null || target === '' ? NaN : Number(target);
+  if (!Number.isFinite(cur) || !Number.isFinite(g) || g <= 0) return null;
+  const below = g - cur;
+  // 1 K tolerants ainult anduri müra jaoks; juba 2 K allpool ei ole "siht käes".
+  if (below <= 1) return { key: 'good', label: t('quality.atTarget') };
+  if (below <= 5) return { key: 'high', label: t('quality.heatingUp') };
+  return { key: 'bad', label: t('quality.belowTarget') };
+}
+
+// Akupaagi temperatuur kütte tagasivoolu sihi suhtes: paak peaks hoidma vähemalt sihttaset.
+export function bufferQuality(temp, target) {
+  const cur = temp == null || temp === '' ? NaN : Number(temp), g = target == null || target === '' ? NaN : Number(target);
+  if (!Number.isFinite(cur) || !Number.isFinite(g)) return null;
+  const below = g - cur;
+  // Akupaak peab olema sihile lähemal kui 1 K, muidu on ta juba jahtunud.
+  if (below <= 1) return { key: 'good', label: t('quality.atTarget') };
+  if (below <= 6) return { key: 'high', label: t('quality.cooled') };
+  return { key: 'bad', label: t('quality.cold') };
+}
+
 // Tervitus kellaaja järgi (näidatakse Elava kodu pildil kellaaja kohal; järgib pildil näidatavat aega, mitte alati praegust).
 export function greeting(date = new Date()) {
   const h = date.getHours();
-  return h < 5 ? 'Head ööd' : h < 11 ? 'Tere hommikust' : h < 17 ? 'Tere päevast' : h < 22 ? 'Tere õhtust' : 'Head ööd';
+  return h < 5 ? t('live.greetNight') : h < 11 ? t('live.greetMorning') : h < 17 ? t('live.greetDay') : h < 22 ? t('live.greetEvening') : t('live.greetNight');
 }
 
 export function stateSentence(state, online) {
@@ -55,12 +80,6 @@ export function daySummary(stateRows, gaps, from, to) {
 }
 
 // Tellimuse aegumise hoiatus: null või { days, name }.
-export function subscriptionWarning(list, now = Date.now(), withinDays = 45) {
-  const names = { manage: 'Kaugjuhtimine', history: 'Ajalugu' };
-  const soon = (Array.isArray(list) ? list : []).map(s => ({ days: Math.ceil((Date.parse(s.validUntil) - now) / (24 * HOUR)), name: names[s.type] || s.type })).filter(s => Number.isFinite(s.days) && s.days <= withinDays);
-  return soon.length ? soon.sort((a, b) => a.days - b.days)[0] : null;
-}
-
 // Temperatuuri värv paagis: külm sinine → soe kollakas → kuum oranž.
 const STOPS = [[15, [79, 159, 200]], [35, [216, 196, 120]], [50, [226, 140, 70]], [65, [200, 70, 40]]];
 export function tempColor(t) {

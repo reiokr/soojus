@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, ChevronDown, Fan, Flame, Gauge, Link2, LoaderCircle, RefreshCw, Trash2, Wind } from 'lucide-react';
+import React, { useCallback, useEffect, useId, useState } from 'react';
+import { AlertCircle, ChevronDown, Fan, Flame, Gauge, Info, Link2, LoaderCircle, RefreshCw, Trash2, Wind } from 'lucide-react';
 import { api, number, time } from './lib.js';
-import { bypassOpen, climate, climatePoints, climateQuery, co2Quality, daysWithMonths, filterInfo, MODE_INFO, ventilationSentence } from './ventilation-logic.js';
+import { bypassOpen, climate, climatePoints, climateQuery, co2Quality, daysWithMonths, filterInfo, MODE_INFO, readingQuality, ventilationSentence, ventModeText } from './ventilation-logic.js';
+import { t } from './i18n/index.js';
+import { pointNameText } from './lib.js';
 
 export function useAirobot(tick, enabled = true) {
   const [view, setView] = useState(null), [error, setError] = useState(null);
@@ -11,26 +13,36 @@ export function useAirobot(tick, enabled = true) {
   return { view, error, reload: load, setView };
 }
 
-function Tile({ label, value, unit, note, tone }) {
-  return <div className={`vent-tile ${tone || ''}`}><small>{label}</small><b>{value}{unit && <i>{unit}</i>}</b>{note && <em>{note}</em>}</div>;
+function Tile({ label, value, unit, note, quality, info }) {
+  const tipId = useId();
+  return <div className={`vent-tile ${quality?.key || ''}`}>
+    <div className="vent-tile-head">
+      <small>{label}</small>
+      {info && <button type="button" className="vent-info" aria-label={t('vent.explain', { label })} aria-describedby={tipId}><Info size={13}/></button>}
+    </div>
+    <b>{value}{unit && <i>{unit}</i>}</b>
+    {quality && <span className="vent-tile-state">{quality.label}</span>}
+    {note && <em>{note}</em>}
+    {info && <span id={tipId} className="vent-tip" role="tooltip">{info}</span>}
+  </div>;
 }
 
 function Setup({ onDone, notify, current }) {
   const [host, setHost] = useState(current || ''), [busy, setBusy] = useState(false), [error, setError] = useState(null);
   async function save(e) {
     e.preventDefault(); setBusy(true); setError(null);
-    try { const view = await api('/airobot', { method: 'POST', body: JSON.stringify({ host }) }); notify?.('Ventilatsiooniseade on ühendatud.'); onDone(view); } catch (err) { setError(err.message); } finally { setBusy(false); }
+    try { const view = await api('/airobot', { method: 'POST', body: JSON.stringify({ host }) }); notify?.(t('vent.connected')); onDone(view); } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
   return <section className="panel vent-setup">
-    <div className="vent-setup-head"><span className="vent-icon"><Fan size={26}/></span><div><h3>Ühenda Airobot ventilatsiooniseade</h3><p>Seade suhtleb sinu kohtvõrgus Modbus TCP kaudu. Pilvekontot ega API-võtit pole vaja.</p></div></div>
+    <div className="vent-setup-head"><span className="vent-icon"><Fan size={26}/></span><div><h3>{t('vent.setupTitle')}</h3><p>{t('vent.setupLead')}</p></div></div>
     <ol className="vent-steps">
-      <li>Ava seadme ekraanil <b>Menu → Settings → Other → Modbus TCP</b> ja lülita see <b>ON</b>. Seade taaskäivitub.</li>
-      <li>Sisesta seadme IP-aadress kohtvõrgus (leiad ruuteri seadmete nimekirjast, nimi <code>Airobot-Ventilation</code>).</li>
-      <li>Modbus TCP-l pole parooli, seega hoia seade ainult kodusesse võrku.</li>
+      <li>{t('vent.setupStep1a')} <b>Menu → Settings → Other → Modbus TCP</b> {t('vent.setupStep1b')} <b>ON</b>{t('vent.setupStep1c')}</li>
+      <li>{t('vent.setupStep2a')} <code>Airobot-Ventilation</code>{t('vent.setupStep2b')}</li>
+      <li>{t('vent.setupStep3')}</li>
     </ol>
     <form onSubmit={save} className="vent-form">
-      <label className="field"><span>Seadme IP-aadress</span><input value={host} onChange={e => setHost(e.target.value)} placeholder="192.168.100.2" inputMode="decimal" autoComplete="off" required/></label>
-      <button type="submit" className="button primary" disabled={busy || !host}>{busy ? <LoaderCircle size={16} className="spin"/> : <Link2 size={16}/>}Ühenda ja testi</button>
+      <label className="field"><span>{t('vent.deviceIp')}</span><input value={host} onChange={e => setHost(e.target.value)} placeholder="192.168.100.2" inputMode="decimal" autoComplete="off" required/></label>
+      <button type="submit" className="button primary" disabled={busy || !host}>{busy ? <LoaderCircle size={16} className="spin"/> : <Link2 size={16}/>}{t('vent.connectTest')}</button>
     </form>
     {error && <p className="inline-error" role="alert">{error}</p>}
   </section>;
@@ -48,25 +60,25 @@ function Control({ view, notify, onView }) {
   const body = pick === 'auto' ? { mode: pick, co2Setpoint: Number(co2) } : pick === 'manual' ? { mode: pick, fanLevel: Number(fan) } : { mode: pick, minutes: Number(minutes) };
   async function apply(e) {
     e.preventDefault(); setBusy(true); setError(null);
-    try { const next = await api('/airobot/control', { method: 'POST', body: JSON.stringify(body) }); onView(next); setDirty(false); notify?.(`Ventilatsiooni režiim: ${MODE_INFO[pick].label}.`); } catch (err) { setError(err.message); } finally { setBusy(false); }
+    try { const next = await api('/airobot/control', { method: 'POST', body: JSON.stringify(body) }); onView(next); setDirty(false); notify?.(t('vent.modeSet', { mode: t(MODE_INFO[pick].label) })); } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
   const changed = pick !== view.mode || (pick === 'auto' && Number(co2) !== s.co2Setpoint) || (pick === 'manual' && Number(fan) !== clampFan(s.manualFanLevel)) || pick === 'boost' || pick === 'overpressure';
   return <section className="panel vent-control" aria-labelledby="vent-control-title">
     <div className="vent-now">
-      <div><small>PRAEGU</small><h3 id="vent-control-title">{view.modeText}</h3></div>
-      <div className="vent-speed" aria-label={`Kiirus ${d.fans.supplyLevel} 10-st`}><b>{d.fans.supplyLevel}</b><span>/ 10</span><small>kiirus</small></div>
+      <div><small>{t('vent.now')}</small><h3 id="vent-control-title">{ventModeText(view.modeText)}</h3></div>
+      <div className="vent-speed" aria-label={t('vent.speedAria', { level: d.fans.supplyLevel })}><b>{d.fans.supplyLevel}</b><span>/ 10</span><small>{t('vent.speed')}</small></div>
     </div>
     <form onSubmit={apply}>
-      <div className="vent-modes" role="radiogroup" aria-label="Ventilatsiooni režiim">
-        {Object.entries(MODE_INFO).map(([key, info]) => { const Icon = MODE_ICONS[key]; return <button key={key} type="button" role="radio" aria-checked={pick === key} className={`${pick === key ? 'selected' : ''} ${view.mode === key ? 'current' : ''}`} onClick={() => touch(setPick)(key)}><Icon size={22}/><b>{info.label}</b><small>{info.hint}</small>{view.mode === key && <em>praegu</em>}</button>; })}
+      <div className="vent-modes" role="radiogroup" aria-label={t('vent.modeAria')}>
+        {Object.entries(MODE_INFO).map(([key, info]) => { const Icon = MODE_ICONS[key]; return <button key={key} type="button" role="radio" aria-checked={pick === key} className={`${pick === key ? 'selected' : ''} ${view.mode === key ? 'current' : ''}`} onClick={() => touch(setPick)(key)}><Icon size={22}/><b>{t(info.label)}</b><small>{t(info.hint)}</small>{view.mode === key && <em>{t('vent.current')}</em>}</button>; })}
       </div>
       <div className="vent-param">
-        {pick === 'auto' && <label className="vent-range"><span>CO₂ piirmäär, millal ventilatsioon kiirendab <b>{co2} ppm</b></span><input type="range" min="450" max="2000" step="50" value={co2} onChange={e => touch(setCo2)(e.target.value)} aria-label="CO₂ piirmäär ppm"/><small>Praegu õhus {d.co2} ppm · lubatud 450–2000</small></label>}
-        {pick === 'manual' && <div className="vent-range"><span>Kiirus <b>{fan}</b> / 10</span><div className="vent-levels" role="radiogroup" aria-label="Ventilaatori kiirus">{Array.from({ length: 10 }, (_, i) => i + 1).map(n => <button key={n} type="button" role="radio" aria-checked={Number(fan) === n} className={Number(fan) === n ? 'selected' : ''} onClick={() => touch(setFan)(n)}>{n}</button>)}</div></div>}
-        {(pick === 'boost' || pick === 'overpressure') && <div className="vent-range"><span>{pick === 'boost' ? 'Õhutuse' : 'Ülerõhu'} kestus <b>{minutes} min</b></span><div className="vent-levels minutes" role="group" aria-label="Kestus minutites">{[5, 10, 15, 20, 30, 45, 60].map(n => <button key={n} type="button" className={Number(minutes) === n ? 'selected' : ''} onClick={() => touch(setMinutes)(n)}>{n}</button>)}</div><label className="vent-number">või sisesta minutites (3–60) <input type="number" min="3" max="60" step="1" value={minutes} onChange={e => touch(setMinutes)(e.target.value)}/></label></div>}
+        {pick === 'auto' && <label className="vent-range"><span>{t('vent.co2Threshold')} <b>{co2} ppm</b></span><input type="range" min="450" max="2000" step="50" value={co2} onChange={e => touch(setCo2)(e.target.value)} aria-label={t('vent.co2ThresholdAria')}/><small>{t('vent.co2Now', { co2: d.co2 })}</small></label>}
+        {pick === 'manual' && <div className="vent-range"><span>{t('vent.fanSpeed')} <b>{fan}</b> / 10</span><div className="vent-levels" role="radiogroup" aria-label={t('vent.fanSpeedAria')}>{Array.from({ length: 10 }, (_, i) => i + 1).map(n => <button key={n} type="button" role="radio" aria-checked={Number(fan) === n} className={Number(fan) === n ? 'selected' : ''} onClick={() => touch(setFan)(n)}>{n}</button>)}</div></div>}
+        {(pick === 'boost' || pick === 'overpressure') && <div className="vent-range"><span>{pick === 'boost' ? t('vent.boostDuration') : t('vent.overpressureDuration')} <b>{minutes} min</b></span><div className="vent-levels minutes" role="group" aria-label={t('vent.durationAria')}>{[5, 10, 15, 20, 30, 45, 60].map(n => <button key={n} type="button" className={Number(minutes) === n ? 'selected' : ''} onClick={() => touch(setMinutes)(n)}>{n}</button>)}</div><label className="vent-number">{t('vent.orEnterMinutes')} <input type="number" min="3" max="60" step="1" value={minutes} onChange={e => touch(setMinutes)(e.target.value)}/></label></div>}
       </div>
       {error && <p className="inline-error" role="alert">{error}</p>}
-      <div className="vent-apply"><button type="submit" className="button primary" disabled={busy || !changed}>{busy ? <LoaderCircle size={16} className="spin"/> : null}Rakenda</button>{dirty && <button type="button" className="text-button" onClick={() => setDirty(false)}>Tühista muudatus</button>}</div>
+      <div className="vent-apply"><button type="submit" className="button primary" disabled={busy || !changed}>{busy ? <LoaderCircle size={16} className="spin"/> : null}{t('vent.apply')}</button>{dirty && <button type="button" className="text-button" onClick={() => setDirty(false)}>{t('vent.cancelEdit')}</button>}</div>
     </form>
   </section>;
 }
@@ -83,7 +95,7 @@ function NumberSetting({ value, min, max, step = 1, unit, onSave, disabled, labe
     <input type="number" inputMode="decimal" min={min} max={max} step={step} value={draft} onChange={e => setDraft(e.target.value)} aria-label={label}/>
     {unit && <span>{unit}</span>}
     {after && draft !== '' && Number.isFinite(Number(draft)) && <span className="vent-after">{after(Number(draft))}</span>}
-    {changed && <button type="submit" className="button" disabled={disabled}>Salvesta</button>}
+    {changed && <button type="submit" className="button" disabled={disabled}>{t('vent.save')}</button>}
   </form>;
 }
 
@@ -101,17 +113,17 @@ function Settings({ view, notify, onView }) {
   const filter = filterInfo(s.filterElapsed, s.filterInterval);
   return <section className={`panel vent-settings ${open ? 'open' : ''}`}>
     <button type="button" className="vent-settings-toggle" aria-expanded={open} aria-controls="vent-settings-body" onClick={() => setOpen(!open)}>
-      <span><b>Seaded</b><small>{open ? 'Muudatus kehtib kohe ja salvestub seadmesse.' : 'Suletud, et neid ei muudetaks kogemata. Vajuta, et avada.'}</small></span>
+      <span><b>{t('vent.settings')}</b><small>{open ? t('vent.settingsOpenHint') : t('vent.settingsClosedHint')}</small></span>
       <ChevronDown size={20}/>
     </button>
     {open && <div id="vent-settings-body" className="vent-settings-body">
-    <Row title="Suvine möödaviik" hint="Automaatrežiim: klapp avaneb ise, kui välisõhk on üle 13 °C ja jahedam kui väljatõmbeõhk (vähemalt 15 min)."><span className="vent-state">{sw.bypass ? 'Automaatika' : 'Väljas'}</span><Switch on={sw.bypass} disabled={busy} label="Suvine möödaviik" onChange={on => save({ bypass: on }, `Suvine möödaviik: ${on ? 'automaatika sees' : 'väljas'}.`)}/></Row>
-    <Row title="Ventilatsioon" hint="Lülitab seadme täielikult sisse või välja."><span className="vent-state">{sw.power ? 'Sees' : 'Väljas'}</span><Switch on={sw.power} disabled={busy} label="Ventilatsioon" onChange={on => { if (!on && !window.confirm('Lülitada ventilatsioon välja? Tuba ei tuulutata enne, kui lülitad selle tagasi.')) return; save({ power: on }, `Ventilatsioon: ${on ? 'sees' : 'väljas'}.`); }}/></Row>
-    {sw.humidityControl != null && <Row title="Niiskuse automaatjuhtimine" hint="Kiirendab ventilatsiooni, kui toa niiskus ületab sihttaseme."><Switch on={sw.humidityControl} disabled={busy} label="Niiskuse juhtimine" onChange={on => save({ humidityControl: on }, `Niiskuse juhtimine: ${on ? 'sees' : 'väljas'}.`)}/><NumberSetting label="Niiskuse sihttase" value={s.humiditySetpoint} min={5} max={95} step={1} unit="%" disabled={busy} onSave={n => save({ humiditySetpoint: n }, `Niiskuse sihttase: ${n} %.`)}/></Row>}
-    {sw.vocControl != null && <Row title="VOC automaatjuhtimine" hint="Reageerib lenduvatele orgaanilistele ühenditele (indeks 0–500)."><Switch on={sw.vocControl} disabled={busy} label="VOC juhtimine" onChange={on => save({ vocControl: on }, `VOC juhtimine: ${on ? 'sees' : 'väljas'}.`)}/>{s.vocSetpoint != null && <NumberSetting label="VOC sihttase" value={s.vocSetpoint} min={0} max={500} unit="indeks" disabled={busy} onSave={n => save({ vocSetpoint: n }, `VOC sihttase: ${n}.`)}/>}</Row>}
-    {sw.pmControl != null && <Row title="PM2,5 automaatjuhtimine" hint="Reageerib peenetolmule (µg/m³)."><Switch on={sw.pmControl} disabled={busy} label="PM2,5 juhtimine" onChange={on => save({ pmControl: on }, `PM2,5 juhtimine: ${on ? 'sees' : 'väljas'}.`)}/>{s.pmSetpoint != null && <NumberSetting label="PM2,5 sihttase" value={s.pmSetpoint} min={0} max={999} unit="µg/m³" disabled={busy} onSave={n => save({ pmSetpoint: n }, `PM2,5 sihttase: ${n} µg/m³.`)}/>}</Row>}
-    <Row title="Ülerõhu (kamina) kiirus" hint="Ventilaatori kiirus 1–10, kui ülerõhu režiim on sees."><div className="vent-levels compact" role="radiogroup" aria-label="Ülerõhu kiirus">{Array.from({ length: 10 }, (_, i) => i + 1).map(n => <button key={n} type="button" role="radio" aria-checked={s.overpressureFanLevel === n} className={s.overpressureFanLevel === n ? 'selected' : ''} disabled={busy} onClick={() => s.overpressureFanLevel !== n && save({ overpressureFanLevel: n }, `Ülerõhu kiirus: ${n}.`)}>{n}</button>)}</div></Row>
-    <Row title="Filtri kasutusintervall" hint={filter ? `Kasutatud ${daysWithMonths(s.filterElapsed)}, ${filter.percent}%. Jäänud ${daysWithMonths(filter.leftHours)}.` : undefined}><NumberSetting label="Filtri kasutusintervall päevades" value={Math.round(s.filterInterval / 24)} min={30} max={365} step={1} unit="päeva" after={n => `(${daysWithMonths(n * 24).replace(/^.*\(/, '').replace(/\)$/, '')})`} disabled={busy} onSave={n => save({ filterInterval: n * 24 }, `Filtri kasutusintervall: ${daysWithMonths(n * 24)}.`)}/><button type="button" className="button" disabled={busy} onClick={() => { if (window.confirm('Lähtesta filtri taimer? Tee seda alles pärast filtri vahetamist.')) save({ resetFilter: true }, 'Filtri taimer lähtestati.'); }}>Filter vahetatud</button></Row>
+    <Row title={t('vent.bypassTitle')} hint={t('vent.bypassHint')}><span className="vent-state">{sw.bypass ? t('enum.auto') : t('enum.off')}</span><Switch on={sw.bypass} disabled={busy} label={t('vent.bypassTitle')} onChange={on => save({ bypass: on }, t('vent.bypassSaved', { state: on ? t('vent.autoOn') : t('vent.off') }))}/></Row>
+    <Row title={t('vent.powerTitle')} hint={t('vent.powerHint')}><span className="vent-state">{sw.power ? t('enum.on') : t('enum.off')}</span><Switch on={sw.power} disabled={busy} label={t('vent.powerTitle')} onChange={on => { if (!on && !window.confirm(t('vent.powerOffConfirm'))) return; save({ power: on }, t('vent.powerSaved', { state: on ? t('vent.on') : t('vent.off') })); }}/></Row>
+    {sw.humidityControl != null && <Row title={t('vent.humidityTitle')} hint={t('vent.humidityHint')}><Switch on={sw.humidityControl} disabled={busy} label={t('vent.humidityAria')} onChange={on => save({ humidityControl: on }, t('vent.humiditySaved', { state: on ? t('vent.on') : t('vent.off') }))}/><NumberSetting label={t('vent.humiditySetpoint')} value={s.humiditySetpoint} min={5} max={95} step={1} unit="%" disabled={busy} onSave={n => save({ humiditySetpoint: n }, t('vent.humiditySetpointSaved', { value: n }))}/></Row>}
+    {sw.vocControl != null && <Row title={t('vent.vocTitle')} hint={t('vent.vocHint')}><Switch on={sw.vocControl} disabled={busy} label={t('vent.vocAria')} onChange={on => save({ vocControl: on }, t('vent.vocSaved', { state: on ? t('vent.on') : t('vent.off') }))}/>{s.vocSetpoint != null && <NumberSetting label={t('vent.vocSetpoint')} value={s.vocSetpoint} min={0} max={500} unit={t('vent.index')} disabled={busy} onSave={n => save({ vocSetpoint: n }, t('vent.vocSetpointSaved', { value: n }))}/>}</Row>}
+    {sw.pmControl != null && <Row title={t('vent.pmTitle')} hint={t('vent.pmHint')}><Switch on={sw.pmControl} disabled={busy} label={t('vent.pmAria')} onChange={on => save({ pmControl: on }, t('vent.pmSaved', { state: on ? t('vent.on') : t('vent.off') }))}/>{s.pmSetpoint != null && <NumberSetting label={t('vent.pmSetpoint')} value={s.pmSetpoint} min={0} max={999} unit="µg/m³" disabled={busy} onSave={n => save({ pmSetpoint: n }, t('vent.pmSetpointSaved', { value: n }))}/>}</Row>}
+    <Row title={t('vent.overpressureSpeedTitle')} hint={t('vent.overpressureSpeedHint')}><div className="vent-levels compact" role="radiogroup" aria-label={t('vent.overpressureSpeedAria')}>{Array.from({ length: 10 }, (_, i) => i + 1).map(n => <button key={n} type="button" role="radio" aria-checked={s.overpressureFanLevel === n} className={s.overpressureFanLevel === n ? 'selected' : ''} disabled={busy} onClick={() => s.overpressureFanLevel !== n && save({ overpressureFanLevel: n }, t('vent.overpressureSpeedSaved', { value: n }))}>{n}</button>)}</div></Row>
+    <Row title={t('vent.filterIntervalTitle')} hint={filter ? t('vent.filterUsed', { used: daysWithMonths(s.filterElapsed), percent: filter.percent, left: daysWithMonths(filter.leftHours) }) : undefined}><NumberSetting label={t('vent.filterIntervalAria')} value={Math.round(s.filterInterval / 24)} min={30} max={365} step={1} unit={t('common.days')} after={n => `(${daysWithMonths(n * 24).replace(/^.*\(/, '').replace(/\)$/, '')})`} disabled={busy} onSave={n => save({ filterInterval: n * 24 }, t('vent.filterIntervalSaved', { value: daysWithMonths(n * 24) }))}/><button type="button" className="button" disabled={busy} onClick={() => { if (window.confirm(t('vent.filterResetConfirm'))) save({ resetFilter: true }, t('vent.filterResetDone')); }}>{t('vent.filterChanged')}</button></Row>
     {error && <p className="inline-error" role="alert">{error}</p>}
     </div>}
   </section>;
@@ -121,54 +133,64 @@ export function VentilationPage({ tick, theme, HistoryChart, notify, airobot, ou
   const own = useAirobot(tick, !airobot), source = airobot || own;
   const { view, error, reload, setView } = source;
   const [tab, setTab] = useState('climate'), [hours, setHours] = useState(24), [changing, setChanging] = useState(false);
-  if (!view) return <div className="panel vent-loading">{error ? <><AlertCircle size={18}/> {error}</> : <><LoaderCircle size={18} className="spin"/> Laadin ventilatsiooni andmeid…</>}</div>;
+  if (!view) return <div className="panel vent-loading">{error ? <><AlertCircle size={18}/> {error}</> : <><LoaderCircle size={18} className="spin"/> {t('vent.loading')}</>}</div>;
   if (!view.configured || changing) return <Setup current={view.host} notify={notify} onDone={v => { setView(v); setChanging(false); }}/>;
   const d = view.data, byId = Object.fromEntries(view.points.map(p => [p.parameterId, p]));
-  const hasClimate = Boolean(pumpDeviceId && outdoorPointId), tabs = [...(hasClimate ? [['climate', 'Toas vs väljas', null]] : []), ['co2', 'CO₂', ['co2']], ['temp', 'Temperatuurid', ['supply_temp', 'extract_temp']], ['hum', 'Niiskus', ['supply_hum', 'extract_hum']], ['flow', 'Õhuvool', ['supply_flow', 'extract_flow']], ['rpm', 'Ventilaatorid', ['supply_rpm', 'extract_rpm']]];
-  const current = tabs.find(t => t[0] === tab) || tabs[0], pts = current[0] === 'climate' ? climatePoints : current[2].map(id => byId[id]).filter(Boolean);
+  const hasClimate = Boolean(pumpDeviceId && outdoorPointId), tabs = [...(hasClimate ? [['climate', t('vent.tabClimate'), null]] : []), ['co2', t('vent.tabCo2'), ['co2']], ['temp', t('vent.tabTemps'), ['supply_temp', 'extract_temp']], ['hum', t('vent.tabHum'), ['supply_hum', 'extract_hum']], ['flow', t('vent.tabFlow'), ['supply_flow', 'extract_flow']], ['rpm', t('vent.tabFans'), ['supply_rpm', 'extract_rpm']]];
+  const current = tabs.find(x => x[0] === tab) || tabs[0], pts = current[0] === 'climate' ? climatePoints() : current[2].map(id => byId[id]).filter(Boolean).map(p => ({ ...p, label: pointNameText(p.label) }));
   const air = d ? co2Quality(d.co2) : null, filter = d ? filterInfo(d.settings.filterElapsed, d.settings.filterInterval) : null;
   const bypass = d ? bypassOpen(d) : null;
-  const clim = climate(outdoor, view), t = v => v == null ? '—' : number(v, 1);
+  const clim = climate(outdoor, view), fmt = v => v == null ? '—' : number(v, 1);
+  // Kaartide värv: kui palju on näit normist kõrgem (roheline → kollane → punane).
+  const q = d ? {
+    temp: readingQuality('temp', clim.indoor),
+    hum: readingQuality('hum', d.humidity?.extract),
+    co2: readingQuality('co2', d.co2),
+    voc: readingQuality('voc', d.voc, d.settings.vocSetpoint),
+    pm: readingQuality('pm25', d.pm25),
+    filter: d.switches.filterAlert ? { key: 'bad', label: t('vent.replaceFilter') } : filter && filter.percent > 85 ? { key: 'high', label: t('vent.wornFilter') } : null
+  } : {};
   return <div className="vent">
-    {!d ? <section className="panel vent-error" role="alert"><AlertCircle size={20}/><div><b>Seadmega ei saanud ühendust</b><p>{view.error || 'Ootan esimest lugemist…'} Kontrolli, et seadmes on Modbus TCP sisse lülitatud ja IP on {view.host}.</p></div><button className="button" type="button" onClick={reload}><RefreshCw size={15}/>Proovi uuesti</button></section> : <>
+    {!d ? <section className="panel vent-error" role="alert"><AlertCircle size={20}/><div><b>{t('vent.offlineTitle')}</b><p>{view.error || t('vent.waiting')} {t('vent.offlineHint', { host: view.host })}</p></div><button className="button" type="button" onClick={reload}><RefreshCw size={15}/>{t('vent.retry')}</button></section> : <>
       <Control view={view} notify={notify} onView={setView}/>
       <section className="panel vent-summary">
         <span className={`vent-icon ${d.fans.supplyRpm > 0 ? 'on' : ''}`}><Wind size={28}/></span>
-        <div><h3>{ventilationSentence(view)}</h3><p>Viimane lugemine {time(view.time)} · {view.host}</p></div>
+        <div><h3>{ventilationSentence(view)}</h3><p>{t('vent.lastReading', { time: time(view.time), host: view.host })}</p></div>
         <div className="vent-flags">
-          <span className={`vent-chip ${air.key}`}>Õhk: {air.label}</span>
-          {d.switches.bypass && <span className="vent-chip ok">Möödaviik: automaatika{bypass == null ? '' : bypass ? ', avatud' : ', suletud'}</span>}
-          {d.switches.filterAlert && <span className="vent-chip bad">Filter vajab vahetust</span>}
-          {view.errors.map(e => <span key={e} className="vent-chip bad">Viga: {e}</span>)}
+          <span className={`vent-chip ${air.key}`}>{t('vent.airChip', { air: air.label })}</span>
+          {d.switches.bypass && <span className="vent-chip ok">{t('vent.bypassChip')}{bypass == null ? '' : bypass ? t('vent.bypassOpen') : t('vent.bypassClosed')}</span>}
+          {d.switches.filterAlert && <span className="vent-chip bad">{t('vent.filterNeedsChange')}</span>}
+          {view.errors.map(e => <span key={e} className="vent-chip bad">{t('vent.errorChip', { error: e })}</span>)}
         </div>
       </section>
       <div className="vent-grid">
-        <Tile label="Sisetemperatuur" value={t(clim.indoor)} unit="°C" note="väljatõmbeõhk toast"/>
-        <Tile label="Välisõhk" value={t(clim.outdoor)} unit="°C" note={clim.outdoorSource === 'soojuspump' ? 'soojuspumba andur' : 'ventilatsiooni andur'}/>
-        <Tile label="CO₂" value={d.co2} unit="ppm" tone={air.key} note={`piirmäär ${d.settings.co2Setpoint} ppm`}/>
-        <Tile label="Sissepuhke temperatuur" value={t(d.temperatures.supply)} unit="°C" note="tuppa"/>
-        <Tile label="Niiskus toas" value={t(d.humidity.extract)} unit="%" note={`sihttase ${number(d.settings.humiditySetpoint, 0)} %`}/>
-        <Tile label="Soojustagastus" value={number(d.heatRecovery, 0)} unit="%"/>
-        <Tile label="Suvine möödaviik" value={!d.switches.bypass ? 'Väljas' : bypass == null ? 'Automaatika' : bypass ? 'Avatud' : 'Suletud'} note={d.switches.bypass ? 'automaatrežiim' : undefined}/>
-        <Tile label="Sissepuhke õhuvool" value={number(d.airflow.supply, 0)} unit="m³/h" note={`hinnanguline · ${number(d.fans.supplyRpm, 0)} p/min`}/>
-        <Tile label="Väljatõmbe õhuvool" value={number(d.airflow.extract, 0)} unit="m³/h" note={`hinnanguline · ${number(d.fans.extractRpm, 0)} p/min`}/>
-        <Tile label="VOC indeks" value={number(d.voc, 0)}/>
-        <Tile label="PM2,5" value={number(d.pm25, 0)} unit="µg/m³"/>
-        {filter && <Tile label="Filter" value={`${filter.percent}`} unit="% kasutatud" tone={d.switches.filterAlert ? 'bad' : filter.percent > 85 ? 'high' : ''} note={`jäänud ${daysWithMonths(filter.leftHours)}`}/>}
-        <Tile label="Töötab" value={d.uptimeHours < 48 ? number(d.uptimeHours * 60, 0) : number(d.uptimeHours / 24, 1)} unit={d.uptimeHours < 48 ? 'min' : 'päeva'} note="pärast taaskäivitust"/>
+        <Tile label={t('vent.tileIndoor')} info={t('vent.tileIndoorInfo')} value={fmt(clim.indoor)} unit="°C" note={t('vent.tileIndoorNote')} quality={q.temp}/>
+        <Tile label={t('vent.tileOutdoor')} info={t('vent.tileOutdoorInfo')} value={fmt(clim.outdoor)} unit="°C" note={clim.outdoorSource === 'soojuspump' ? t('vent.sensorPump') : t('vent.sensorVent')}/>
+        <Tile label={t('vent.tileCo2')} info={t('vent.tileCo2Info')} value={d.co2} unit="ppm" note={t('vent.threshold', { value: d.settings.co2Setpoint })} quality={q.co2}/>
+        <Tile label={t('vent.tileSupplyTemp')} info={t('vent.tileSupplyTempInfo')} value={fmt(d.temperatures.supply)} unit="°C" note={t('vent.intoRoom')}/>
+        <Tile label={t('vent.tileHum')} info={t('vent.tileHumInfo')} value={fmt(d.humidity.extract)} unit="%" note={t('vent.setpoint', { value: number(d.settings.humiditySetpoint, 0) })} quality={q.hum}/>
+        <Tile label={t('vent.tileRecovery')} info={t('vent.tileRecoveryInfo')} value={number(d.heatRecovery, 0)} unit="%"/>
+        <Tile label={t('vent.tileBypass')} info={t('vent.tileBypassInfo')} value={!d.switches.bypass ? t('vent.bypassOff') : bypass == null ? t('vent.bypassAuto') : bypass ? t('vent.bypassOpenState') : t('vent.bypassClosedState')} note={d.switches.bypass ? t('vent.bypassAutoMode') : undefined}/>
+        <Tile label={t('vent.tileSupplyFlow')} info={t('vent.tileSupplyFlowInfo')} value={number(d.airflow.supply, 0)} unit="m³/h" note={t('vent.estimated', { rpm: number(d.fans.supplyRpm, 0) })}/>
+        <Tile label={t('vent.tileExtractFlow')} info={t('vent.tileExtractFlowInfo')} value={number(d.airflow.extract, 0)} unit="m³/h" note={t('vent.estimated', { rpm: number(d.fans.extractRpm, 0) })}/>
+        <Tile label={t('vent.tileVoc')} info={t('vent.tileVocInfo')} value={number(d.voc, 0)} note={d.settings.vocSetpoint != null ? t('vent.vocSetpointNote', { value: d.settings.vocSetpoint }) : undefined} quality={q.voc}/>
+        <Tile label={t('vent.tilePm')} info={t('vent.tilePmInfo')} value={number(d.pm25, 0)} unit="µg/m³" note={t('vent.pmNorm')} quality={q.pm}/>
+        {filter && <Tile label={t('vent.tileFilter')} info={t('vent.tileFilterInfo')} value={`${filter.percent}`} unit={t('vent.usedPercent')} note={t('vent.left', { value: daysWithMonths(filter.leftHours) })} quality={q.filter}/>}
+        <Tile label={t('vent.tileUptime')} info={t('vent.tileUptimeInfo')} value={d.uptimeHours < 48 ? number(d.uptimeHours * 60, 0) : number(d.uptimeHours / 24, 1)} unit={d.uptimeHours < 48 ? 'min' : t('common.days')} note={t('vent.sinceRestart')}/>
       </div>
-      {filter && <div className="vent-filter" role="img" aria-label={`Filter ${filter.percent}% kasutatud`}><i style={{ width: `${filter.percent}%` }}/></div>}
+      <p className="vent-legend"><i className="good"/>{t('vent.legendGood')}<i className="high"/>{t('vent.legendHigh')}<i className="bad"/>{t('vent.legendBad')}</p>
+      {filter && <div className="vent-filter" role="img" aria-label={t('vent.filterAria', { percent: filter.percent })}><i style={{ width: `${filter.percent}%` }}/></div>}
       <section className="panel vent-trend">
-        <div className="vent-trend-head"><h3>Trend</h3>
+        <div className="vent-trend-head"><h3>{t('overview.trend')}</h3>
           <div className="vent-controls">
-            <div className="segmented" role="group" aria-label="Näit">{tabs.map(([id, label]) => <button key={id} type="button" className={current[0] === id ? 'selected' : ''} aria-pressed={current[0] === id} onClick={() => setTab(id)}>{label}</button>)}</div>
-            <div className="segmented" role="group" aria-label="Ajavahemik">{[[24, '24 tundi'], [168, 'Nädal'], [720, 'Kuu']].map(([v, l]) => <button key={v} type="button" className={hours === v ? 'selected' : ''} aria-pressed={hours === v} onClick={() => setHours(v)}>{l}</button>)}</div>
+            <div className="segmented" role="group" aria-label={t('vent.indicator')}>{tabs.map(([id, label]) => <button key={id} type="button" className={current[0] === id ? 'selected' : ''} aria-pressed={current[0] === id} onClick={() => setTab(id)}>{label}</button>)}</div>
+            <div className="segmented" role="group" aria-label={t('vent.period')}>{[[24, t('overview.periodDay')], [168, t('overview.periodWeek')], [720, t('overview.periodMonth')]].map(([v, l]) => <button key={v} type="button" className={hours === v ? 'selected' : ''} aria-pressed={hours === v} onClick={() => setHours(v)}>{l}</button>)}</div>
           </div>
         </div>
         {pts.length > 0 && <HistoryChart key={current[0]} name={`vent-${current[0]}`} deviceId={current[0] === 'climate' ? 'climate' : 'airobot'} extra={current[0] === 'climate' ? climateQuery(pumpDeviceId, outdoorPointId) : ''} points={pts} hours={hours} tick={tick} compact theme={theme}/>}
       </section>
       <Settings view={view} notify={notify} onView={setView}/>
     </>}
-    <p className="vent-foot"><button type="button" className="text-button" onClick={() => setChanging(true)}>Muuda IP-aadressi</button><button type="button" className="text-button" onClick={async () => { if (!window.confirm('Eemalda ventilatsiooniseade? Salvestatud ajalugu jääb alles.')) return; try { setView(await api('/airobot', { method: 'DELETE', body: '{}' })); } catch (e) { notify?.(e.message, true); } }}><Trash2 size={13}/>Eemalda seade</button></p>
+    <p className="vent-foot"><button type="button" className="text-button" onClick={() => setChanging(true)}>{t('vent.changeIp')}</button><button type="button" className="text-button" onClick={async () => { if (!window.confirm(t('vent.removeConfirm'))) return; try { setView(await api('/airobot', { method: 'DELETE', body: '{}' })); } catch (e) { notify?.(e.message, true); } }}><Trash2 size={13}/>{t('vent.remove')}</button></p>
   </div>;
 }

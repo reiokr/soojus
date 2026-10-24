@@ -1,6 +1,8 @@
 import { sunPosition, moonPosition, moonPhase, skyColors, darkness, groundColors, windowGlow, mix, HOME, sunMaxElevation, skyPlacement } from './sky.js';
 import { tempColor } from '../logic.js';
 import { CatBrain, restPose } from './cat.js';
+import { t as tr } from '../../i18n/index.js';
+import { number } from '../../lib.js';
 
 // "Elav kodu": canvas-stseen. Maailm on 1600×900 ühikut, sobitatakse ekraanile; taevas ja maa jätkuvad üle serva.
 // Maailm on 1600 ühikut lai; nähtav on y = VIEW.y … VIEW.y + VIEW.h, nii et maapinna lõige (maakontuur) jääb pildile.
@@ -923,9 +925,9 @@ export class LiveScene {
     ctx.strokeStyle = rgba('#2b3542', 0.25); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 8, y + 70); ctx.lineTo(x + w - 8, y + 70); ctx.stroke();
     // ekraan
     ctx.fillStyle = '#0b1420'; rr(ctx, x + 14, y + 12, w - 28, 50, 6); ctx.fill();
-    const kw = s.powerKw ?? 0, text = `${kw.toFixed(1).replace('.', ',')} kW`;
+    const kw = s.powerKw ?? 0, text = `${number(kw, 1)} kW`;
     ctx.fillStyle = rgba(running ? '#ffb347' : '#6fe0c8', 0.92); ctx.font = '700 25px Manrope, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + w / 2, y + 30);
-    ctx.fillStyle = rgba('#ffffff', 0.55); ctx.font = '700 8.5px Manrope, sans-serif'; ctx.fillText(running ? 'KOMPRESSOR TÖÖTAB' : 'KOMPRESSOR SEISAB', x + w / 2, y + 51);
+    ctx.fillStyle = rgba('#ffffff', 0.55); ctx.font = '700 8.5px Manrope, sans-serif'; ctx.fillText(running ? tr('live.canvasCompressorOn') : tr('live.canvasCompressorOff'), x + w / 2, y + 51);
     ctx.fillStyle = rgba('#ffffff', 0.12); ctx.fillRect(x + 16, y + 14, w - 32, 8);
     // uks ja klaasaken
     ctx.fillStyle = mix('#d3d9e1', '#2d3546', dark * 0.6); rr(ctx, x + 12, y + 80, w - 24, 88, 8); ctx.fill(); ctx.strokeStyle = rgba('#2b3542', 0.5); ctx.lineWidth = 1.5; ctx.stroke();
@@ -1001,13 +1003,13 @@ export class LiveScene {
         ctx.save(); const w = 150;
         ctx.fillStyle = 'rgba(8,14,26,0.78)'; rr(ctx, x, y, w, 46, 9); ctx.fill(); ctx.strokeStyle = rgba(col, 0.9); ctx.lineWidth = 1.6; ctx.stroke();
         ctx.fillStyle = rgba('#ffffff', 0.7); ctx.font = '700 10.5px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(title, x + 12, y + 14);
-        ctx.fillStyle = '#fff'; ctx.font = '700 19px Manrope, sans-serif'; ctx.fillText(`${value.toFixed(1).replace('.', ',')} °C`, x + 12, y + 33); ctx.restore();
+        ctx.fillStyle = '#fff'; ctx.font = '700 19px Manrope, sans-serif'; ctx.fillText(`${number(value, 1)} °C`, x + 12, y + 33); ctx.restore();
       };
-      tag(930, 944, 'SOOJAKANDJA MAASSE', br.out, brineHex(br.out));
-      tag(1100, 944, 'SOOJAKANDJA MAAST', br.in, brineHex(br.in));
+      tag(930, 944, tr('live.canvasBrineToGround'), br.out, brineHex(br.out));
+      tag(1100, 944, tr('live.canvasBrineFromGround'), br.in, brineHex(br.in));
     }
     ctx.fillStyle = rgba('#ffffff', 0.5 - dark * 0.1); ctx.font = '700 13px Manrope, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; if ('letterSpacing' in ctx) ctx.letterSpacing = '4px';
-    ctx.fillText('MAAKONTUUR', 420, 880); if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.fillText(tr('live.canvasGroundLoop'), 420, 880); if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   }
 
   drawBuffer(ctx, { dark }) {
@@ -1029,16 +1031,16 @@ export class LiveScene {
     ctx.fillStyle = rgba(mix('#b7a58b', '#2a2733', dark * 0.55), 0.55); rr(ctx, 516, 690, 333, 10, 5); ctx.fill();
     ctx.strokeStyle = rgba(mix('#8f7d63', '#1c1a22', dark * 0.5), 0.5); ctx.lineWidth = 1; ctx.stroke();
     // sohva (esivaade: seljatugi, kaks seljapatja, kaks istmepatja ja käetoed)
-    ctx.fillStyle = woodD; for (const lx of [522, 560, 582, 620]) ctx.fillRect(lx, 694, 5, 4);
-    ctx.fillStyle = fab; rr(ctx, 516, 636, 116, 38, 12); ctx.fill();
-    ctx.fillStyle = cush; rr(ctx, 522, 641, 50, 27, 8); ctx.fill(); rr(ctx, 577, 641, 50, 27, 8); ctx.fill();
-    ctx.fillStyle = fab; rr(ctx, 524, 668, 100, 26, 8); ctx.fill();
-    ctx.fillStyle = mix('#d8ab7f', '#463124', dark * 0.5); rr(ctx, 528, 669, 46, 21, 6); ctx.fill(); rr(ctx, 578, 669, 46, 21, 6); ctx.fill();
-    ctx.fillStyle = fabD; rr(ctx, 512, 650, 22, 46, 9); ctx.fill(); rr(ctx, 612, 650, 22, 46, 9); ctx.fill();
-    ctx.fillStyle = mix('#e6c98a', '#4a4026', dark * 0.5); rr(ctx, 534, 645, 22, 19, 8); ctx.fill();
-    ctx.strokeStyle = rgba('#000000', 0.12); ctx.lineWidth = 1.2; rr(ctx, 516, 636, 116, 38, 12); ctx.stroke();
+    ctx.fillStyle = woodD; for (const lx of [572, 610, 632, 670]) ctx.fillRect(lx, 694, 5, 4);
+    ctx.fillStyle = fab; rr(ctx, 566, 636, 116, 38, 12); ctx.fill();
+    ctx.fillStyle = cush; rr(ctx, 572, 641, 50, 27, 8); ctx.fill(); rr(ctx, 627, 641, 50, 27, 8); ctx.fill();
+    ctx.fillStyle = fab; rr(ctx, 574, 668, 100, 26, 8); ctx.fill();
+    ctx.fillStyle = mix('#d8ab7f', '#463124', dark * 0.5); rr(ctx, 578, 669, 46, 21, 6); ctx.fill(); rr(ctx, 628, 669, 46, 21, 6); ctx.fill();
+    ctx.fillStyle = fabD; rr(ctx, 562, 650, 22, 46, 9); ctx.fill(); rr(ctx, 662, 650, 22, 46, 9); ctx.fill();
+    ctx.fillStyle = mix('#e6c98a', '#4a4026', dark * 0.5); rr(ctx, 584, 645, 22, 19, 8); ctx.fill();
+    ctx.strokeStyle = rgba('#000000', 0.12); ctx.lineWidth = 1.2; rr(ctx, 566, 636, 116, 38, 12); ctx.stroke();
     // seinapilt (jääb vasakule torust, mis läheb x=765 juures üles)
-    const fx = 530, fy = 490, fw = 68, fh = 54;
+    const fx = 580, fy = 490, fw = 68, fh = 54;
     ctx.fillStyle = woodD; rr(ctx, fx - 4, fy - 4, fw + 8, fh + 8, 3); ctx.fill();
     ctx.fillStyle = mix('#f3ead9', '#2f2b36', dark * 0.6); ctx.fillRect(fx, fy, fw, fh);
     ctx.fillStyle = rgba(mix('#7fa8c9', '#243a4d', dark * 0.5), 0.85); ctx.beginPath();
@@ -1066,9 +1068,9 @@ export class LiveScene {
       ctx.restore();
     }
     // taim
-    ctx.fillStyle = mix('#b9653f', '#3a2620', dark * 0.6); ctx.beginPath(); ctx.moveTo(648, 660); ctx.lineTo(684, 660); ctx.lineTo(678, 700); ctx.lineTo(654, 700); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = mix('#b9653f', '#3a2620', dark * 0.6); ctx.beginPath(); ctx.moveTo(693, 660); ctx.lineTo(729, 660); ctx.lineTo(723, 700); ctx.lineTo(699, 700); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = mix('#3f8f4d', '#16301f', dark * 0.6); ctx.lineWidth = 5; ctx.lineCap = 'round';
-    for (const [dx, dy, c] of [[-26, -34, 0], [-6, -52, 1], [22, -38, 2], [34, -14, 3]]) { const sw = Math.sin(this.t * 1.2 + c) * 2.5; ctx.beginPath(); ctx.moveTo(666, 662); ctx.quadraticCurveTo(666 + dx * 0.4 + sw, 662 + dy * 0.7, 666 + dx + sw * 1.4, 662 + dy); ctx.stroke(); }
+    for (const [dx, dy, c] of [[-26, -34, 0], [-6, -52, 1], [22, -38, 2], [34, -14, 3]]) { const sw = Math.sin(this.t * 1.2 + c) * 2.5; ctx.beginPath(); ctx.moveTo(711, 662); ctx.quadraticCurveTo(711 + dx * 0.4 + sw, 662 + dy * 0.7, 711 + dx + sw * 1.4, 662 + dy); ctx.stroke(); }
     // põrandalamp
     const lampOn = dark > 0.25, lx = 1008;
     ctx.strokeStyle = mix('#3a4454', '#0c0f1a', dark * 0.5); ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(lx, 700); ctx.lineTo(lx, 604); ctx.stroke(); ctx.fillStyle = '#2b3542'; ctx.fillRect(lx - 14, 697, 28, 5);

@@ -2,10 +2,11 @@
 import { weatherScene } from '../../weather-logic.js';
 import { bypassOpen } from '../../ventilation-logic.js';
 import { HOME } from './sky.js';
+import { t } from '../../i18n/index.js';
 
 const num = v => { const n = v == null || v === '' ? NaN : Number(v); return Number.isFinite(n) ? n : null; };
 
-export const DEMOS = { off: 'Päris andmed', heat: 'Kütmine', water: 'Tarbevee laadimine', vent: 'Ventilatsioon', all: 'Kõik korraga' };
+export const DEMOS = { off: 'live.demoOff', heat: 'live.demoHeat', water: 'live.demoWater', vent: 'live.demoVent', all: 'live.demoAll' };
 
 export function buildLiveState({ m = {}, climate = {}, vent = null, state = {}, now = new Date(), demo = 'off', hour = null, place = null, forecast = null, weatherDemo = 'off', lux = null }) {
   const d = vent?.data;
@@ -44,11 +45,11 @@ export function buildLiveState({ m = {}, climate = {}, vent = null, state = {}, 
 // Lühikirjeldus ekraanilugejale ja HUD-ile.
 export function liveSummary(live) {
   const parts = [];
-  if (live.hwOn && live.heatOn) parts.push('pump kütab maja ja tarbevett');
-  else if (live.hwOn) parts.push('pump soojendab tarbevett');
-  else if (live.heatOn) parts.push('pump kütab maja');
-  else if (live.heatDemand || live.hwDemand) parts.push('pump ootab käivitumist, kompressor seisab');
-  else parts.push('pump puhkab');
-  if (live.vent.present) parts.push(`ventilatsioon ${live.vent.running ? `töötab kiirusel ${live.vent.level}/10` : 'seisab'}`);
+  if (live.hwOn && live.heatOn) parts.push(t('live.summaryBoth'));
+  else if (live.hwOn) parts.push(t('live.summaryWater'));
+  else if (live.heatOn) parts.push(t('live.summaryHeat'));
+  else if (live.heatDemand || live.hwDemand) parts.push(t('live.summaryWaiting'));
+  else parts.push(t('live.summaryResting'));
+  if (live.vent.present) parts.push(live.vent.running ? t('live.ventRunning', { level: live.vent.level }) : t('live.ventOff'));
   return parts.join(', ');
 }

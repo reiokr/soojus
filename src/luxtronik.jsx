@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Link2, LoaderCircle, Thermometer, Trash2 } from 'lucide-react';
 import { api, time, date } from './lib.js';
+import { t } from './i18n/index.js';
 
 export function useLuxtronik(tick) {
   const [view, setView] = useState(null), [error, setError] = useState(null);
@@ -18,33 +19,33 @@ export function LuxtronikPanel({ lux, notify }) {
   if (!view) return null;
   async function connect(e) {
     e.preventDefault(); setBusy(true); setError(null);
-    try { lux.setView(await api('/luxtronik', { method: 'POST', body: JSON.stringify({ host }) })); notify?.('Soojuspumbaga loodi kohtvõrgu ühendus.'); } catch (err) { setError(err.message); } finally { setBusy(false); }
+    try { lux.setView(await api('/luxtronik', { method: 'POST', body: JSON.stringify({ host }) })); notify?.(t('lux.connectedNotify')); } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
   async function remove() {
-    if (!window.confirm('Katkesta soojuspumba kohtvõrgu ühendus? Salvestatud ajalugu jääb alles.')) return;
+    if (!window.confirm(t('lux.disconnectConfirm'))) return;
     try { lux.setView(await api('/luxtronik', { method: 'DELETE', body: '{}' })); } catch (err) { setError(err.message); }
   }
-  const t = view.data?.temperatures;
+  const temps = view.data?.temperatures;
   return <section className="panel luxtronik-panel">
     <div className="location-head">
       <span className="location-icon"><Thermometer size={22}/></span>
       <div>
-        <h3>Soojuspumba kohtvõrguliides</h3>
-        <p>{view.configured ? <>Ühendatud: <b>{view.host}</b>{view.time && <> · viimane lugemine {time(view.time)}</>}</> : 'Pole ühendatud'}</p>
-        <small>{view.primary ? `Põhiallikas: pump otse (${view.mapped} näitu, värskendus iga 10 s). Võimsus (kW): ${view.powerSource ? 'loetakse otse pumbalt' : 'tuleb praegu myUplinkist, otseväärtuse kinnitan pumba järgmisel töötsüklil'}. myUplink on varuks ja annab ülejäänud näidud, seaded ja häired.` : view.mismatch ? 'Otseandmete väljad ei klapi myUplinki omadega, seepärast kasutatakse myUplinki. Soojakandja temperatuure näidatakse siiski.' : view.configured ? 'Otseandmed ootavad esimest lugemist või on vananenud; praegu kasutatakse myUplinki.' : ''} myUplinki API ei anna soojakandja temperatuure. Pump (Alpha Innotec / Luxtronik) pakub neid kohtvõrgus pordil 8889. Ühendus on ainult lugemiseks ja töötab ainult sama võrgu aadressidega.</small>
+        <h3>{t('lux.title')}</h3>
+        <p>{view.configured ? <>{t('lux.connected', { host: view.host })}{view.time && t('lux.lastRead', { time: time(view.time) })}</> : t('lux.notConnected')}</p>
+        <small>{view.primary ? t('lux.primary', { mapped: view.mapped, power: view.powerSource ? t('lux.powerDirect') : t('lux.powerFallback') }) : view.mismatch ? t('lux.mismatch') : view.configured ? t('lux.waiting') : ''} {t('lux.tail')}</small>
       </div>
     </div>
-    {view.configured && !t && view.error && <p className="inline-error" role="alert">{view.error}</p>}
+    {view.configured && !temps && view.error && <p className="inline-error" role="alert">{view.error}</p>}
     <form className="location-search" onSubmit={connect}>
-      <label className="search-input"><Link2 size={17}/><input value={host} onChange={e => setHost(e.target.value)} placeholder="Soojuspumba IP-aadress, nt 192.168.100.171" aria-label="Soojuspumba IP-aadress" inputMode="decimal" autoComplete="off"/></label>
-      <button type="submit" className="button primary" disabled={busy || !host}>{busy ? <LoaderCircle size={16} className="spin"/> : <Link2 size={16}/>}{view.configured ? 'Muuda ja testi' : 'Ühenda ja testi'}</button>
+      <label className="search-input"><Link2 size={17}/><input value={host} onChange={e => setHost(e.target.value)} placeholder={t('lux.placeholder')} aria-label={t('lux.aria')} inputMode="decimal" autoComplete="off"/></label>
+      <button type="submit" className="button primary" disabled={busy || !host}>{busy ? <LoaderCircle size={16} className="spin"/> : <Link2 size={16}/>}{view.configured ? t('lux.change') : t('lux.connect')}</button>
     </form>
     {view.configured && view.errors?.length > 0 && <div className="pump-errors">
-      <h4><AlertTriangle size={15}/> Pumba veateated <span>{view.errors7d} viimase 7 päeva jooksul</span></h4>
+      <h4><AlertTriangle size={15}/> {t('lux.errors')} <span>{t('lux.errors7d', { count: view.errors7d })}</span></h4>
       <ul>{view.errors.slice(0, 10).map(e => <li key={`${e.time}-${e.code}`}><b>{e.code}</b><span>{e.name}</span><time dateTime={e.time}>{date(e.time)}</time></li>)}</ul>
-      <p>Pumba enda mälu hoiab ainult 5 viimast viga; rakendus salvestab need siia, et muster ei kaoks. Kood 765 tähendab, et külmaaine ülekuumenemine oli üle 5 minuti alla 2 K. Tootja juhendi järgi tuleb korduval esinemisel kutsuda hooldus.</p>
+      <p>{t('lux.errorsNote')}</p>
     </div>}
-    {view.configured && <div className="location-actions"><button type="button" className="text-button" onClick={remove}><Trash2 size={13}/> Katkesta ühendus</button></div>}
+    {view.configured && <div className="location-actions"><button type="button" className="text-button" onClick={remove}><Trash2 size={13}/> {t('lux.disconnect')}</button></div>}
     {error && <p className="inline-error" role="alert">{error}</p>}
   </section>;
 }

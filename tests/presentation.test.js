@@ -77,7 +77,17 @@ test('fill times add empty rows so the cursor can land inside data gaps',()=>{
   assert.ok(mid && mid.a === undefined && mid[plotKey('a')] === undefined && mid[estKey('a')] === 10);
 });
 
-import { pumpState, stateSentence, formatDuration, daySummary, subscriptionWarning, tempColor, scalePosition, secondsAsText } from '../src/next/logic.js';
+import { pumpState, stateSentence, formatDuration, daySummary, tempColor, scalePosition, secondsAsText, dhwQuality, bufferQuality } from '../src/next/logic.js';
+test('domestic hot water and buffer tank turn yellow and red as they fall below their setpoint',()=>{
+  assert.equal(dhwQuality(48,48).key,'good'); assert.equal(dhwQuality(47.3,48).key,'good');
+  assert.equal(dhwQuality(46,48).key,'high'); assert.equal(dhwQuality(45,48).key,'high'); assert.equal(dhwQuality(45,48).label,'soojeneb');
+  assert.equal(dhwQuality(41,48).key,'bad'); assert.equal(dhwQuality(41,48).label,'alla sihi');
+  assert.equal(dhwQuality(null,48),null); assert.equal(dhwQuality(45,null),null); assert.equal(dhwQuality(45,0),null);
+  assert.equal(bufferQuality(28.4,27.3).key,'good');
+  assert.equal(bufferQuality(25,27).key,'high'); assert.equal(bufferQuality(25,27).label,'jahtunud'); assert.equal(bufferQuality(24,27.3).key,'high');
+  assert.equal(bufferQuality(18,27.3).key,'bad'); assert.equal(bufferQuality(18,27.3).label,'külm');
+  assert.equal(bufferQuality(20,null),null); assert.equal(bufferQuality(null,27.3),null);
+});
 test('pump state and plain-language sentence',()=>{
   const idle = pumpState({ workMode:{value:5}, heatingState:{value:1}, hwState:{value:1} });
   assert.equal(idle.running,false); assert.match(stateSentence(idle,true),/puhkab/);
@@ -97,25 +107,42 @@ test('day summary counts run time and hot-water cycles and skips data gaps',()=>
   const gapped = daySummary(rows,[{from:at(10),to:at(12)}],at(0),at(24));
   assert.equal(gapped.hwMs,3600000); assert.ok(Math.abs(gapped.coverage - 22/24) < 1e-9);
 });
-test('subscription warning only appears when expiry is near',()=>{
-  const now = Date.parse('2026-09-30T00:00:00Z');
-  const w = subscriptionWarning([{type:'manage',validUntil:'2026-10-30T12:00:00Z'},{type:'history',validUntil:'2027-05-01T00:00:00Z'}],now);
-  assert.equal(w.name,'Kaugjuhtimine'); assert.equal(w.days,31);
-  assert.equal(subscriptionWarning([{type:'manage',validUntil:'2027-05-01T00:00:00Z'}],now),null);
-  assert.equal(subscriptionWarning(null,now),null);
-});
 test('temperature colours are ordered from cold to hot',()=>{
   assert.equal(tempColor(10),'rgb(79,159,200)'); assert.equal(tempColor(80),'rgb(200,70,40)');
   assert.ok(scalePosition(15) === 0 && scalePosition(65) === 1 && scalePosition(40) === .5);
 });
 
-import { co2Quality, filterInfo, ventilationSentence, climate, daysWithMonths, bypassOpen } from '../src/ventilation-logic.js';
+import { co2Quality, filterInfo, ventilationSentence, climate, daysWithMonths, bypassOpen, readingQuality } from '../src/ventilation-logic.js';
 test('air quality bands, filter usage and the ventilation sentence',()=>{
   assert.equal(co2Quality(520).key,'good'); assert.equal(co2Quality(900).key,'ok'); assert.equal(co2Quality(1200).key,'high'); assert.equal(co2Quality(1800).key,'bad'); assert.equal(co2Quality(NaN).key,'unknown');
   const f = filterInfo(6462,8760); assert.equal(f.percent,74); assert.equal(f.leftDays,96); assert.equal(filterInfo(9000,8760).percent,100); assert.equal(filterInfo(1,0),null);
   assert.match(ventilationSentence({ modeText:'Automaatne', data:{ co2:520, fans:{ supplyLevel:1 }, switches:{ power:true } } }),/Automaatne, kiirus 1\/10, õhu kvaliteet hea \(CO₂ 520 ppm\)/);
   assert.match(ventilationSentence({ data:{ co2:520, switches:{ power:false } } }),/välja lülitatud/);
   assert.equal(ventilationSentence(null),'');
+});
+test('reading quality turns green, yellow and red as a value moves past its norm',()=>{
+  // CO₂: samad piirid nagu kokkuvõttevärvil
+  assert.equal(readingQuality('co2',720).key,'good'); assert.equal(readingQuality('co2',720).label,'normis');
+  assert.equal(readingQuality('co2',900).key,'good'); assert.equal(readingQuality('co2',900).label,'rahuldav');
+  assert.equal(readingQuality('co2',1150).key,'high'); assert.equal(readingQuality('co2',1600).key,'bad');
+  // Niiskus: mugavusvahemik 30–60 %
+  assert.equal(readingQuality('hum',46.3).key,'good');
+  assert.equal(readingQuality('hum',65).key,'high'); assert.equal(readingQuality('hum',65).label,'niiske');
+  assert.equal(readingQuality('hum',75).key,'bad'); assert.equal(readingQuality('hum',22).key,'bad'); assert.equal(readingQuality('hum',28).key,'high');
+  // VOC: norm on seadme enda sihttase (vaikimisi 250)
+  assert.equal(readingQuality('voc',150,200).key,'good');
+  assert.equal(readingQuality('voc',240,200).key,'high');
+  assert.equal(readingQuality('voc',497,200).key,'bad');
+  assert.equal(readingQuality('voc',200,200).key,'good');
+  assert.equal(readingQuality('voc',300).key,'high'); assert.equal(readingQuality('voc',400).key,'bad');
+  // PM2,5: WHO soovitus 15 µg/m³, kollane kuni 35
+  assert.equal(readingQuality('pm25',6).key,'good'); assert.equal(readingQuality('pm25',25).key,'high'); assert.equal(readingQuality('pm25',50).key,'bad');
+  // Toatemperatuur: mugav 19–25 °C
+  assert.equal(readingQuality('temp',22.9).key,'good');
+  assert.equal(readingQuality('temp',26).key,'high'); assert.equal(readingQuality('temp',18).key,'high');
+  assert.equal(readingQuality('temp',28).key,'bad'); assert.equal(readingQuality('temp',16).key,'bad');
+  // Puuduv väärtus ei anna värvi
+  assert.equal(readingQuality('hum',null),null); assert.equal(readingQuality('voc',undefined),null);
 });
 test('outdoor temperature comes from the heat pump and indoor temperature from the ventilation extract air',()=>{
   const vent = { data:{ temperatures:{ outside:15.7, extract:22.8 } } };

@@ -37,7 +37,7 @@ const durationOf = name => ACTIONS[name]?.duration ?? 2;
 export const SPOTS = [0, -70, -135];
 export const RADIATOR = { x: -82, h: 82 };
 // Diivan elutoas: nihe kodukohast ja kõrgus istme peal (kass magab diivanil).
-export const SOFA = { x: -402, y: -33 };
+export const SOFA = { x: -348, y: -33 };
 const WALK_SPEED = 42, STAND = 7;
 
 // Puhkeposi: kõik 0, suund 1 (nägu paremale).

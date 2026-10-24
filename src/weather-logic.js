@@ -65,10 +65,10 @@ export function dewPoint(temp, humidity) {
   return (b * g) / (a - g);
 }
 
-export const windLabel = ms => ms == null ? '' : ms < 0.5 ? 'tuulevaikus' : ms < 3.4 ? 'nõrk tuul' : ms < 8 ? 'mõõdukas tuul' : ms < 13.9 ? 'tugev tuul' : ms < 20.8 ? 'väga tugev tuul' : 'torm';
-export const pressureLabel = hpa => hpa == null ? '' : hpa < 1000 ? 'madal' : hpa <= 1020 ? 'normaalne' : 'kõrge';
-export const uvLabel = uv => uv == null ? '' : uv < 3 ? 'madal' : uv < 6 ? 'mõõdukas' : uv < 8 ? 'kõrge' : uv < 11 ? 'väga kõrge' : 'äärmuslik';
-export const visibilityLabel = m => m == null ? '' : m >= 10000 ? 'väga hea' : m >= 4000 ? 'hea' : m >= 1000 ? 'kehv' : 'väga kehv';
+export const windLabel = ms => ms == null ? '' : ms < 0.5 ? t('wx.windCalm') : ms < 3.4 ? t('wx.windLight') : ms < 8 ? t('wx.windModerate') : ms < 13.9 ? t('wx.windStrong') : ms < 20.8 ? t('wx.windVeryStrong') : t('wx.windStorm');
+export const pressureLabel = hpa => hpa == null ? '' : hpa < 1000 ? t('wx.pressLow') : hpa <= 1020 ? t('wx.pressNormal') : t('wx.pressHigh');
+export const uvLabel = uv => uv == null ? '' : uv < 3 ? t('wx.uvLow') : uv < 6 ? t('wx.uvModerate') : uv < 8 ? t('wx.uvHigh') : uv < 11 ? t('wx.uvVeryHigh') : t('wx.uvExtreme');
+export const visibilityLabel = m => m == null ? '' : m >= 10000 ? t('wx.visVeryGood') : m >= 4000 ? t('wx.visGood') : m >= 1000 ? t('wx.visPoor') : t('wx.visVeryPoor');
 
 // Järgmiste tundide kokkuvõte: külmim ja soojim hetk, sademete algus ja kogus.
 export function outlook(hourly) {
@@ -86,20 +86,22 @@ export const daylight = (sunrise, sunset) => {
   return Number.isFinite(min) && min > 0 ? min : null;
 };
 
+import { t } from './i18n/index.js';
+
 const LABELS = {
-  0: 'selge', 1: 'peamiselt selge', 2: 'vahelduva pilvisusega', 3: 'pilves', 45: 'udu', 48: 'härmatisudu',
-  51: 'kerge uduvihm', 53: 'uduvihm', 55: 'tihe uduvihm', 56: 'kerge jäine uduvihm', 57: 'jäine uduvihm',
-  61: 'kerge vihm', 63: 'vihm', 65: 'tugev vihm', 66: 'kerge jäine vihm', 67: 'jäine vihm',
-  71: 'kerge lumi', 73: 'lumi', 75: 'tugev lumi', 77: 'lumetera', 80: 'kerge hoovihm', 81: 'hoovihm', 82: 'tugev hoovihm',
-  85: 'lumehoog', 86: 'tugev lumehoog', 95: 'äike', 96: 'äike ja rahe', 99: 'tugev äike ja rahe'
+  0: 'weather.clear', 1: 'weather.mostlyClear', 2: 'weather.partlyCloudy', 3: 'weather.cloudy', 45: 'weather.fog', 48: 'weather.rimeFog',
+  51: 'weather.lightDrizzle', 53: 'weather.drizzle', 55: 'weather.denseDrizzle', 56: 'weather.lightFreezingDrizzle', 57: 'weather.freezingDrizzle',
+  61: 'weather.lightRain', 63: 'weather.rain', 65: 'weather.heavyRain', 66: 'weather.lightFreezingRain', 67: 'weather.freezingRain',
+  71: 'weather.lightSnow', 73: 'weather.snow', 75: 'weather.heavySnow', 77: 'weather.snowGrains', 80: 'weather.lightShowers', 81: 'weather.showers', 82: 'weather.heavyShowers',
+  85: 'weather.snowShowers', 86: 'weather.heavySnowShowers', 95: 'weather.thunder', 96: 'weather.thunderHail', 99: 'weather.heavyThunderHail'
 };
-export const weatherLabel = code => LABELS[code] ?? 'teadmata';
+export const weatherLabel = code => t(LABELS[code] || 'weather.unknown');
 
 const RAIN_BASE = { 51: 0.2, 53: 0.3, 55: 0.45, 56: 0.25, 57: 0.4, 61: 0.4, 63: 0.65, 65: 0.95, 66: 0.45, 67: 0.8, 80: 0.5, 81: 0.75, 82: 1, 95: 0.85, 96: 0.9, 99: 1 };
 const SNOW_BASE = { 71: 0.35, 73: 0.65, 75: 1, 77: 0.3, 85: 0.5, 86: 0.9 };
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
-export const WEATHER_DEMOS = { off: 'Päris ilm', clear: 'Selge', cloudy: 'Pilves', rain: 'Vihm', snow: 'Lumi', storm: 'Äike', fog: 'Udu' };
+export const WEATHER_DEMOS = { off: 'wx.demoOff', clear: 'wx.demoClear', cloudy: 'wx.demoCloudy', rain: 'wx.demoRain', snow: 'wx.demoSnow', storm: 'wx.demoStorm', fog: 'wx.demoFog' };
 const DEMO_CODES = { clear: { code: 0, cloud: 5, wind: 2, precipitation: 0 }, cloudy: { code: 3, cloud: 100, wind: 5 }, rain: { code: 65, cloud: 100, wind: 7, precipitation: 4 }, snow: { code: 73, cloud: 100, wind: 3, snowfall: 1.5, snowDepth: 0.12 }, storm: { code: 95, cloud: 100, wind: 12, precipitation: 6 }, fog: { code: 45, cloud: 90, wind: 1 } };
 
 // Ilm pildi jaoks: kõik väärtused 0…1 (v.a. tekst ja liik).
@@ -117,4 +119,5 @@ export function weatherScene(w, demo = 'off') {
   return { kind, label: weatherLabel(code), code, cloud, rain, snow, fog, storm: code >= 95, wind: clamp((src.wind ?? 0) / 14), windMs: src.wind ?? 0, snowCover: clamp((src.snowDepth ?? 0) / 0.12), temperature: src.temperature ?? null, feelsLike: src.feelsLike ?? null, humidity: src.humidity ?? null, demo: demo !== 'off' };
 }
 
-export const compassName = deg => deg == null ? '' : ['põhjatuul', 'kirdetuul', 'idatuul', 'kagutuul', 'lõunatuul', 'edelatuul', 'läänetuul', 'loodetuul'][Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+const COMPASS = ['compass.north', 'compass.northeast', 'compass.east', 'compass.southeast', 'compass.south', 'compass.southwest', 'compass.west', 'compass.northwest'];
+export const compassName = deg => deg == null ? '' : t(COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8]);

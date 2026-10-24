@@ -1,5 +1,7 @@
 // Taeva loogika "Elava kodu" vaate jaoks: päikese ja kuu asend, kuufaas ning taevavärvid.
 // Valemid on lihtsustatud (Meeus, madal täpsus): sobivad joonistamiseks, mitte navigeerimiseks.
+import { t } from '../../i18n/index.js';
+
 const RAD = Math.PI / 180;
 export const HOME = { lat: 59.437, lon: 24.754 }; // Tallinn
 
@@ -97,14 +99,14 @@ export function sunTimes(date, place = HOME) {
 
 export function moonName(phase) {
   const a = phase.age;
-  if (a < 0.03 || a > 0.97) return 'uuskuu';
-  if (a < 0.22) return 'kasvav kuusirp';
-  if (a < 0.28) return 'esimene veerand';
-  if (a < 0.47) return 'kasvav kuu';
-  if (a < 0.53) return 'täiskuu';
-  if (a < 0.72) return 'kahanev kuu';
-  if (a < 0.78) return 'viimane veerand';
-  return 'kahanev kuusirp';
+  if (a < 0.03 || a > 0.97) return t('moon.new');
+  if (a < 0.22) return t('moon.waxingCrescent');
+  if (a < 0.28) return t('moon.firstQuarter');
+  if (a < 0.47) return t('moon.waxingGibbous');
+  if (a < 0.53) return t('moon.full');
+  if (a < 0.72) return t('moon.waningGibbous');
+  if (a < 0.78) return t('moon.lastQuarter');
+  return t('moon.waningCrescent');
 }
 
 // Päeva kõrgeim päikesekõrgus (kraadides); vaade kasutab seda, et keskpäeva päike jääks alati katuse kohale.

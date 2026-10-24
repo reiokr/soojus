@@ -126,12 +126,43 @@ html[data-theme="dark"] .button.selected{background:var(--t49);border-color:var(
 .vent-chip.high{color:#a26a1b;border-color:#e5c48a}
 .vent-chip.bad{color:#b23b2a;border-color:#e2a59a}
 .vent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:12px}
-.vent-tile{padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.vent-tile{position:relative;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .vent-tile small{display:block;color:var(--muted);font-size:12.5px;font-weight:700}
+.vent-tile-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.vent-info{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:help;transition:color .15s,border-color .15s,background .15s}
+.vent-info:hover,.vent-info:focus-visible{color:var(--ink);border-color:var(--muted);background:var(--canvas)}
+.vent-tile-state{display:flex;align-items:center;gap:5px;margin:1px 0 4px;font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;color:#2f7a55}
+.vent-tile-state::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
 .vent-tile b{display:block;margin:4px 0 2px;font:700 26px/1.15 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums}
 .vent-tile b i{margin-left:5px;font:500 13px 'Manrope',sans-serif;color:var(--muted)}
 .vent-tile em{font-style:normal;color:var(--muted);font-size:12.5px}
-.vent-tile.good{border-color:#9fd0b6}.vent-tile.high{border-color:#e5c48a}.vent-tile.bad{border-color:#e2a59a}
+/* Normist kõrvalekaldumine: roheline = normis, kollane = üle normi, punane = tugevalt üle. */
+.vent-tile.good{border-color:#9fd0b6;background:color-mix(in srgb,#2f7a55 7%,var(--surface))}
+.vent-tile.high{border-color:#e5c48a;background:color-mix(in srgb,#c98a1b 13%,var(--surface))}
+.vent-tile.bad{border-color:#e2a59a;background:color-mix(in srgb,#b23b2a 14%,var(--surface))}
+.vent-tile.high .vent-tile-state{color:#a26a1b}
+.vent-tile.bad .vent-tile-state{color:#b23b2a}
+.vent-tile.good::before,.vent-tile.high::before,.vent-tile.bad::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:10px 0 0 10px}
+.vent-tile.good::before{background:#2f7a55}
+.vent-tile.high::before{background:#c98a1b}
+.vent-tile.bad::before{background:#b23b2a}
+html[data-theme="dark"] .vent-tile.good{background:color-mix(in srgb,#5fbf8f 13%,var(--surface));border-color:#3f7a5f}
+html[data-theme="dark"] .vent-tile.high{background:color-mix(in srgb,#e0a53a 15%,var(--surface));border-color:#7a5a24}
+html[data-theme="dark"] .vent-tile.bad{background:color-mix(in srgb,#e06b56 15%,var(--surface));border-color:#7a3a30}
+html[data-theme="dark"] .vent-tile .vent-tile-state{color:#8fd7ae}
+html[data-theme="dark"] .vent-tile.high .vent-tile-state{color:#f0c070}
+html[data-theme="dark"] .vent-tile.bad .vent-tile-state{color:#f09a88}
+/* Selgitav mull, kui hiir on kaardi peal või fookus on info-nupul. */
+.vent-tip{position:absolute;z-index:40;left:50%;bottom:calc(100% + 9px);transform:translate(-50%,4px);width:max-content;max-width:min(280px,calc(100vw - 44px));padding:10px 12px;border-radius:10px;background:#182430;color:#f4f1e9;font-size:12.5px;font-weight:500;line-height:1.55;text-align:left;box-shadow:0 12px 32px rgba(10,20,30,.3);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .14s ease,transform .14s ease,visibility .14s}
+.vent-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#182430}
+.vent-tile:hover .vent-tip,.vent-tile:focus-within .vent-tip{opacity:1;visibility:visible;transform:translate(-50%,0)}
+html[data-theme="dark"] .vent-tip{background:#e9eef3;color:#15212c;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+html[data-theme="dark"] .vent-tip::after{border-top-color:#e9eef3}
+.vent-legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 2px 0;color:var(--muted);font-size:12.5px;font-weight:600}
+.vent-legend i{width:9px;height:9px;border-radius:50%;background:#2f7a55;flex-shrink:0}
+.vent-legend i.high{background:#c98a1b}
+.vent-legend i.bad{background:#b23b2a}
+.vent-legend i:not(:first-child){margin-left:10px}
 .vent-filter{height:8px;border-radius:6px;background:var(--line);overflow:hidden;margin-top:-6px}
 .vent-filter i{display:block;height:100%;background:var(--teal)}
 .vent-trend-head{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
@@ -148,7 +179,7 @@ html[data-theme="dark"] .button.selected{background:var(--t49);border-color:var(
 .vent-steps code{padding:2px 6px;border-radius:4px;background:var(--canvas);font-size:12.5px}
 .vent-form{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
 .vent-form .field{margin:0;flex:1;min-width:200px}
-@media(max-width:700px){.vent-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vent-summary{grid-template-columns:auto minmax(0,1fr)}.vent-flags{grid-column:1/-1;justify-content:flex-start}.vent-tile b{font-size:22px}.vent-trend .chart-canvas{height:240px}}
+@media(max-width:700px){.vent-tip{left:-10px;right:-10px;width:auto;max-width:none;transform:translateY(4px)}.vent-tile:hover .vent-tip,.vent-tile:focus-within .vent-tip{transform:none}.vent-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vent-summary{grid-template-columns:auto minmax(0,1fr)}.vent-flags{grid-column:1/-1;justify-content:flex-start}.vent-tile b{font-size:22px}.vent-trend .chart-canvas{height:240px}}
 .vent-control{display:grid;gap:18px}
 .vent-now{display:flex;justify-content:space-between;align-items:center;gap:16px}
 .vent-now small{color:var(--muted);font-size:11.5px;font-weight:800;letter-spacing:.12em}
@@ -240,3 +271,17 @@ html[data-theme="dark"] .button.selected{background:var(--t49);border-color:var(
 .pump-errors li time{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
 .pump-errors p{margin:10px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5}
 @media(max-width:700px){.pump-errors li{grid-template-columns:40px minmax(0,1fr)}.pump-errors li time{grid-column:2}}
+
+/* Keelekaardid (Seaded → Keel) */
+.lang-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.lang-card{display:grid;gap:8px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.lang-card.active{border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal)}
+.lang-card-head{display:flex;align-items:center;gap:8px}
+.lang-card-head b{font-size:15px}
+.lang-card-head span{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--muted)}
+.lang-card-head em{margin-left:auto;font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--teal)}
+.lang-bar{height:6px;border-radius:4px;background:var(--line);overflow:hidden}
+.lang-bar i{display:block;height:100%;background:var(--teal)}
+.lang-card small{color:var(--muted);font-size:12px}
+.lang-card-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lang-current{font-size:12px;font-weight:700;color:var(--teal)}
