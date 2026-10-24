@@ -2998,6 +2998,31 @@ html[data-ui="next"] .nx-liide .segmented {
   margin-top: 3px;
 }
 .en-period { max-width: 100%; }
+.en-tariff {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  margin: 4px 0 10px;
+}
+.en-tariff-type { margin-right: 2px; }
+.en-tariff-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.en-tariff-foot small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.en-tariff-foot .nx-edit { margin-left: auto; }
+.en-price select {
+  padding: 6px 8px;
+  border: 1px solid var(--nx-line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
 .en-price-row {
   display: flex;
   align-items: center;

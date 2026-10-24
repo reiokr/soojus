@@ -118,6 +118,10 @@ test('energy page shows daily heat, electricity, COP, cost and exports CSV', asy
   await expect(page.locator('.en-card').filter({ hasText: 'Toodetud soojus' })).toContainText(/kWh/);
   await expect(page.locator('.en-card').filter({ hasText: 'COP' })).toContainText(/\d/);
   await expect(page.locator('.en-table tbody tr').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Kahetariifne', exact: true }).click();
+  await expect(page.locator('.en-table thead')).toContainText('Päevane, kWh');
+  await expect(page.locator('.en-table thead')).toContainText('Öine, kWh');
+  await expect(page.locator('.en-card').filter({ hasText: 'Kulu' })).not.toContainText('—');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Ekspordi CSV' }).click();
   const download = await downloadPromise;

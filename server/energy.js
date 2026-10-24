@@ -7,8 +7,11 @@ export const MAX_GAP_SECONDS = 900; // pikem vaheaeg ei ole usaldusväärne mõ�
 export const MAX_DAYS = 366;
 
 const finite = value => value == null || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
-const dayOf = iso => iso.slice(0, 10);
-const addDay = day => new Date(Date.parse(`${day}T00:00:00.000Z`) + DAY_MS).toISOString().slice(0, 10);
+const pad = value => String(value).padStart(2, '0');
+// Päevad ja tunnid on kohalikus ajas (serveri ajavöönd), sest elektritariifi öötunnid on kohalikud.
+const localDay = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const dayOf = iso => localDay(new Date(iso));
+const addDay = day => { const [year, month, date] = day.split('-').map(Number); return localDay(new Date(year, month - 1, date + 1)); };
 const round = (value, digits = 2) => Math.round(value * 10 ** digits) / 10 ** digits;
 
 // samples: [{ time, power_ac, power_heat }] – ajaliselt järjestamata või osalised read.
@@ -25,7 +28,7 @@ export function dailyEnergy(samples, { from = null, to = null, maxGap = MAX_GAP_
 
   const days = new Map();
   const ensure = day => {
-    if (!days.has(day)) days.set(day, { day, electricKwh: 0, heatKwh: 0, hours: 0, segments: 0 });
+    if (!days.has(day)) days.set(day, { day, electricKwh: 0, heatKwh: 0, hours: 0, segments: 0, electricByHour: Array(24).fill(0) });
     return days.get(day);
   };
 
@@ -38,14 +41,17 @@ export function dailyEnergy(samples, { from = null, to = null, maxGap = MAX_GAP_
     let end = next ? Date.parse(next.time) : start + (compacted ? DAY_MS : maxGap * 1000);
     if (to && Number.isFinite(Date.parse(to))) end = Math.min(end, Date.parse(to));
     if (!Number.isFinite(end) || end <= start) continue;
-    let cursor = start;
-    while (cursor < end) {
-      const day = new Date(cursor).toISOString().slice(0, 10);
-      const midnight = Date.parse(`${day}T00:00:00.000Z`) + DAY_MS;
-      const segmentEnd = Math.min(end, midnight);
-      const seconds = Math.min((segmentEnd - cursor) / 1000, compacted ? 86400 : maxGap);
+    let cursor = start, remaining = compacted ? 86400 : maxGap;
+    while (cursor < end && remaining > 0) {
+      const at = new Date(cursor);
+      const day = localDay(at), hour = at.getHours();
+      const midnight = new Date(at.getFullYear(), at.getMonth(), at.getDate() + 1).getTime();
+      const hourEnd = new Date(at.getFullYear(), at.getMonth(), at.getDate(), at.getHours() + 1).getTime();
+      const segmentEnd = Math.min(end, midnight, hourEnd);
+      const seconds = Math.min((segmentEnd - cursor) / 1000, remaining);
+      remaining -= seconds;
       const entry = ensure(day);
-      if (row.ac != null) entry.electricKwh += row.ac * seconds / 3600;
+      if (row.ac != null) { entry.electricKwh += row.ac * seconds / 3600; entry.electricByHour[hour] += row.ac * seconds / 3600; }
       if (row.heat != null) entry.heatKwh += row.heat * seconds / 3600;
       if ((row.ac ?? 0) > 0.1) entry.hours += seconds / 3600;
       entry.segments += 1;
@@ -59,11 +65,12 @@ export function dailyEnergy(samples, { from = null, to = null, maxGap = MAX_GAP_
   const list = [];
   if (first && last && first <= last) {
     for (let day = first, guard = 0; day <= last && guard < MAX_DAYS + 1; day = addDay(day), guard++) {
-      const entry = days.get(day) ?? { day, electricKwh: 0, heatKwh: 0, hours: 0, segments: 0 };
+      const entry = days.get(day) ?? { day, electricKwh: 0, heatKwh: 0, hours: 0, segments: 0, electricByHour: Array(24).fill(0) };
       list.push({
         ...entry,
         electricKwh: round(entry.electricKwh),
         heatKwh: round(entry.heatKwh),
+        electricByHour: entry.electricByHour.map(value => round(value)),
         hours: round(entry.hours, 1),
         cop: entry.electricKwh > 0.001 ? round(entry.heatKwh / entry.electricKwh, 2) : null
       });
@@ -110,7 +117,13 @@ export function energyReport(db, { deviceId, from, to, luxId = 'luxtronik', maxG
     for (const day of series.days) { day.electricKwh = null; day.cop = null; day.hours = null; }
     series.totals.electricKwh = null; series.totals.cop = null; series.totals.hours = null;
   }
-  const outdoor = new Map(db.prepare(`SELECT substr(time,1,10) AS day, AVG(value) AS value FROM samples WHERE device=? AND point='5' AND time>=? AND time<? GROUP BY day`).all(deviceId, from, to).map(row => [row.day, round(row.value, 1)]));
+  const outdoorByDay = new Map();
+  for (const row of db.prepare(`SELECT time, value FROM samples WHERE device=? AND point='5' AND time>=? AND time<?`).all(deviceId, from, to)) {
+    const day = dayOf(row.time), entry = outdoorByDay.get(day) ?? { sum: 0, count: 0 };
+    entry.sum += Number(row.value); entry.count += 1;
+    outdoorByDay.set(day, entry);
+  }
+  const outdoor = new Map([...outdoorByDay].map(([day, entry]) => [day, round(entry.sum / entry.count, 1)]));
   for (const day of series.days) day.outdoor = outdoor.get(day.day) ?? null;
   return { from, to, source, electricKnown, days: series.days, totals: series.totals };
 }

@@ -103,7 +103,7 @@ Ajaloo lehel on ventilatsiooni näidud soojuspumba omadega samas valijas: sama �
 - **Elav kodu:** animeeritud majavaade kassiga, taustamuusika (ka omad helifailid) ja äikese-/vihmahelid — vaata osa *Elav kodu*.
 - Ilm ja asukoht Open-Meteost (ilmapaneel, 24 h ja 7 päeva prognoos) ilma API-võtmeta.
 - Kohalik mõõtmisajalugu: eri perioodid, kuni viis sama ühikuga graafikuseeriat, CSV eksport.
-- **Energia ja kulu** (uus liides: *Veel → Energia*): soojus- ja elektrivõimsuse ööpäevane integraal pumba kohalikust liidesest, COP, elektrihinna järgi arvutatud kulu ning CSV eksport (7/30/90/365 päeva). Ilma kohaliku liideseta näidatakse ainult soojusvõimsust.
+- **Energia ja kulu** (uus liides: *Veel → Energia*): soojus- ja elektrivõimsuse ööpäevane integraal pumba kohalikust liidesest, COP, elektrihinna järgi arvutatud kulu ning CSV eksport (7/30/90/365 päeva). Valida saab ühe- või kahetariifse paketi, sisestada päeva- ja ööhinnad ning öise aja (kohalik kell); kulu arvutatakse elektri tunnijaotuse järgi. Ilma kohaliku liideseta näidatakse ainult soojusvõimsust.
 - Püsivara versioonid ja fail, tellimused, seadme võimekused, abirežiimi olek.
 - Serveripoolne sisendite ja skaleerimise kontroll; muudatuste audit; osaliste vigade käsitlus.
 - Mobiilivaade, klaviatuuriga kasutatavad dialoogid, reduced-motion tugi, kohalikud fondid.
