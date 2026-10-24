@@ -1,6 +1,10 @@
 // Nutikad SMS-teavitused: seadete valideerimine, reeglite hindamine ja saatmine.
-// SMS-id käivad läbi valitud teenusepakkuja (Twilio, MessageBird või üldine webhook).
+// SMS-id käivad läbi valitud teenusepakkuja (KDE Connect, Twilio, MessageBird või üldine webhook).
 // Võtmed ja telefoninumber hoitakse kohalikus andmebaasis; GET ei tagasta saladusi.
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const run = promisify(execFile);
 
 export const NOTIFY_KEY = 'notifications';
 export const NOTIFY_LOG_KEY = 'notificationLog';
@@ -8,11 +12,12 @@ export const NOTIFY_LOG_KEY = 'notificationLog';
 export const DEFAULT_NOTIFICATIONS = Object.freeze({
   smsEnabled: false,
   phone: '',
-  provider: 'twilio',
+  provider: 'kdeconnect',
   twilioSid: '',
   twilioFrom: '',
   messagebirdFrom: 'Soojus',
   webhookUrl: '',
+  kdeconnectDevice: '',
   rules: { pumpError: true, ventFilter: true, co2: true, legionella: true, stale: false },
   quietFrom: 22,
   quietTo: 7,
@@ -35,7 +40,7 @@ export function parseNotifications(input = {}, previous = null) {
   const merged = { ...base, ...input, rules: { ...base.rules, ...(input.rules || {}) } };
   const phone = text(merged.phone).replace(/[\s()-]/g, '');
   if (phone && !/^\+?\d{7,15}$/.test(phone)) throw new NotificationError('Telefoninumber peab olema kujul +372… ja 7–15 numbrit.');
-  const provider = ['twilio', 'messagebird', 'webhook'].includes(merged.provider) ? merged.provider : 'twilio';
+  const provider = ['kdeconnect', 'twilio', 'messagebird', 'webhook'].includes(merged.provider) ? merged.provider : 'kdeconnect';
   return {
     smsEnabled: bool(merged.smsEnabled, false),
     phone,
@@ -46,6 +51,7 @@ export function parseNotifications(input = {}, previous = null) {
     messagebirdKey: secret(input.messagebirdKey, base.messagebirdKey),
     messagebirdFrom: text(merged.messagebirdFrom) || 'Soojus',
     webhookUrl: text(merged.webhookUrl),
+    kdeconnectDevice: text(merged.kdeconnectDevice),
     webhookToken: secret(input.webhookToken, base.webhookToken),
     rules: {
       pumpError: bool(merged.rules.pumpError, true),
@@ -116,10 +122,36 @@ export function dueNotifications({ settings, state, log, now = Date.now() }) {
   return due;
 }
 
-export async function sendSms(settings, message, { fetchImpl = fetch } = {}) {
+// KDE Connecti paardunud seadmed (telefonid). Kasutab kasutaja D-Busi (systemd user-teenusel on see olemas).
+export async function kdeconnectDevices({ execFileImpl = run } = {}) {
+  try {
+    const { stdout } = await execFileImpl('kdeconnect-cli', ['--list-devices', '--id-name-only'], { timeout: 5000 });
+    return {
+      devices: String(stdout).split('\n').map(line => line.trim()).filter(Boolean)
+        .filter(line => !/^(Leiti|Found)\s+0\s+seadet|device/i.test(line))
+        .map(line => {
+          const colon = /^([^:\s]+):\s*(.*)$/.exec(line);
+          const space = colon ? null : /^(\S+)\s+(.*)$/.exec(line);
+          const id = colon?.[1] || space?.[1] || line;
+          return { id, name: colon?.[2] || space?.[2] || id };
+        })
+    };
+  } catch (e) { return { devices: [], error: e.message }; }
+}
+
+export async function sendSms(settings, message, { fetchImpl = fetch, execFileImpl = run } = {}) {
   const config = parseNotifications(settings);
   if (!config.phone) throw new NotificationError('Sisesta telefoninumber.');
   const timeout = () => AbortSignal.timeout(15000);
+  if (config.provider === 'kdeconnect') {
+    const list = await kdeconnectDevices({ execFileImpl });
+    const device = config.kdeconnectDevice || list.devices?.[0]?.id;
+    if (!device) throw new NotificationError('KDE Connecti seadet pole paaris. Paarista telefon ja luba SMS-plugin.');
+    try {
+      await execFileImpl('kdeconnect-cli', ['--device', device, '--send-sms', message, '--destination', config.phone], { timeout: 30000 });
+    } catch (e) { throw new NotificationError(`KDE Connect: ${e.message}`); }
+    return { ok: true };
+  }
   if (config.provider === 'twilio') {
     if (!config.twilioSid || !config.twilioToken || !config.twilioFrom) throw new NotificationError('Twilio SID, token ja saatja number on puudu.');
     const auth = Buffer.from(`${config.twilioSid}:${config.twilioToken}`).toString('base64');

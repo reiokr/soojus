@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_NOTIFICATIONS, parseNotifications, publicNotifications, inQuietHours, notificationAlerts, dueNotifications, sendSms } from '../server/notifications.js';
+import { DEFAULT_NOTIFICATIONS, parseNotifications, publicNotifications, inQuietHours, notificationAlerts, dueNotifications, sendSms, kdeconnectDevices } from '../server/notifications.js';
 
 test('parseNotifications normalises the phone, keeps secrets and validates values', () => {
   const config = parseNotifications({ smsEnabled: true, phone: '+372 5555 1234', provider: 'messagebird', messagebirdKey: 'key-1', quietFrom: 23, quietTo: 8, cooldownMinutes: 60, rules: { co2: false } });
@@ -73,4 +73,23 @@ test('sendSms builds Twilio, MessageBird and webhook requests', async () => {
   assert.equal(JSON.parse(calls[2].options.body).to, '+37255551234');
   assert.equal(calls[2].options.headers.Authorization, 'Bearer x');
   await assert.rejects(sendSms({ phone: '+37255551234', provider: 'twilio' }, 'x', { fetchImpl }), /Twilio/);
+});
+
+test('kdeconnectDevices parses paired phones and ignores the empty result line', async () => {
+  const empty = await kdeconnectDevices({ execFileImpl: async () => ({ stdout: 'Leiti 0 seadet\n' }) });
+  assert.deepEqual(empty.devices, []);
+  const paired = await kdeconnectDevices({ execFileImpl: async () => ({ stdout: 'abc123: Pixel 8\nxyz123 Phone\n' }) });
+  assert.deepEqual(paired.devices, [{ id: 'abc123', name: 'Pixel 8' }, { id: 'xyz123', name: 'Phone' }]);
+});
+
+test('sendSms via KDE Connect selects the paired phone and passes the message', async () => {
+  const calls = [];
+  const execFileImpl = async (command, args) => {
+    calls.push([command, args]);
+    if (args.includes('--list-devices')) return { stdout: 'abc123: Pixel 8\n' };
+    return { stdout: '' };
+  };
+  await sendSms({ phone: '+37255551234', provider: 'kdeconnect', kdeconnectDevice: 'abc123' }, 'Tere', { execFileImpl });
+  assert.equal(calls[0][0], 'kdeconnect-cli');
+  assert.deepEqual(calls[1][1], ['--device', 'abc123', '--send-sms', 'Tere', '--destination', '+37255551234']);
 });

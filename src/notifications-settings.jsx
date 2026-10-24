@@ -12,6 +12,8 @@ export default function NotificationSettings({ notify }) {
   const [busy, setBusy] = useState(false);
   const [testBusy, setTestBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [devices, setDevices] = useState([]);
+  const [devicesError, setDevicesError] = useState(null);
 
   const load = async () => {
     try {
@@ -22,6 +24,13 @@ export default function NotificationSettings({ notify }) {
     } catch (e) { setError(e.message); }
   };
   useEffect(() => { load(); }, []);
+  const loadDevices = async () => {
+    try {
+      const result = await api('/notifications/kdeconnect');
+      setDevices(result.devices || []); setDevicesError(result.error || null);
+    } catch (e) { setDevicesError(e.message); }
+  };
+  useEffect(() => { if (form?.provider === 'kdeconnect') loadDevices(); }, [form?.provider]);
 
   if (error) return <section className="panel"><div className="panel-title"><div><h3>{t('notify.title')}</h3></div></div><p className="inline-error" role="alert">{error}</p></section>;
   if (!form) return <section className="panel"><div className="panel-title"><div><h3>{t('notify.title')}</h3></div></div><p className="muted">{t('notify.loading')}</p></section>;
@@ -53,12 +62,24 @@ export default function NotificationSettings({ notify }) {
       <div className="notify-grid">
         <label className="field"><span>{t('notify.phone')}</span><input type="tel" value={form.phone} onChange={e => update({ phone: e.target.value })} placeholder="+372 5555 1234" autoComplete="tel"/></label>
         <label className="field"><span>{t('notify.provider')}</span><select value={form.provider} onChange={e => update({ provider: e.target.value })}>
+          <option value="kdeconnect">{t('notify.kdeconnect')}</option>
           <option value="twilio">Twilio</option>
           <option value="messagebird">MessageBird</option>
           <option value="webhook">{t('notify.webhook')}</option>
         </select></label>
       </div>
       <label className="check-filter notify-toggle"><input type="checkbox" checked={form.smsEnabled} onChange={e => update({ smsEnabled: e.target.checked })}/>{t('notify.smsEnabled')}</label>
+      <p className="muted notify-hint">{t('notify.providerHint')}</p>
+
+      {form.provider === 'kdeconnect' && <>
+        <label className="field"><span>{t('notify.kdeconnectDevice')}</span><select value={form.kdeconnectDevice || ''} onChange={e => update({ kdeconnectDevice: e.target.value })}>
+          <option value="">{t('notify.kdeconnectAuto')}</option>
+          {devices.map(device => <option key={device.id} value={device.id}>{device.name}</option>)}
+        </select></label>
+        <button type="button" className="text-button" onClick={loadDevices}>{t('notify.refreshDevices')}</button>
+        {devices.length === 0 && <p className="inline-error">{devicesError || t('notify.kdeconnectNone')}</p>}
+        <p className="muted notify-hint">{t('notify.kdeconnectHint')}</p>
+      </>}
 
       {form.provider === 'twilio' && <div className="notify-grid">
         <label className="field"><span>{t('notify.twilioSid')}</span><input value={form.twilioSid} onChange={e => update({ twilioSid: e.target.value })} placeholder="AC…"/></label>

@@ -520,8 +520,8 @@ export default {
     note: 'The comparison uses the same measured compressor consumption and the same grid components. The fixed and dual prices include VAT; the exchange package adds the spot price (excl. VAT) and margin. The monthly fee is excluded. Exchange price: Nord Pool / Elering.'
   },
   notify: {
-    title: 'Smart notifications', hint: 'Send an SMS on an error, a filter change, high CO₂ or a failed legionella cycle.',
-    loading: 'Loading notification settings…', smsEnabled: 'Send SMS notifications', phone: 'Mobile number', provider: 'SMS provider', webhook: 'Webhook',
+    title: 'Smart notifications', hint: 'Send an SMS on an error, a filter change, high CO₂ or a failed legionella cycle. The easiest option is via KDE Connect on your phone.',
+    loading: 'Loading notification settings…', smsEnabled: 'Send SMS notifications', phone: 'Mobile number', provider: 'SMS provider', webhook: 'Webhook', kdeconnect: 'KDE Connect (phone)', kdeconnectDevice: 'Phone device', kdeconnectAuto: 'Automatic (first device)', refreshDevices: 'Refresh device list', kdeconnectNone: 'No KDE Connect device is paired. Pair your phone with the computer and enable the SMS plugin on the phone.', kdeconnectHint: 'The SMS is sent through your phone’s SIM card; the charge depends on your mobile plan. The phone must be paired and online.', providerHint: 'KDE Connect is free (uses the phone SIM). Twilio and MessageBird are paid services.',
     twilioSid: 'Twilio Account SID', twilioToken: 'Twilio Auth Token', twilioFrom: 'Twilio sender number',
     messagebirdKey: 'MessageBird key', messagebirdFrom: 'Sender name', webhookUrl: 'Webhook URL', webhookToken: 'Webhook token',
     savedSecret: 'Saved – leave empty to keep',

@@ -520,8 +520,8 @@ export default {
     note: 'Võrdlus kasutab sama mõõdetud kompressori tarbimist ja samu võrgukomponente. Fikseeritud ja kahetariifne hind on lõpphind koos käibemaksuga; börsipakett lisab spot-hinna (ilma KM-ta) ja marginaali. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
   },
   notify: {
-    title: 'Nutikad teavitused', hint: 'Saada SMS, kui tekib viga, filter vajab vahetust, CO₂ on kõrge või legionella ebaõnnestub.',
-    loading: 'Laadin teavituste seadeid…', smsEnabled: 'Saada SMS-teavitusi', phone: 'Mobiilinumber', provider: 'SMS-teenus', webhook: 'Webhook',
+    title: 'Nutikad teavitused', hint: 'Saada SMS, kui tekib viga, filter vajab vahetust, CO₂ on kõrge või legionella ebaõnnestub. Kõige lihtsam on KDE Connect telefoni kaudu.',
+    loading: 'Laadin teavituste seadeid…', smsEnabled: 'Saada SMS-teavitusi', phone: 'Mobiilinumber', provider: 'SMS-teenus', webhook: 'Webhook', kdeconnect: 'KDE Connect (telefon)', kdeconnectDevice: 'Telefoni seade', kdeconnectAuto: 'Automaatne (esimene seade)', refreshDevices: 'Värskenda seadmete loendit', kdeconnectNone: 'Ühtegi KDE Connecti seadet pole paaris. Paarista telefon arvutiga ja luba telefonis SMS-plugin.', kdeconnectHint: 'SMS saadetakse sinu telefoni SIM-kaardi kaudu; tasu sõltub sinu mobiilipaketist. Telefon peab olema arvutiga paaris ja võrgus.', providerHint: 'KDE Connect on tasuta (kasutab telefoni SIM-kaarti). Twilio ja MessageBird on tasulised teenused.',
     twilioSid: 'Twilio Account SID', twilioToken: 'Twilio Auth Token', twilioFrom: 'Twilio saatja number',
     messagebirdKey: 'MessageBirdi võti', messagebirdFrom: 'Saatja nimi', webhookUrl: 'Webhook’i URL', webhookToken: 'Webhook’i token',
     savedSecret: 'Salvestatud – jäta tühjaks, kui ei muuda',

@@ -13,7 +13,7 @@ import { AppError, validatePoint, validateZone, pointResults, csvCell } from './
 import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './store.js';
 import { energyReport, MAX_DAYS } from './energy.js';
 import { ensurePriceTable, syncPrices, pricesFor } from './prices.js';
-import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueNotifications, sendSms } from './notifications.js';
+import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueNotifications, sendSms, kdeconnectDevices } from './notifications.js';
 import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
 import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
 
@@ -734,6 +734,7 @@ async function notificationTick() {
   } finally { notifyBusy = false; }
 }
 app.get('/api/notifications/settings', (req, res) => res.json(publicNotifications(getSetting(NOTIFY_KEY) || {})));
+app.get('/api/notifications/kdeconnect', async (req, res) => res.json(await kdeconnectDevices()));
 app.post('/api/notifications/settings', (req, res) => {
   try {
     const next = parseNotifications(req.body, getSetting(NOTIFY_KEY));
