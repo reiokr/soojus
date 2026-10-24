@@ -6,6 +6,7 @@ const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const hourLabel = hour => `${String(hour).padStart(2, '0')}:00`;
 const ruleKeys = ['pumpError', 'ventFilter', 'co2', 'legionella', 'stale'];
 const pushCapable = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
+const firefoxBased = () => typeof navigator !== 'undefined' && /firefox|floorp/i.test(navigator.userAgent);
 const urlBase64ToUint8Array = base64 => {
   const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
   return Uint8Array.from(atob(padded), character => character.charCodeAt(0));
@@ -21,6 +22,7 @@ export default function NotificationSettings({ notify }) {
   const [devicesError, setDevicesError] = useState(null);
   const [pushStatus, setPushStatus] = useState(null);
   const [localPush, setLocalPush] = useState(false);
+  const [pushServiceError, setPushServiceError] = useState(null);
   const [pushBusy, setPushBusy] = useState(false);
 
   const load = async () => {
@@ -31,8 +33,11 @@ export default function NotificationSettings({ notify }) {
       setPushStatus(push);
       if (pushCapable()) {
         const registration = await navigator.serviceWorker.getRegistration().catch(() => null);
-        const subscription = await registration?.pushManager?.getSubscription?.().catch(() => null);
-        setLocalPush(Boolean(subscription));
+        try {
+          const subscription = await registration?.pushManager?.getSubscription?.();
+          setLocalPush(Boolean(subscription));
+          setPushServiceError(null);
+        } catch (e) { setPushServiceError(e.message || String(e)); }
       }
       setError(null);
     } catch (e) { setError(e.message); }
@@ -78,6 +83,7 @@ export default function NotificationSettings({ notify }) {
     try {
       if (!pushCapable()) throw new Error(t('notify.pushUnsupported'));
       if (!window.isSecureContext) throw new Error(t('notify.pushInsecure'));
+      if (pushServiceError) throw new Error(`${t('notify.pushUnavailable')}${firefoxBased() ? ` ${t('notify.pushFirefoxHint')}` : ''}`);
       const registration = await navigator.serviceWorker.getRegistration();
       if (!registration) throw new Error(t('notify.pushNoWorker'));
       const permission = await Notification.requestPermission();
@@ -89,7 +95,10 @@ export default function NotificationSettings({ notify }) {
       setLocalPush(true);
       setPushStatus(await api('/push/status'));
       notify?.(t('notify.pushEnabled'));
-    } catch (e) { setError(e.message); } finally { setPushBusy(false); }
+    } catch (e) {
+      const hint = firefoxBased() && /push|subscription/i.test(e.message || '') ? ` ${t('notify.pushFirefoxHint')}` : '';
+      setError(`${e.message}${hint}`);
+    } finally { setPushBusy(false); }
   }
   async function disablePush() {
     setPushBusy(true); setError(null);
@@ -130,8 +139,9 @@ export default function NotificationSettings({ notify }) {
       <p className="muted notify-hint">{t('notify.providerHint')}</p>
 
       <h4 className="notify-subhead">{t('notify.pushTitle')}</h4>
-      <label className="check-filter notify-toggle"><input type="checkbox" checked={Boolean(localPush && form.pushEnabled)} disabled={pushBusy || !pushCapable() || !window.isSecureContext} onChange={e => (e.target.checked ? enablePush() : disablePush())}/>{pushBusy ? t('notify.pushBusy') : t('notify.pushToggle')}</label>
+      <label className="check-filter notify-toggle"><input type="checkbox" checked={Boolean(localPush && form.pushEnabled)} disabled={pushBusy || !pushCapable() || !window.isSecureContext || Boolean(pushServiceError)} onChange={e => (e.target.checked ? enablePush() : disablePush())}/>{pushBusy ? t('notify.pushBusy') : t('notify.pushToggle')}</label>
       <p className="muted notify-hint">{!pushCapable() ? t('notify.pushUnsupported') : !window.isSecureContext ? t('notify.pushInsecure') : t('notify.pushHint')}</p>
+      {pushServiceError && <p className="inline-error">{t('notify.pushUnavailable')} {firefoxBased() && t('notify.pushFirefoxHint')} ({pushServiceError}) <button type="button" className="text-button" onClick={load}>{t('notify.pushRetry')}</button></p>}
       {pushStatus && <p className="muted notify-hint">{t('notify.pushDevices', { count: pushStatus.count })} {t('notify.pushServerHint')}</p>}
       <div className="button-row">
         <button type="button" className="button" onClick={testPush} disabled={pushBusy || !pushStatus?.count}>{t('notify.pushTest')}</button>
