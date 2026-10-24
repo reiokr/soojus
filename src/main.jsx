@@ -8,6 +8,7 @@ import '@fontsource/plus-jakarta-sans/500.css';
 import '@fontsource/plus-jakarta-sans/600.css';
 import '@fontsource/plus-jakarta-sans/700.css';
 import App from './App.jsx';
+import ErrorBoundary from './error-boundary.jsx';
 import { initLocale } from './i18n/index.js';
 import './styles.css';
 
@@ -16,4 +17,4 @@ initLocale();
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
-createRoot(document.getElementById('root')).render(<App />);
+createRoot(document.getElementById('root')).render(<ErrorBoundary><App /></ErrorBoundary>);

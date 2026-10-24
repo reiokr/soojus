@@ -27,4 +27,29 @@ function keepUserAudio() {
   };
 }
 
-export default defineConfig({ plugins: [react(), keepUserAudio()], server: { host: '127.0.0.1', allowedHosts: ['localhost'], }, build: { chunkSizeWarningLimit: 750 } });
+export default defineConfig({
+  plugins: [react(), keepUserAudio()],
+  server: { host: '127.0.0.1', allowedHosts: ['localhost'] },
+  build: {
+    chunkSizeWarningLimit: 750,
+    rollupOptions: {
+      output: {
+        // Hoiame suured muutumatud sõltuvused eraldi: need jäävad brauseri vahemällu ka siis,
+        // kui rakenduse kood muutub. Recharts laaditakse alles graafikuga.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            // Ühised moodulid, mida kasutavad nii põhivaade kui ka lazy-laaditavad lehed.
+            // Ilma selleta tekiks lazy-chunkide ja põhichunki vahel ringne sõltuvus.
+            if (/[\\/]src[\\/](lib\.js|ui\.jsx|luxtronik\.jsx|ventilation\.jsx|ventilation-logic\.js|weather-logic\.js)$/.test(id)) return 'shared';
+            if (/[\\/]src[\\/]next[\\/]logic\.js$/.test(id)) return 'shared';
+            if (/[\\/]src[\\/]i18n[\\/]/.test(id)) return 'shared';
+            return;
+          }
+          if (id.includes('recharts') || id.includes('victory-vendor') || /node_modules[\\/]d3-/.test(id)) return 'charts';
+          if (id.includes('lucide-react')) return 'icons';
+          if (/node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react';
+        }
+      }
+    }
+  }
+});

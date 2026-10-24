@@ -559,6 +559,9 @@ export default {
     note: 'The curve is approximate. The offset affects all targets and is applied to the device only after saving.',
     fit: 'Fitted curve', preview: 'Offset preview', scatter: 'Actual measurements'
   },
+  offline: { message: 'You are offline. Showing the last cached data.', retry: 'Try again' },
+  errorBoundary: { title: 'Something went wrong', body: 'An error occurred while loading this view. Your data and devices have not been changed.', reload: 'Reload the page', retry: 'Try again' },
+
   backup: {
     title: 'Backup and restore',
     hint: 'Create a full database copy or restore an earlier state. Backups are stored on the server in data/backups.',

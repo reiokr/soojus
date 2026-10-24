@@ -559,6 +559,9 @@ export default {
     note: 'Kõver on ligikaudne. Nihe mõjutab kõiki sihte ja rakendub seadmele alles pärast salvestamist.',
     fit: 'Sobitatud kõver', preview: 'Nihke eelvaade', scatter: 'Tegelikud mõõtmised'
   },
+  offline: { message: 'Oled võrguühenduseta. Kuvatakse viimased vahemällu salvestatud andmed.', retry: 'Proovi uuesti' },
+  errorBoundary: { title: 'Midagi läks valesti', body: 'Vaate laadimisel tekkis viga. Andmed ja seadmed ei ole muutunud.', reload: 'Laadi leht uuesti', retry: 'Proovi uuesti' },
+
   backup: {
     title: 'Varukoopia ja taastamine',
     hint: 'Tee andmebaasist täielik koopia või taasta varasem seis. Varukoopiad on serveris kaustas data/backups.',

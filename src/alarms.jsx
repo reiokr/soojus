@@ -1,0 +1,14 @@
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, CheckCheck, ExternalLink, LoaderCircle, ShieldCheck } from 'lucide-react';
+import { api, date } from './lib.js';
+import { t } from './i18n/index.js';
+import { Badge, Empty, PanelTitle } from './ui.jsx';
+
+function AlarmsPage({ systemId, tick }) {
+  const [active,setActive] = useState(true), [page,setPage]=useState(1), [data,setData]=useState(null), [error,setError]=useState(null), [busy,setBusy]=useState(false);
+  useEffect(()=>{if(!systemId)return;const c=new AbortController();setBusy(true);api(`/systems/${encodeURIComponent(systemId)}/notifications?active=${active}&page=${page}`,{signal:c.signal}).then(d=>{setData(d);setError(null);}).catch(e=>{if(!c.signal.aborted)setError(e.message);}).finally(()=>{if(!c.signal.aborted)setBusy(false);});return()=>c.abort();},[systemId,active,page,tick]);
+  return <section className="panel"><PanelTitle title={t('alarms.title')} subtitle={t('alarms.subtitle')} action={<div className="segmented"><button className={active?'selected':''} onClick={()=>{setActive(true);setPage(1);}}>{t('alarms.active')}</button><button className={!active?'selected':''} onClick={()=>{setActive(false);setPage(1);}}>{t('alarms.all')}</button></div>}/>{error?<Empty icon={AlertCircle} title={t('alarms.loadError')}>{error}</Empty>:busy?<div className="chart-loading"><LoaderCircle className="spin"/>{t('alarms.loading')}</div>:!data?.notifications?.length?<Empty icon={ShieldCheck} title={active ? t('alarms.noneActiveTitle') : t('alarms.noneTitle')}>{active ? t('alarms.noneActiveBody') : t('alarms.noneBody')}</Empty>:<div className="alarm-list">{[...data.notifications].sort((a,b)=>String(b.createdDatetime).localeCompare(String(a.createdDatetime))).map(n=><article className="alarm-row" key={n.id}><span className={`square-icon ${n.status==='Active'?'orange':'teal'}`}>{n.status==='Active'?<AlertCircle size={20}/>:<CheckCheck size={20}/>}</span><div><h3>{n.header || t('alarms.alarm', { number: n.alarmNumber })}</h3><p>{n.description}</p><small>#{n.alarmNumber} · {date(n.createdDatetime)}</small></div><Badge tone={n.status==='Active'?'amber':'gray'}>{n.status==='Active' ? t('alarms.activeState') : t('alarms.ended')}</Badge></article>)}</div>}<div className="table-footer"><span>{t('alarms.count', { count: data?.numItems || 0 })}</span><div className="pagination"><button disabled={page<=1||busy} onClick={()=>setPage(p=>p-1)}>{t('alarms.previous')}</button><span>{t('alarms.page', { page })}</span><button disabled={!data || page*20>=data.numItems||busy} onClick={()=>setPage(p=>p+1)}>{t('alarms.next')}</button></div></div><div className="panel-note">{t('alarms.noteBefore')} <a href="https://myuplink.com/system-profile?tab=event-log" target="_blank" rel="noreferrer">{t('alarms.eventLog')} <ExternalLink size={12}/></a> {t('alarms.noteAfter')}</div></section>;
+}
+
+
+export default AlarmsPage;

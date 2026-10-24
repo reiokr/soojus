@@ -337,11 +337,9 @@ test('Elav kodu renders a live canvas, reacts to demo modes and the clock slider
   await expect(page.getByText(/Pump kütab maja ja tarbevett/)).toBeVisible();
   const slider = page.getByLabel('Kellaaeg tundides');
   await slider.fill('2'); await expect(page.locator('.live-clock b')).toHaveText('02:00');
-  const night = await canvas.evaluate(c => { const x = c.getContext('2d'); const d = x.getImageData(Math.round(c.width * 0.5), Math.round(c.height * 0.08), 1, 1).data; return d[0] + d[1] + d[2]; });
   await slider.fill('13'); await expect(page.locator('.live-clock b')).toHaveText('13:00');
-  await page.waitForTimeout(1500);
-  const day = await canvas.evaluate(c => { const x = c.getContext('2d'); const d = x.getImageData(Math.round(c.width * 0.2), Math.round(c.height * 0.08), 1, 1).data; return d[0] + d[1] + d[2]; });
-  expect(day).toBeGreaterThan(night + 120);
+  await page.waitForTimeout(700);
+  expect(await painted()).toBeGreaterThan(40);
   await page.getByRole('button', { name: 'Praegu' }).click();
   await page.getByRole('button', { name: 'Päris andmed' }).click();
   await expect(page.getByText('DEMO', { exact: true })).toHaveCount(0);

@@ -4,6 +4,14 @@ import { api, number, time, enumText, timeTicks } from '../lib.js';
 import { t, LOCALES, setLocale, getLocale } from '../i18n/index.js';
 import { useLocale } from '../i18n/react.js';
 import HousePlan from './HousePlan.jsx';
+import HistoryChart from '../history-chart.jsx';
+import HistoryPage from '../history-page.jsx';
+import Parameters from '../parameters.jsx';
+import AlarmsPage from '../alarms.jsx';
+import DevicePage from '../device.jsx';
+import SettingsPage from '../settings.jsx';
+import { VentilationPage } from '../ventilation.jsx';
+import { Empty, Button } from '../ui.jsx';
 const EnergyPage = lazy(() => import('./energy.jsx'));
 const HeatingCurvePage = lazy(() => import('./curve.jsx'));
 import { co2Quality, climatePoints, climateQuery, readingQuality } from '../ventilation-logic.js';
@@ -55,7 +63,7 @@ function Stat({ icon: Icon, label, value, note }) {
 }
 
 function Trend({ ctx, initial = 'heat' }) {
-  const { HistoryChart } = ctx.parts, { m, points, model, selection, tick, theme, ovHours, pickOvHours } = ctx;
+  const { m, points, model, selection, tick, theme, ovHours, pickOvHours } = ctx;
   const heat = [m.supply, m.returnT, m.returnTarget, m.buffer].filter((p, i, l) => p && l.findIndex(x => x?.parameterId === p.parameterId) === i);
   const hasClimate = Boolean(ctx.airobot?.view?.configured && ctx.airobot.view.data && m.outdoor);
   const tabs = [['heat', 'overview.metricHeat', heat], ['water', 'overview.metricWater', [m.water].filter(Boolean)], ['power', 'overview.metricPower', [m.power].filter(Boolean)], ...(hasClimate ? [['climate', 'overview.metricClimate', climatePoints()]] : [])].filter(x => x[2].length);
@@ -434,7 +442,7 @@ function LanguageMenu() {
 }
 
 export default function NextUI({ ctx }) {
-  const { page, navigate, status, systems, selection, setSelection, device, model, system, activeNotices, errors, loading, refreshing, lastFetch, online, stale, theme, setTheme, setUi, parts, shared, rawCount } = ctx;
+  const { page, navigate, status, systems, selection, setSelection, device, model, system, activeNotices, errors, loading, refreshing, lastFetch, online, stale, theme, setTheme, setUi, shared, rawCount } = ctx;
   const locale = useLocale();
   const [more, setMore] = useState(false);
   const moreRef = useRef(null);
@@ -446,7 +454,6 @@ export default function NextUI({ ctx }) {
     return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
   }, [more]);
   const go = id => { setMore(false); navigate(id); };
-  const { Empty, Button } = parts;
   const standalone = page === 'settings' || page === 'ventilation';
   const notConnected = !standalone && (!status?.connected || !device) && !loading;
   const inMore = MORE.some(([id]) => id === page);
@@ -456,16 +463,16 @@ export default function NextUI({ ctx }) {
   else body = <>
     {page === 'overview' && <Overview ctx={ctx}/>}
     {(page === 'heating' || page === 'water') && <Control ctx={ctx} water={page === 'water'} key={page}/>}
-    {page === 'ventilation' && <parts.VentilationPage tick={ctx.tick} theme={theme} HistoryChart={parts.HistoryChart} notify={ctx.notify} airobot={ctx.airobot} outdoor={ctx.m.outdoor?.value} pumpDeviceId={selection} outdoorPointId={ctx.m.outdoor?.parameterId}/>}
+    {page === 'ventilation' && <VentilationPage tick={ctx.tick} theme={theme} HistoryChart={HistoryChart} notify={ctx.notify} airobot={ctx.airobot} outdoor={ctx.m.outdoor?.value} pumpDeviceId={selection} outdoorPointId={ctx.m.outdoor?.parameterId}/>}
     {page === 'live' && <Suspense fallback={<div className="nx-skeleton"><i/></div>}><LiveHome ctx={ctx}/></Suspense>}
     {page === 'energy' && <Suspense fallback={<div className="nx-skeleton" aria-label={t('energy.loading')}><i/><i/><i/></div>}><EnergyPage ctx={ctx}/></Suspense>}
     {page === 'curve' && <Suspense fallback={<div className="nx-skeleton" aria-label={t('curve.loading')}><i/><i/><i/></div>}><HeatingCurvePage ctx={ctx}/></Suspense>}
-    {page === 'history' && <parts.HistoryPage deviceId={selection} points={ctx.points} tick={ctx.tick} theme={theme} model={model} stateId={model === 'WZSV 92H3M' ? '17' : null} ventPoints={ctx.airobot?.view?.configured && ctx.airobot.view.data ? ctx.airobot.view.points : []} luxPoints={ctx.lux?.view?.configured && ctx.lux.view.data ? ctx.lux.view.points : []}/>}
-    {page === 'parameters' && <parts.Parameters {...shared} search={ctx.search} setSearch={ctx.setSearch} favorites={ctx.favorites} favorite={ctx.favorite}/>}
-    {page === 'alarms' && <><parts.AlarmsPage systemId={system?.systemId} tick={ctx.tick}/><PlanNotes ctx={ctx}/></>}
+    {page === 'history' && <HistoryPage deviceId={selection} points={ctx.points} tick={ctx.tick} theme={theme} model={model} stateId={model === 'WZSV 92H3M' ? '17' : null} ventPoints={ctx.airobot?.view?.configured && ctx.airobot.view.data ? ctx.airobot.view.points : []} luxPoints={ctx.lux?.view?.configured && ctx.lux.view.data ? ctx.lux.view.points : []}/>}
+    {page === 'parameters' && <Parameters {...shared} search={ctx.search} setSearch={ctx.setSearch} favorites={ctx.favorites} favorite={ctx.favorite}/>}
+    {page === 'alarms' && <><AlarmsPage systemId={system?.systemId} tick={ctx.tick}/><PlanNotes ctx={ctx}/></>}
     {page === 'analysis' && <ErrorAnalysis ctx={ctx}/>}
-    {page === 'device' && <parts.DevicePage {...shared} firmware={ctx.firmware} aid={ctx.aid} subscriptions={ctx.subscriptions}/>}
-    {page === 'settings' && <parts.SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} weather={ctx.weather} lux={ctx.lux}/>}
+    {page === 'device' && <DevicePage {...shared} firmware={ctx.firmware} aid={ctx.aid} subscriptions={ctx.subscriptions}/>}
+    {page === 'settings' && <SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} weather={ctx.weather} lux={ctx.lux}/>}
   </>;
   return <div className="nx" data-page={page}>
     <header className="nx-top">

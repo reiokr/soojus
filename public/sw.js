@@ -1,5 +1,6 @@
 // Soojuse service worker: paigaldatav PWA, offline-kest ja push-teavitused.
-const CACHE = 'soojus-v1';
+const CACHE = 'soojus-v2';
+const API_CACHE = 'soojus-api-v1';
 const PRECACHE = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png'];
 
 self.addEventListener('install', event => {
@@ -7,16 +8,32 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE && key !== API_CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
+
+const isCacheableApi = pathname =>
+  pathname === '/api/status' || pathname === '/api/systems' || pathname === '/api/airobot' ||
+  pathname === '/api/luxtronik' || pathname === '/api/location' || pathname === '/api/weather' ||
+  pathname === '/api/notifications/settings' || pathname === '/api/notifications/log' ||
+  pathname === '/api/push/status' || pathname === '/api/backups' || pathname === '/api/legionella' ||
+  pathname === '/api/audio' || pathname.startsWith('/api/devices/') ||
+  /^\/api\/systems\/[^/]+\/notifications$/.test(pathname);
 
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== location.origin) return;
-  // API-andmeid ei vahemällu panda: need peavad olema värsked või näitama viga.
-  if (url.pathname.startsWith('/api/')) return;
+  // Viimased põhiandmed jäävad offline'is kättesaadavaks. Ajalugu, arhiiv, analüüs ja
+  // suured failid jäävad võrku, et vahemälu ei paisuks.
+  if (url.pathname.startsWith('/api/')) {
+    if (!isCacheableApi(url.pathname)) return;
+    event.respondWith(fetch(request).then(response => {
+      if (response.ok) { const copy = response.clone(); caches.open(API_CACHE).then(cache => cache.put(request, copy)); }
+      return response;
+    }).catch(async () => (await caches.match(request)) || new Response(JSON.stringify({ error: 'Offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
+    return;
+  }
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request).then(response => {
       const copy = response.clone();

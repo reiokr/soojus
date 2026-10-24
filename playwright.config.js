@@ -7,6 +7,7 @@ export default defineConfig({
   use: {
     baseURL,
     locale: 'et-EE',
+    serviceWorkers: 'block',
     viewport: { width: 1440, height: 1080 },
     trace: 'retain-on-failure',
     launchOptions: { executablePath: process.env.CHROMIUM_PATH || undefined }

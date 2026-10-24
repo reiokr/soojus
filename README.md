@@ -106,6 +106,7 @@ Ajaloo lehel on ventilatsiooni näidud soojuspumba omadega samas valijas: sama �
 - **Nutikad SMS-teavitused:** lisa oma mobiilinumber ja vali teenusepakkuja. **KDE Connect** on tasuta ja saadab SMS-i sinu telefoni SIM-kaardi kaudu: pairista telefon arvutiga, luba telefonis SMS-plugin ja vali seade. Alternatiivid: Twilio, MessageBird või üldine webhook (nt kohalik GSM gateway). Reeglid: soojuspumba viga, ventilatsiooni filter, kõrge CO₂, legionella ebaõnnestumine ja vananenud andmed. Lisaks vaikne aeg, kordusvahemik ja päevane piirmäär; test-SMS ja viimaste teavituste logi. Võtmed ja number jäävad kohalikku andmebaasi, GET ei tagasta saladusi. SMS-id on teenusepakkuja hinnakirja järgi tasulised; sõnumid on eesti keeles. Seaded: *Seaded ja ühendus → Nutikad teavitused*.
 - **PWA ja push-teavitused:** rakenduse saab paigaldada avaekraanile (manifest + service worker), offline-kest kuvab rakenduse kesta ka siis, kui server ei vasta, ja **Web Push** saadab tasuta teavitusi ilma SMS-ita. Luba *Seaded ja ühendus → Nutikad teavitused → Push-teavitused*; server genereerib VAPID-võtmed ja hoiab brauserite tellimusi kohalikus andmebaasis. Tellimus on brauseripõhine ja server saadab teavituse kõigile tellinud seadmetele. Push ja PWA paigaldus nõuavad **HTTPS-i või localhosti**; telefonis LAN-i HTTP-aadressil need ei tööta (SMS töötab edasi). Vt täpsemalt [PWA ja push-teavitused](#pwa-ja-push-teavitused).
 - **Varukoopia ja taastamine:** ühe nupuga täielik SQLite-varukoopia allalaadimiseks, automaatne öine varukoopia (vaikimisi kell 03:00, 7 päeva) ning taastamine nimekirjast või üleslaaditud failist. Enne taastamist tehakse turvakoopia; systemd keskkonnas taaskäivitub server automaatselt. Varukoopiad on `data/backups/` kaustas (ainult kasutajale loetavad). Vt [Varukoopia ja taastamine](#varukoopia-ja-taastamine).
+- **Tervis, mõõdikud ja logid:** `GET /api/health` annab masinloetava seisundi (andmebaas, koguja, seadmed, push, varukoopiad) ja `GET /api/metrics` Prometheusi tekstivormingu. Rakenduse logi kirjutatakse `data/logs/soojus.log` faili (5 MB × 5 rotatsioon) ning systemd journali.
 - **Küttekõver** (uus liides: *Veel → Küttekõver*): tagasivoolu siht välisõhu suhtes, ajalooline hajuvus ja sobitatud kõver, praegune tööpunkt, välisõhupiir ning kütte nihke eelvaade ja salvestus (punkt 5001). Kõver tuletatakse ajaloolistest sihtväärtustest, sest seadme enda kõveraparameetrid API kaudu ei ole.
 - **Energia ja kulu** (uus liides: *Veel → Energia*): pakettide võrdlus (praegune, fikseeritud, kahetariifne ja börsihind). Börsihinna ajalugu tuleb Nord Pooli / Eleringi avalikust API-st, salvestatakse kohalikku andmebaasi (`power_prices`) ja arvutatakse tunni spot-hinna + marginaali + võrgukomponentide + KM järgi; võrdlus näitab kulu, keskmist €/kWh ja vahet.  soojus- ja elektrivõimsuse ööpäevane integraal pumba kohalikust liidesest, COP, elektrihinna järgi arvutatud kulu ning CSV eksport (7/30/90/365 päeva). Elektrikulu mõõdetakse pumba kohaliku liidese `power_ac` näidust; myUplink ei anna elektrivõimsust. Kui kohalik server ei tööta, tekivad lüngad — aruanne näitab **andmete katvust** ja hoiatab alahindamise eest. Kogu mõõtepunkti (arve) koguse saab eraldi sisestada, et võrrelda soojuspumba osa ja arvutada kogu mõõtepunkti kulu (näiteks september 2026: 410,338 kWh → arvutus 99,25 €, arve 100 €). Valida saab ühe- või kahetariifse paketi, sisestada päeva- ja ööhinnad ning öise aja (kohalik kell), või sisestada **arve komponendid** (energia hind, võrgu päev/öö, varustuskindlus, aktsiis, taastuvenergia, käibemaks ja kuutasu) — rakendus arvutab neist päeva/öö lõpphinna. Kulu arvutatakse elektri tunnijaotuse järgi; kuutasu saab soovi korral kulusse lisada (vaikimisi eraldi, sest see on mõõtepunkti, mitte ainult soojuspumba kulu). Vaikimisi on ees Elektrum Eesti september 2026 Pilka mõõtepunkti komponendid: energia 0,10398 €/kWh (sisaldab tasakaalustamist), võrk 0,0607/0,0351 €/kWh, varustuskindlus 0,00758 €/kWh, aktsiis 0,0021 €/kWh, taastuvenergia 0,0084 €/kWh, käibemaks 24%, kuutasu 8,34 + 1,54 €/kuu. Energiahind muutub kuu kaupa ja tuleb uuelt arvelt üle kirjutada; müüja kuutasu võib arvel olla ka 2,92 € (teine mõõtepunkt). Ventilatsiooni elektrikulu on eraldi **hinnang** ventilaatori õhuvoolu ja tootja SFP-kõvera järgi (S2: 1,33 kW/(m³/s) @ 277 m³/h, max 0,34 kW; eelsoojendit see ei sisalda). Airoboti Modbus-kaardis võimsuse/energia registrit ei ole. Ilma kohaliku liideseta näidatakse ainult soojusvõimsust.
 - Püsivara versioonid ja fail, tellimused, seadme võimekused, abirežiimi olek.
@@ -123,6 +124,19 @@ Ajaloo lehel on ventilatsiooni näidud soojuspumba omadega samas valijas: sama �
 - **Taaskäivitamine:** systemd teenuse all (`soojus.service`) taastamine rakendub järgmisel käivitusel ja server taaskäivitub automaatselt. Väljaspool systemd't tuleb server käsitsi taaskäivitada: `systemctl --user restart soojus.service` või `npm start`.
 - **Ohutus:** varukoopiad on kaustas õigustega `0700` ja failid `0600`. Taastamine taastab ka seaded; kui varukoopia on push-i seadistamisest vanem, tuleb push pärast taastamist uuesti lubada.
 
+## Tervis, mõõdikud ja logid
+
+- **`GET /api/health`** — JSON: `status` (`ok` / `degraded`), versioon, tööaeg, andmebaasi suurus ja viimane mõõtmine, koguja viga, seadmete arv, push-tellimuste arv ning viimase varukoopia olek. Sobib Uptime Kuma, Docker healthcheck'i või muu monitori jaoks. `degraded` tähendab, et koguja on viimati ebaõnnestunud või viimane mõõtmine on üle 30 minuti vana.
+- **`GET /api/metrics`** — Prometheus / OpenMetrics tekst (`soojus_up`, `soojus_uptime_seconds`, `soojus_db_bytes`, `soojus_samples_total`, `soojus_last_sample_timestamp_seconds`, `soojus_collector_error`, `soojus_devices_total`, `soojus_devices_connected`, `soojus_push_subscriptions`, `soojus_backup_last_success_timestamp_seconds`, `soojus_log_bytes` jne). Mõõdikud ei sisalda saladusi.
+- **Logid:** `data/logs/soojus.log` (õigused `0600`, kaust `0700`). Faili rotatsioon on 5 MB ja säilitatakse 5 vanemat koopiat (`soojus.log.1` … `soojus.log.5`). Samad read lähevad ka `console`-isse, seega `journalctl --user -u soojus.service` töötab edasi.
+
+Mõõdikute näide:
+
+```sh
+curl -s http://localhost:3210/api/health | jq
+curl -s http://localhost:3210/api/metrics
+```
+
 ## PWA ja push-teavitused
 
 Rakendus on paigaldatav PWA: `public/manifest.webmanifest` annab nime, ikoonid (192/512 ja maskable) ja seisundi `standalone`; `public/sw.js` vahemällu salvestab rakenduse kesta ja staatilised failid. Service worker registreeritakse ainult tootmisbuildis (`npm run build` + `npm start`), mitte arendusserveris.
@@ -133,7 +147,7 @@ Rakendus on paigaldatav PWA: `public/manifest.webmanifest` annab nime, ikoonid (
 - **Android (Chrome):** ava rakendus HTTPS-i kaudu ja vali menüüst „Add to Home screen” / „Lisa avaekraanile”.
 - **iPhone/iPad (Safari):** ava HTTPS-i kaudu, vajuta „Share” → „Add to Home Screen”. iOS 16.4+ toetab push-teavitusi paigaldatud PWA-le.
 
-**Offline-kest:** pärast esimest laadimist (ja teist laadimist, kui service worker alles aktiveerus) avaneb rakendus ka võrguühenduseta. API-päringud jäävad alati võrku; offline-režiimis kuvatakse rakenduse kest ja andmete laadimise vead, mitte vananenud andmeid. Värsked andmed tulevad kohe, kui server on jälle kättesaadav.
+**Offline-kest:** pärast esimest laadimist (ja teist laadimist, kui service worker alles aktiveerus) avaneb rakendus ka võrguühenduseta. Service worker hoiab vahemällu põhiandmed (olek, seadmed, viimased näidud, ilm, seaded) ja näitab offline'is viimast teadaolevat seisu koos kollase hoiatusribaga. Ajalugu, arhiiv, analüüs ja suured failid jäävad võrku; nende vahelehed näitavad viga. Kui ühendus taastub, värskendab rakendus andmed automaatselt. Ootamatu renderdusvea või ebaõnnestunud lazy-chunki korral kuvatakse taastatav veavaade („Midagi läks valesti“) koos uuesti proovimise ja lehe uuestilaadimise nuppudega.
 
 **Push-teavitused**
 
@@ -157,6 +171,12 @@ soojus.kodu {
 
 Seejärgselt impordi Caddy lokaalne juursertifikaat telefonis usaldusväärsete sertifikaatide hulka (Android: *Settings → Security → Encryption & credentials → Install a certificate → CA certificate*) ja ava `https://soojus.kodu`. Kui kasutad Tailscale'i, piisab `tailscale serve`-st ja Tailscale'i HTTPS-sertifikaadist.
 
+## Jõudlus ja bundle
+
+- Põhivaate chunk on eraldatud suurtest sõltuvustest: React, ikoonid, ühised moodulid ja graafikud (Recharts) on eraldi tükkides. Recharts laaditakse alles graafikuga; klassikalise liidese lehed (seaded, ajalugu, parameetrid, teated, seade) ja kogu uus liides on lazy-loaded.
+- Tänu sellele ei laadita uue liidese või seadete koodi, kui neid ei avata, ja korduvad sõltuvused jäävad brauseri vahemällu.
+- `npm run build` väljundis on põhi-chunk ~40 kB ning React, `shared`, `icons` ja `charts` eraldi; `chunks` on pikemaks vahemällu.
+
 ## Andmed
 
 Andmebaas: `data/soojus.sqlite`. Tokenid ja ühendusinfo on selles serveripoolses andmebaasis. Failid on piiratud kasutaja õigustega ning `.gitignore` välistab `.env` ja kogu `data/` kausta. Varundades käsitle neid privaatsena.
@@ -178,6 +198,6 @@ Brauseritestid kasutavad käivat serverit aadressil `http://localhost:3210` (muu
 
 Täistestid sõltuvad päris soojuspumbast ja myUplinki kontost. Suitsutestid (`e2e/smoke.spec.js`) kontrollivad keelevahetust ja mõlema liidese laadimist ka tühja andmebaasiga. Kirjutamise töövoogu kontrollitakse mock-vastusega, füüsilise soojuspumba seadistusi testide käigus ei muudeta.
 
-GitHub Actions (`.github/workflows/ci.yml`) jooksutab iga pushi ja pull requesti peale ühikutestid, buildi ja suitsutestid. Täistestid jäävad kohalikuks.
+GitHub Actions (`.github/workflows/ci.yml`) jooksutab iga pushi ja pull requesti peale ühikutestid, buildi ja suitsutestid. Suitsutestid sisaldavad ka mutation-API lepinguid (CSRF/Origin, valideerimine, JSON-vead). Täistestid jäävad kohalikuks.
 
 **Kodu lehe teated.** Kodu lehel saab iga teate peita nupuga *Peida*; peidetud teade kaob lehelt täielikult ja jääb brauseris meelde (`localStorage`), kuni selle sisu oluliselt muutub. Peidetud teateid näeb ja saab tagasi tuua lehel *Veel → Teavitused*, jaotises *Kodu lehe teated*.

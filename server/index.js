@@ -16,6 +16,7 @@ import { ensurePriceTable, syncPrices, pricesFor } from './prices.js';
 import { buildHeatingCurve } from './heating-curve.js';
 import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueAlerts, dueNotifications, sendSms, kdeconnectDevices } from './notifications.js';
 import { createPushStore } from './push.js';
+import { createLogger } from './log.js';
 import { BACKUP_KEY, BackupError, applyPendingRestore, backupFile, createBackup, deleteBackup, listBackups, parseBackupSettings, runNightlyBackup, saveUpload, stageRestore, validateBackup } from './backup.js';
 import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
 import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
@@ -26,14 +27,15 @@ const origin = process.env.APP_ORIGIN || `http://localhost:${port}`;
 const apiBase = 'https://api.myuplink.com';
 const dataDir = path.join(root, 'data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+const logger = createLogger({ dir: path.join(dataDir, 'logs') });
 try { chmodSync(path.join(root, '.env'), 0o600); } catch {}
 const dbFile = path.join(dataDir, 'soojus.sqlite');
 const backupDir = path.join(dataDir, 'backups');
 // Taaste rakendatakse enne andmebaasi avamist; nii ei jää pooleldi asendatud baasi.
 try {
   const restored = applyPendingRestore({ dir: backupDir, dbFile });
-  if (restored?.restored) console.log(`Soojus: andmebaas taastatud varukoopiast ${restored.name}`);
-} catch (e) { console.error(`Soojus: taastamine ebaõnnestus: ${e.message}`); }
+  if (restored?.restored) logger.info(`Soojus: andmebaas taastatud varukoopiast ${restored.name}`);
+} catch (e) { logger.error(`Soojus: taastamine ebaõnnestus: ${e.message}`); }
 const db = new DatabaseSync(dbFile);
 chmodSync(dbFile, 0o600);
 db.exec(`PRAGMA journal_mode=WAL;
@@ -918,6 +920,105 @@ app.get('/api/firmware/:type/:version/download', async (req, res) => {
   for await (const chunk of response.body) res.write(chunk);
   res.end();
 });
+// ---- Tervis ja mõõdikud ----------------------------------------------------
+function healthView() {
+  const samples = db.prepare('SELECT COUNT(*) AS count, MAX(time) AS last FROM samples').get();
+  const safeSize = file => { try { return statSync(file).size; } catch { return 0; } };
+  const snapshot = getSetting('systemsSnapshot');
+  const devices = Array.isArray(snapshot) ? snapshot.flatMap(system => system.devices || []) : [];
+  const connected = devices.filter(device => device.connectionState === 'Connected').length;
+  const backup = parseBackupSettings(getSetting(BACKUP_KEY) || {});
+  const backupStatus = getSetting('backupStatus') || (() => {
+    const latest = listBackups(backupDir).find(file => file.kind === 'auto');
+    return latest ? { time: latest.createdAt, ok: true, name: latest.name, bytes: latest.bytes } : null;
+  })();
+  const lastSample = samples?.last || null;
+  const stale = lastSample ? Date.now() - Date.parse(lastSample) > 30 * 60000 : false;
+  return {
+    status: collectorError || stale ? 'degraded' : 'ok',
+    time: new Date().toISOString(),
+    uptimeSeconds: Math.round(process.uptime()),
+    version: '1.0.0',
+    db: { bytes: safeSize(dbFile), walBytes: safeSize(`${dbFile}-wal`), samples: Number(samples?.count || 0), lastSample },
+    collector: { error: collectorError || null, lastCollected: lastCollected || null },
+    devices: { total: devices.length, connected },
+    backup: { enabled: backup.enabled, retentionDays: backup.retentionDays, last: backupStatus },
+    push: { subscriptions: pushStore.count() },
+    logs: { bytes: logger.size() }
+  };
+}
+
+function metricsText() {
+  const health = healthView();
+  const memory = process.memoryUsage();
+  const lastMs = health.db.lastSample ? Date.parse(health.db.lastSample) : NaN;
+  const backupMs = health.backup.last?.ok && health.backup.last.time ? Date.parse(health.backup.last.time) : NaN;
+  const start = Date.now() / 1000 - process.uptime();
+  const lines = [
+    '# HELP soojus_up Whether the Soojus server can read its database.',
+    '# TYPE soojus_up gauge',
+    'soojus_up 1',
+    '# HELP soojus_degraded Whether the collector or last sample is stale.',
+    '# TYPE soojus_degraded gauge',
+    `soojus_degraded ${health.status === 'degraded' ? 1 : 0}`,
+    '# HELP soojus_uptime_seconds Process uptime in seconds.',
+    '# TYPE soojus_uptime_seconds gauge',
+    `soojus_uptime_seconds ${process.uptime().toFixed(3)}`,
+    '# HELP soojus_process_start_time_seconds Unix timestamp when the process started.',
+    '# TYPE soojus_process_start_time_seconds gauge',
+    `soojus_process_start_time_seconds ${start.toFixed(3)}`,
+    '# HELP soojus_memory_rss_bytes Resident memory in bytes.',
+    '# TYPE soojus_memory_rss_bytes gauge',
+    `soojus_memory_rss_bytes ${memory.rss}`,
+    '# HELP soojus_heap_used_bytes V8 heap used in bytes.',
+    '# TYPE soojus_heap_used_bytes gauge',
+    `soojus_heap_used_bytes ${memory.heapUsed}`,
+    '# HELP soojus_db_bytes Main SQLite database size.',
+    '# TYPE soojus_db_bytes gauge',
+    `soojus_db_bytes ${health.db.bytes}`,
+    '# HELP soojus_db_wal_bytes SQLite WAL size.',
+    '# TYPE soojus_db_wal_bytes gauge',
+    `soojus_db_wal_bytes ${health.db.walBytes}`,
+    '# HELP soojus_samples_total Stored measurement rows.',
+    '# TYPE soojus_samples_total gauge',
+    `soojus_samples_total ${health.db.samples}`,
+    '# HELP soojus_last_sample_timestamp_seconds Unix timestamp of the newest stored sample.',
+    '# TYPE soojus_last_sample_timestamp_seconds gauge',
+    `soojus_last_sample_timestamp_seconds ${Number.isFinite(lastMs) ? Math.floor(lastMs / 1000) : 0}`,
+    '# HELP soojus_collector_error Whether the last collection failed.',
+    '# TYPE soojus_collector_error gauge',
+    `soojus_collector_error ${health.collector.error ? 1 : 0}`,
+    '# HELP soojus_devices_total Known devices.',
+    '# TYPE soojus_devices_total gauge',
+    `soojus_devices_total ${health.devices.total}`,
+    '# HELP soojus_devices_connected Connected devices.',
+    '# TYPE soojus_devices_connected gauge',
+    `soojus_devices_connected ${health.devices.connected}`,
+    '# HELP soojus_push_subscriptions Stored Web Push subscriptions.',
+    '# TYPE soojus_push_subscriptions gauge',
+    `soojus_push_subscriptions ${health.push.subscriptions}`,
+    '# HELP soojus_backup_automatic_enabled Whether nightly backups are enabled.',
+    '# TYPE soojus_backup_automatic_enabled gauge',
+    `soojus_backup_automatic_enabled ${health.backup.enabled ? 1 : 0}`,
+    '# HELP soojus_backup_last_success_timestamp_seconds Unix timestamp of the last automatic backup.',
+    '# TYPE soojus_backup_last_success_timestamp_seconds gauge',
+    `soojus_backup_last_success_timestamp_seconds ${Number.isFinite(backupMs) ? Math.floor(backupMs / 1000) : 0}`,
+    '# HELP soojus_log_bytes Current application log size.',
+    '# TYPE soojus_log_bytes gauge',
+    `soojus_log_bytes ${health.logs.bytes}`
+  ];
+  return `${lines.join('\n')}\n`;
+}
+
+app.get('/api/health', (req, res) => {
+  try { res.json(healthView()); }
+  catch (e) { res.status(503).json({ status: 'error', error: e.message }); }
+});
+app.get('/api/metrics', (req, res) => {
+  try { res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8').send(metricsText()); }
+  catch (e) { res.status(503).set('Content-Type', 'text/plain; charset=utf-8').send(`soojus_up 0\n# ${String(e.message).replace(/\n/g, ' ')}\n`); }
+});
+
 app.use('/api', (req, res) => res.status(404).json({ error: 'Päringut ei leitud.' }));
 let collectorError = null, lastCollected = null, collecting = false;
 async function collect() {
@@ -930,7 +1031,12 @@ async function collect() {
 }
 if (process.argv.includes('--production')) { app.use(express.static(path.join(root, 'dist'))); app.get('/{*splat}', (req, res) => res.sendFile(path.join(root, 'dist/index.html'))); }
 else { const { createServer } = await import('vite'); const vite = await createServer({ root, server: { middlewareMode: true }, appType: 'spa' }); app.use(vite.middlewares); }
-app.use((err, req, res, next) => { if (res.headersSent) return next(err); res.status(err.status || (err instanceof BackupError ? 400 : 502)).json({ error: err instanceof AppError || err instanceof BackupError ? err.message : 'Päring ebaõnnestus. Kontrolli võrguühendust ja proovi uuesti.' }); });
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = err.status || (err instanceof BackupError ? 400 : 502);
+  if (status >= 500) logger.error(`${req.method} ${req.path}: ${err.stack || err.message}`);
+  res.status(status).json({ error: err instanceof AppError || err instanceof BackupError ? err.message : 'Päring ebaõnnestus. Kontrolli võrguühendust ja proovi uuesti.' });
+});
 // Börsihinna ajalugu laetakse taustal, et lehe päring ei peaks Eleringit ootama.
 setTimeout(() => { syncPricesInBackground(new Date(Date.now() - 2 * DAY_MS), new Date()).catch(() => {}); }, 8000).unref?.();
 setInterval(() => { syncPricesInBackground(new Date(Date.now() - 2 * DAY_MS), new Date()).catch(() => {}); }, 6 * 3600 * 1000).unref?.();
@@ -944,16 +1050,16 @@ const nightlyBackup = () => {
     const created = runNightlyBackup({ db, dir: backupDir, settings });
     if (created) {
       setSetting('backupStatus', { time: new Date().toISOString(), ok: true, name: created.name, bytes: created.bytes });
-      console.log(`Soojus: automaatne varukoopia ${created.name}`);
+      logger.info(`Soojus: automaatne varukoopia ${created.name}`);
     }
   } catch (e) {
     setSetting('backupStatus', { time: new Date().toISOString(), ok: false, error: e.message });
-    console.error(`Soojus: automaatne varukoopia ebaõnnestus: ${e.message}`);
+    logger.error(`Soojus: automaatne varukoopia ebaõnnestus: ${e.message}`);
   }
 };
 setTimeout(nightlyBackup, 60000).unref?.();
 setInterval(nightlyBackup, 15 * 60000).unref?.();
-app.listen(port, process.env.HOST || '127.0.0.1', () => { console.log(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); compact(); legionellaTick(); });
+app.listen(port, process.env.HOST || '127.0.0.1', () => { logger.info(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); compact(); legionellaTick(); });
 setInterval(collect, 60000).unref();
 setInterval(pollLux, 10000).unref();
 setInterval(pollAirobot, 60000).unref();

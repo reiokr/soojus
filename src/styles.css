@@ -321,3 +321,19 @@ html[data-theme="dark"] .vent-tip::after{border-top-color:#e9eef3}
   .backup-actions { width: 100%; }
   .backup-actions .button { flex: 1; justify-content: center; }
 }
+
+/* Võrguühenduseta riba ja viimane veakaitse */
+.offline-banner {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 220; display: flex; align-items: center; gap: 9px;
+  max-width: calc(100% - 28px); padding: 10px 14px;
+  border: 1px solid var(--t56); border-radius: 9px;
+  background: var(--t57); color: var(--t58);
+  box-shadow: 0 8px 30px #2d566120; font-size: 12.5px;
+}
+.offline-banner .text-button { color: inherit; }
+.fatal-error { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--t4); color: var(--ink); }
+.fatal-error-card { width: min(560px, 100%); border: 1px solid var(--line); border-radius: 14px; padding: 28px; background: var(--surface); box-shadow: 0 20px 70px #14384518; }
+.fatal-error-card h1 { font-size: 24px; margin-bottom: 10px; }
+.fatal-error-card p { font-size: 13.5px; line-height: 1.8; color: var(--muted); }
+.fatal-error-card pre { margin: 16px 0; padding: 12px; max-height: 160px; overflow: auto; border-radius: 7px; background: var(--t18); font-size: 12px; white-space: pre-wrap; }
