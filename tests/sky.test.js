@@ -61,6 +61,18 @@ test('live state carries real readings and reports a resting pump', () => {
   assert.equal(buildLiveState({ m: { water: { value: '' } } }).water, null);
 });
 
+test('a running compressor or clear power is reported as running, never as resting', () => {
+  const power = buildLiveState({ ...base, m: { ...base.m, power: { value: 3.2 } } });
+  assert.equal(power.running, true);
+  assert.equal(liveSummary(power), 'pump töötab');
+  const compressor = buildLiveState({ ...base, m: { ...base.m, compressor: { value: 1 } } });
+  assert.equal(compressor.running, true);
+  assert.equal(liveSummary(compressor), 'pump töötab');
+  const resting = buildLiveState({ ...base, m: { ...base.m, power: { value: 0.1 }, compressor: { value: 0 } } });
+  assert.equal(resting.running, false);
+  assert.match(liveSummary(resting), /puhkab/);
+});
+
 test('demo modes override activity and are flagged, scrub moves only the clock', () => {
   assert.ok(Object.keys(DEMOS).length === 5);
   const heat = buildLiveState({ ...base, vent: ventView, demo: 'heat' });

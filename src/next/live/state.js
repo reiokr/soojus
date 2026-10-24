@@ -39,6 +39,9 @@ export function buildLiveState({ m = {}, climate = {}, vent = null, state = {}, 
   if (water) Object.assign(live, { compressor: true, hwOn: true, hwDemand: false, powerKw: 4.2, supply: 52, returnT: 44, water: Math.max(live.water ?? 0, 50), waterTarget: live.waterTarget ?? 55 });
   if (air) Object.assign(live.vent, { present: true, running: true, level: 8, rpm: 2600, airflow: 240, co2: 1150, recovery: live.vent.recovery || 80, mode: 'boost', modeText: 'Õhutus', supplyTemp: live.vent.supplyTemp ?? 19, extractTemp: live.vent.extractTemp ?? 22, humidity: live.vent.humidity ?? 46 });
   if (demo === 'all') live.powerKw = 4.2;
+  // Üks töötamise signaal kogu vaatele: kompressori olek, kütte-/tarbeveeahel või selge võimsus.
+  // Nii ei saa animatsioon ja tekst erinevat seisu näidata.
+  live.running = Boolean(live.compressor || live.heatOn || live.hwOn || live.powerKw > 0.3);
   return live;
 }
 
@@ -48,6 +51,7 @@ export function liveSummary(live) {
   if (live.hwOn && live.heatOn) parts.push(t('live.summaryBoth'));
   else if (live.hwOn) parts.push(t('live.summaryWater'));
   else if (live.heatOn) parts.push(t('live.summaryHeat'));
+  else if (live.running) parts.push(t('live.summaryRunning'));
   else if (live.heatDemand || live.hwDemand) parts.push(t('live.summaryWaiting'));
   else parts.push(t('live.summaryResting'));
   if (live.vent.present) parts.push(live.vent.running ? t('live.ventRunning', { level: live.vent.level }) : t('live.ventOff'));

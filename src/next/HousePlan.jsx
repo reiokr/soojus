@@ -23,6 +23,8 @@ const fmt = p => p?.value == null ? '—' : number(p.value, 1);
 export default function HousePlan({ view = 'full', supply, returnT, returnTarget, buffer, water, waterTarget, power, outdoor, state, vent, climate, onOpen }) {
   const { heatOn, hwOn, heatDemand, hwDemand } = state;
   const powerKw = Number(power?.value) || 0;
+  // Sama töötamise signaal nagu Elavas kodus: kompressor/režiim või selge võimsus.
+  const running = Boolean(state.running) || powerKw > 0.3;
   const wt = Number(water?.value), bt = Number(buffer?.value), target = Number(waterTarget);
   const pipeClass = (on, wait) => on ? 'nx-flow fast' : wait ? 'nx-flow slow' : 'nx-flow off';
   const [vx, vy, vw, vh] = VIEWS[view];
@@ -90,7 +92,7 @@ export default function HousePlan({ view = 'full', supply, returnT, returnTarget
 
       <g className="nx-brine" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4">
         <path d="M285 400V446H610Q628 446 628 458Q628 470 610 470H250V400" className="nx-pipe cold"/>
-        <path d="M285 400V446H610Q628 446 628 458Q628 470 610 470H250V400" className={pipeClass(heatOn || hwOn || powerKw > 0, false) + ' cold'}/>
+        <path d="M285 400V446H610Q628 446 628 458Q628 470 610 470H250V400" className={pipeClass(running, false) + ' cold'}/>
       </g>
 
       <g className="nx-pump" stroke="var(--nx-ink)" strokeWidth="2.4">
@@ -98,7 +100,7 @@ export default function HousePlan({ view = 'full', supply, returnT, returnTarget
         <rect x="227" y="257" width="71" height="30" rx="3" fill="var(--nx-ink)" stroke="none"/>
         <text x="262" y="277" textAnchor="middle" fontSize="14" fontWeight="700" fill="var(--surface)" stroke="none">{number(powerKw, 1)} kW</text>
         <circle cx="262" cy="338" r="32" fill="var(--nx-ink)" fillOpacity=".08"/>
-        <g className={powerKw > 0 || state.heatOn || state.hwOn ? 'nx-fan spin' : 'nx-fan'} fill="none" strokeLinecap="round">
+        <g className={running ? 'nx-fan spin' : 'nx-fan'} fill="none" strokeLinecap="round">
           <path d="M262 338a2 2 0 0 1 4 0a5 5 0 0 1-10 0a9 9 0 0 1 18 0a13 13 0 0 1-26 0a17 17 0 0 1 34 0" strokeWidth="2.2"/>
         </g>
         <path d="M225 400v-6M300 400v-6" strokeWidth="3"/>

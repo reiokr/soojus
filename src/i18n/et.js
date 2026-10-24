@@ -95,6 +95,7 @@ export default {
     seasonWinter: 'talv', seasonSpring: 'kevad', seasonSummer: 'suvi', seasonAutumn: 'sügis', seasonLate: 'hilissügis',
     indoor: 'Toas', outdoor: 'Väljas', water: 'Tarbevesi', ventLabel: 'Ventilatsioon',
     summaryBoth: 'pump kütab maja ja tarbevett', summaryWater: 'pump soojendab tarbevett', summaryHeat: 'pump kütab maja',
+    summaryRunning: 'pump töötab',
     summaryWaiting: 'pump ootab käivitumist, kompressor seisab', summaryResting: 'pump puhkab',
     ventRunning: 'ventilatsioon töötab kiirusel {level}/10', ventOff: 'ventilatsioon seisab',
     ventLine: '{mode} · kiirus {level}/10 · CO₂ {co2} ppm',

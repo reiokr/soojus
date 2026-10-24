@@ -95,6 +95,7 @@ export default {
     seasonWinter: 'winter', seasonSpring: 'spring', seasonSummer: 'summer', seasonAutumn: 'autumn', seasonLate: 'late autumn',
     indoor: 'Indoor', outdoor: 'Outdoor', water: 'Hot water', ventLabel: 'Ventilation',
     summaryBoth: 'heating the house and hot water', summaryWater: 'heating hot water', summaryHeat: 'heating the house',
+    summaryRunning: 'pump running',
     summaryWaiting: 'waiting to start, compressor idle', summaryResting: 'idle',
     ventRunning: 'ventilation running at speed {level}/10', ventOff: 'ventilation stopped',
     ventLine: '{mode} · speed {level}/10 · CO₂ {co2} ppm',

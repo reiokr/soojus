@@ -294,7 +294,7 @@ export class LiveScene {
     else if ((a.outdoor ?? 0) > 1.5) a.drift = Math.max(floor, a.drift - dt * 0.004 * (a.outdoor - 1));
     a.drift = Math.max(a.drift, floor);
     for (const id of Object.keys(this.hv)) this.hv[id] += ((this.hoverId === id ? 1 : 0) - this.hv[id]) * (this.reduced ? 1 : 1 - Math.exp(-dt * 10));
-    a.comp += ((s.compressor ? 1 : 0) - a.comp) * k(2.2);
+    a.comp += ((s.running ? 1 : 0) - a.comp) * k(2.2);
     if (!this.reduced && a.comp > 0.03) a.scroll += dt * (0.5 + 7 * a.comp);
     a.power += (clamp(s.powerKw / 5) - a.power) * k(1.2);
     const v = s.vent, airT = v.present && v.running ? clamp(v.rpm / 2600, 0.12, 1) : 0;
@@ -919,7 +919,7 @@ export class LiveScene {
 
   // Maasoojuspump on sisetingimuste kapp: ekraan, uks klaasaknaga (selle taga pöörleb kompressor) ja soojakandja ühendused põranda all.
   drawPump(ctx, { dark }) {
-    const a = this.a, s = this.state, x = 372, y = 520, w = 116, h = 180, running = a.comp > 0.05 || a.power > 0.03;
+    const a = this.a, s = this.state, x = 372, y = 520, w = 116, h = 180, running = Boolean(s.running);
     const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, mix('#f6f8fa', '#566072', dark * 0.6)); g.addColorStop(0.5, mix('#e4e9ef', '#434c5e', dark * 0.6)); g.addColorStop(1, mix('#b9c2ce', '#323a4a', dark * 0.6));
     ctx.fillStyle = g; rr(ctx, x, y, w, h, 12); ctx.fill(); ctx.strokeStyle = '#2b3542'; ctx.lineWidth = 2.5; ctx.stroke();
     ctx.strokeStyle = rgba('#2b3542', 0.25); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 8, y + 70); ctx.lineTo(x + w - 8, y + 70); ctx.stroke();

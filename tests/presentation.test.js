@@ -95,6 +95,15 @@ test('pump state and plain-language sentence',()=>{
   assert.equal(hw.hwOn,true); assert.match(stateSentence(hw,true),/tarbevett/);
   assert.match(stateSentence(idle,false),/võrguühenduseta/);
 });
+test('pumpState exposes one running flag for the compressor, animation and text', () => {
+  const base = { workMode: { value: 5 }, heatingState: { value: 1 }, hwState: { value: 1 } };
+  const idle = pumpState({ ...base, compressor: { value: 0 } });
+  assert.equal(idle.compressor, false); assert.equal(idle.running, false);
+  const on = pumpState({ ...base, compressor: { value: 1 } });
+  assert.equal(on.compressor, true); assert.equal(on.running, true);
+  assert.equal(stateSentence(on, true), 'Pump töötab.');
+});
+
 test('durations and water-time text are human readable',()=>{
   assert.equal(formatDuration(0),'0 min'); assert.equal(formatDuration(3600000),'1 h'); assert.equal(formatDuration(5400000),'1 h 30 min');
   assert.equal(secondsAsText(1800),'30 min'); assert.equal(secondsAsText(7200),'2 h'); assert.equal(secondsAsText(5400),'1 h 30 min');

@@ -13,7 +13,9 @@ export function pumpState({ workMode, heatingState, hwState, compressor }) {
   const heatOn = modeHeat && comp !== false, hwOn = modeHw && comp !== false;
   const heatDemand = !heatOn && (Number(heatingState?.value) === 2 || (modeHeat && comp === false));
   const hwDemand = !hwOn && (Number(hwState?.value) === 2 || (modeHw && comp === false));
-  return { heatOn, hwOn, heatDemand, hwDemand, running: heatOn || hwOn, stalled: comp === false && (modeHeat || modeHw), stalledFor: modeHw && !modeHeat ? 'tarbevee soojendus' : 'küte' };
+  // Kompressori tegelik olek on töötamise peamine signaal; režiim ütleb ainult, mida parasjagu tehakse.
+  const running = comp === true || heatOn || hwOn;
+  return { heatOn, hwOn, heatDemand, hwDemand, compressor: comp, running, stalled: comp === false && (modeHeat || modeHw), stalledFor: modeHw && !modeHeat ? 'tarbevee soojendus' : 'küte' };
 }
 
 // Tarbevee temperatuur seatud sihi suhtes: mida kaugemal allpool, seda tugevam hoiatus.
@@ -52,6 +54,7 @@ export function stateSentence(state, online) {
   if (state.hwOn && state.heatOn) return 'Pump kütab praegu maja ja tarbevett.';
   if (state.hwOn) return 'Pump soojendab praegu tarbevett.';
   if (state.heatOn) return 'Pump kütab praegu maja.';
+  if (state.running) return 'Pump töötab.';
   if (state.heatDemand || state.hwDemand) return 'Pump ootab käivitamist.';
   return 'Pump puhkab.';
 }

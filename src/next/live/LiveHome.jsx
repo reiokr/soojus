@@ -29,7 +29,7 @@ export default function LiveHome({ ctx, embedded = false }) {
   useEffect(() => { const timer = setInterval(() => setClock(new Date()), 15000); return () => clearInterval(timer); }, []);
   const vent = ctx.airobot?.view?.configured ? ctx.airobot.view : null;
   const forecast = ctx.weather?.view?.weather ?? null, place = ctx.weather?.place ?? null;
-  const live = useMemo(() => buildLiveState({ m: ctx.m, climate: ctx.climate, vent, state: pumpState(ctx.m), now: clock, demo, hour, place, forecast, weatherDemo, lux: ctx.lux?.view?.configured ? ctx.lux.view : null }), [ctx.m, ctx.climate, vent, clock, demo, hour, place, forecast, weatherDemo, ctx.lux?.view]);
+  const live = useMemo(() => buildLiveState({ m: ctx.m, climate: ctx.climate, vent, state: pumpState(ctx.m), now: clock, demo, hour, place, forecast, weatherDemo, lux: ctx.lux?.view && ctx.lux.view.primary !== false ? ctx.lux.view : null }), [ctx.m, ctx.climate, vent, clock, demo, hour, place, forecast, weatherDemo, ctx.lux?.view]);
 
   useEffect(() => {
     const canvas = canvasRef.current, scene = new LiveScene(canvas);
@@ -101,8 +101,8 @@ export default function LiveHome({ ctx, embedded = false }) {
   const kw = v => `${number(v, 1)} kW`;
   const ventMode = live.vent.modeText ? (VENT_MODES[live.vent.modeText] ? tr(VENT_MODES[live.vent.modeText]) : live.vent.modeText) : tr('live.ventLabel');
   const nowText = {
-    pump: live.hwOn && live.heatOn ? tr('live.pumpBoth', { kw: kw(live.powerKw) }) : live.hwOn ? tr('live.pumpWater', { kw: kw(live.powerKw) }) : live.heatOn ? tr('live.pumpHeat', { kw: kw(live.powerKw) }) : live.compressor ? tr('live.pumpCompressor', { kw: kw(live.powerKw) }) : live.heatDemand || live.hwDemand ? tr('live.pumpWaiting') : tr('live.pumpResting'),
-    ground: live.brine.present ? tr('live.groundPresent', { in: number(live.brine.in, 1), out: number(live.brine.out, 1) }) + (live.compressor ? tr('live.groundGave', { delta: number(live.brine.in - live.brine.out, 1) }) : tr('live.groundIdle')) : live.compressor ? tr('live.groundRunning') : tr('live.groundStopped'),
+    pump: live.hwOn && live.heatOn ? tr('live.pumpBoth', { kw: kw(live.powerKw) }) : live.hwOn ? tr('live.pumpWater', { kw: kw(live.powerKw) }) : live.heatOn ? tr('live.pumpHeat', { kw: kw(live.powerKw) }) : live.running ? tr('live.pumpCompressor', { kw: kw(live.powerKw) }) : live.heatDemand || live.hwDemand ? tr('live.pumpWaiting') : tr('live.pumpResting'),
+    ground: live.brine.present ? tr('live.groundPresent', { in: number(live.brine.in, 1), out: number(live.brine.out, 1) }) + (live.running ? tr('live.groundGave', { delta: number(live.brine.in - live.brine.out, 1) }) : tr('live.groundIdle')) : live.running ? tr('live.groundRunning') : tr('live.groundStopped'),
     vent: live.vent.running ? tr('live.ventStatus', { mode: ventMode, level: live.vent.level, co2: live.vent.co2 }) : tr('live.ventStopped'),
     boiler: live.water == null ? '' : tr('live.boiler', { water: number(live.water, 1), target: live.waterTarget == null ? '—' : number(live.waterTarget, 0) }) + (live.hwOn ? tr('live.boilerHeating') : '')
   };
@@ -140,13 +140,13 @@ export default function LiveHome({ ctx, embedded = false }) {
       </div>
       <div className="live-bottom">
       {full && <div className="live-hud live-devices" role="group" aria-label={tr('live.devices')}>
-        <div className="live-device"><span className={`live-dot ${live.heatOn || live.hwOn ? 'on' : ''}`}/><div><small><Flame size={13}/> {tr('live.hotspotPump')}</small><b>{nowText.pump}</b><em>{tr('live.compressorState', { state: tr(live.compressor ? 'live.compressorOn' : 'live.compressorOff'), supply: temp(live.supply), return: temp(live.returnT) })}</em></div></div>
+        <div className="live-device"><span className={`live-dot ${live.running ? 'on' : ''}`}/><div><small><Flame size={13}/> {tr('live.hotspotPump')}</small><b>{nowText.pump}</b><em>{tr('live.compressorState', { state: tr(live.running ? 'live.compressorOn' : 'live.compressorOff'), supply: temp(live.supply), return: temp(live.returnT) })}</em></div></div>
         {live.vent.present && <div className="live-device"><span className={`live-dot ${live.vent.running ? 'air' : 'off'}`}/><div><small><Fan size={13}/> {tr('live.ventLabel')}</small><b>{nowText.vent}</b><em>{tr('live.airflow', { value: number(live.vent.airflow, 0) })}{live.vent.humidity != null ? tr('live.humidity', { value: number(live.vent.humidity, 0) }) : ''}{live.vent.bypass ? tr('live.bypass', { state: live.vent.bypassOpen == null ? tr('live.bypassAuto') : live.vent.bypassOpen ? tr('live.bypassOpen') : tr('live.bypassClosed') }) : ''}</em></div></div>}
         <div className="live-device"><span className={`live-dot ${live.hwOn ? 'on' : ''}`}/><div><small><Droplets size={13}/> {tr('live.water')}</small><b>{nowText.boiler}</b><em>{tr('live.indoor')} {temp(live.indoor)} · {tr('live.outdoor')} {temp(live.outdoor)}</em></div></div>
         {live.demo && <em className="live-demo-tag">DEMO</em>}
       </div>}
       {!full && <div className="live-hud live-status">
-        <span className={`live-dot ${live.heatOn || live.hwOn ? 'on' : ''}`}/>
+        <span className={`live-dot ${live.running ? 'on' : ''}`}/>
         <div><b>{liveSummary(live).replace(/^./, c => c.toUpperCase())}</b>{live.vent.present && <small><Fan size={12}/> {tr('live.ventLine', { mode: ventMode, level: live.vent.level, co2: live.vent.co2 })}</small>}</div>
         {live.demo && <em>DEMO</em>}
       </div>}
