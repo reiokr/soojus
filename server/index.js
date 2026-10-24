@@ -11,6 +11,7 @@ import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, effectiveMode,
 import { listAudio } from './audio.js';
 import { AppError, validatePoint, validateZone, pointResults, csvCell } from './domain.js';
 import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './store.js';
+import { energyReport, MAX_DAYS } from './energy.js';
 import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
 import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
 
@@ -360,6 +361,14 @@ async function mixHistory(req, res) {
   const rows = sources.flatMap(x => query.all(x.token, bucketSeconds, bucketSeconds, deviceOf(x), x.point, since, until, bucketSeconds));
   res.json({ rows, count: rows.length, limited: false, bucketSeconds, source: 'local', since, gaps: dataGaps([...new Set(sources.map(deviceOf))], since, until, bucketSeconds) });
 }
+// Energia- ja kuluaruanne: soojus- ja elektrivõimsuse ööpäevane integraal.
+app.get('/api/energy', async (req, res) => {
+  const device = String(req.query.device || '');
+  await historyDevice(device);
+  const days = Math.max(1, Math.min(MAX_DAYS, Number(req.query.days) || 30));
+  const to = new Date(), from = new Date(to.getTime() - days * DAY_MS);
+  res.json(energyReport(db, { deviceId: device, from: from.toISOString(), to: to.toISOString(), luxId: LUX_ID }));
+});
 app.get('/api/history/:id', async (req, res) => {
   if (req.params.id === 'climate') return climateHistory(req, res);
   if (req.params.id === 'mix') return mixHistory(req, res);

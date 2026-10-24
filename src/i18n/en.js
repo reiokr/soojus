@@ -1,16 +1,19 @@
 // English. Keep the same key structure as et.js – tests check parity.
 export default {
   nav: {
+    energy: 'Energy',
     overview: 'Home', heating: 'Heating', water: 'Hot water', ventilation: 'Ventilation', history: 'History',
     more: 'More', air: 'Air', live: 'Live home', parameters: 'Parameters', alarms: 'Notifications',
     analysis: 'Error analysis', device: 'My device', settings: 'Settings & connection'
   },
   titles: {
+    energy: 'Energy and cost',
     overview: 'Home', heating: 'Heating', water: 'Hot water', ventilation: 'Ventilation', live: 'Live home',
     history: 'History', parameters: 'All parameters', alarms: 'Notifications', analysis: 'Error analysis',
     device: 'My device', settings: 'Settings & connection'
   },
   subtitles: {
+    energy: 'Heat, electricity, COP and cost for the selected period.',
     overview: 'Heat pump status, temperatures and system readings.',
     heating: 'Heating circuit settings and readings.',
     water: 'Hot water temperature and settings.',
@@ -80,7 +83,7 @@ export default {
     stripAria: 'Last 24 hours: pump ran {duration}, hot water cycles {cycles}',
     metricLabel: 'Metric', periodLabel: 'Period',
     trend: 'Trend', favorites: 'Favourite readings',
-    metricHeat: 'Heating', metricWater: 'Hot water', metricPower: 'Power', metricClimate: 'Indoor vs outdoor',
+    metricHeat: 'Heating', metricWater: 'Hot water', metricPower: 'Heat output', metricClimate: 'Indoor vs outdoor',
     periodDay: '24 hours', periodWeek: 'Week', periodMonth: 'Month', openHistory: 'History'
   },
   live: {
@@ -110,7 +113,7 @@ export default {
     clock: 'Time', clockAria: 'Time in hours', nowBtn: 'Now',
     weatherError: 'Could not load weather data ({error}). The view continues without weather.',
     hotspotPump: 'Ground source heat pump', hotspotGround: 'Ground loop', hotspotVent: 'Ventilation', hotspotBoiler: 'Hot water tank',
-    infoPump: 'Extracts heat from the ground (brine loop), raises it to a higher temperature with the compressor and delivers it to the house and hot water. The screen shows current power; the compressor spins behind the glass.',
+    infoPump: 'Extracts heat from the ground (brine loop), raises it to a higher temperature with the compressor and delivers it to the house and hot water. The screen shows heat output; the compressor spins behind the glass.',
     infoGround: 'A pipe in the ground where the brine absorbs heat and carries it to the pump. myUplink does not provide brine temperatures; connect the pump local interface (Settings & connection) to see them.',
     infoVent: 'Exchanges indoor air for fresh air and warms the incoming air with heat from the extract air. Speed and mode depend on CO₂.',
     infoBoiler: 'Stores hot water for showers and taps. The pump heats it to the target temperature; the thermometer shows the current level.',
@@ -204,7 +207,7 @@ export default {
   point: {
     heatState: 'Heating state', hwHours: 'Hot water operating hours', quickCharge: 'Boiler quick charge', boost: 'Boosted hot water',
     supply: 'Supply', return: 'Return', returnTarget: 'Return target', buffer: 'Buffer tank temperature',
-    water: 'Hot water temperature', waterTarget: 'Hot water target', workState: 'Device operating state', power: 'Current power',
+    water: 'Hot water temperature', waterTarget: 'Hot water target', workState: 'Device operating state', power: 'Heat output',
     flow: 'Flow rate', outdoorAvg: 'Outdoor average', waterState: 'Hot water state', heatOffset: 'Heating temperature offset',
     heatMode: 'Heating mode', waterMode: 'Hot water mode', waterSetpoint: 'Hot water setpoint',
     outdoorLimit: 'Heating outdoor limit', boostTarget: 'Boosted hot water target', boostDuration: 'Extra hot water duration',
@@ -234,7 +237,7 @@ export default {
   plan: {
     techRoom: 'UTILITY', livingRoom: 'LIVING ROOM', bathroom: 'BATHROOM', footer: 'HOME PLAN · 1:50',
     ventilation: 'Ventilation', ventSpeed: 'speed {level}/10 · CO₂ {co2}', noConnection: 'no connection',
-    indoor: 'Indoor', outdoor: 'Outdoor', power: 'Current power', buffer: 'Buffer tank', supply: 'Supply', return: 'Return', water: 'Hot water',
+    indoor: 'Indoor', outdoor: 'Outdoor', power: 'Heat output', buffer: 'Buffer tank', supply: 'Supply', return: 'Return', water: 'Hot water',
     target: 'target {value} °C', openVent: 'Open ventilation page', openDevice: 'Open device page', openHeat: 'Open heating page', openWater: 'Open water page'
   },
   control: {
@@ -380,7 +383,7 @@ export default {
     methodBody: 'The context is the average of 35–5 minutes before the error (the last 5 min are excluded because the device may already have stopped). “Normal operation” is measurements from the same period while the compressor was running. Data: heat pump local interface (Luxtronik) and myUplink.',
     colParam: 'Parameter', colError: 'During error', colBase: 'Normal operation', colDelta: 'Difference',
     colTime: 'Time', colCode: 'Code', colMode: 'Mode', colBrine: 'Brine in', colSpread: 'ΔT', colSuction: 'Suction',
-    colLow: 'Low', colHigh: 'High', colPower: 'Power', colOutdoor: 'Outdoor',
+    colLow: 'Low', colHigh: 'High', colPower: 'Heat output', colOutdoor: 'Outdoor',
     row: '{label}: {error} {unit} (normal {base}{delta})', rowDelta: ', difference {delta}',
     ctxBrine: 'brine in {value} °C', ctxSpread: 'ΔT {value} K', ctxSuction: 'suction {value} °C', ctxOutdoor: 'outdoor {value} °C',
     obsLowLoad: 'The error occurs at low load: power {error} kW, normal {base} kW.',
@@ -404,7 +407,7 @@ export default {
     note: 'Based on {count} errors with enough measurements before the error.',
     errorsTitle: 'Error list', errorsMeta: '{count} entries · context before the error',
     colTime: 'Time', colCode: 'Code', colMode: 'Mode', colBrine: 'Brine in', colSpread: 'ΔT', colSuction: 'Suction',
-    colLow: 'Low', colHigh: 'High', colPower: 'Power', colOutdoor: 'Outdoor',
+    colLow: 'Low', colHigh: 'High', colPower: 'Heat output', colOutdoor: 'Outdoor',
     reportTitle: 'Report for the technician', reportMeta: 'Preview – this is how the report looks in email and PDF.',
     notesLabel: 'Notes (added to the report)', notesPlaceholder: 'E.g. technician visited on 20.10, filters installed; cleaning postponed.',
     copy: 'Copy', download: 'Download (.html)', print: 'Print / PDF', email: 'Email',
@@ -437,8 +440,8 @@ export default {
   },
   ov: {
     outdoorAvg: 'Average {value} °C', requestFailed: 'Refresh failed', requestTime: 'Request {time}', every60: 'every 60 s',
-    returnDetail: 'Return {value} °C', waterTarget: 'Target temperature {value} °C', compressor: 'Compressor {value}', reportedPower: 'Power reported by the device',
-    hintHeat: 'HEATING CIRCUIT', hintWater: 'HOT WATER', hintPower: 'POWER', hintClimate: 'OUTDOOR CLIMATE',
+    returnDetail: 'Return {value} °C', waterTarget: 'Target temperature {value} °C', compressor: 'Compressor {value}', reportedPower: 'Heat output reported by the device',
+    hintHeat: 'HEATING CIRCUIT', hintWater: 'HOT WATER', hintPower: 'HEAT OUTPUT', hintClimate: 'OUTDOOR CLIMATE',
     flowTitle: 'Home heating loop', flowSubtitle: 'Heat flows where it is needed.', deviceReadings: 'Device readings',
     noticesUnavailable: 'Alarm status unavailable', alarmActive: 'There is an active alarm', noAlarms: 'No active alarms', deviceDetails: 'Device details',
     quickTitle: 'Quick control', quickSubtitle: 'The essentials within reach.', seeSettings: 'See settings', openHeat: 'Open heating settings',
@@ -470,6 +473,21 @@ export default {
     homeMode: 'Home mode', current: 'Currently: {mode}', editHome: 'Edit home mode',
     readingsWater: 'Hot water readings', readingsHeat: 'Heating circuit readings', reported: 'Reported by the device',
     scheduleNote: 'This device does not expose schedules through the public API. Manage the schedule on the device control panel.'
+  },
+  energy: {
+    title: 'Energy and cost', subtitle: 'Heat produced, electricity used, COP and cost for the selected period.',
+    summary: 'Summary', chartTitle: 'Daily energy', tableTitle: 'By day',
+    period: 'Period', d7: '7 days', d30: '30 days', d90: '90 days', d365: '365 days',
+    heat: 'Heat produced', electric: 'Electricity used', cop: 'COP', cost: 'Cost', hours: 'Compressor run time',
+    price: 'Electricity price', priceUnit: '€/kWh', priceHint: 'Include grid fees and taxes.',
+    chartHeat: 'Heat', chartElectric: 'Electricity',
+    tableDay: 'Day', tableHeat: 'Heat, kWh', tableElectric: 'Electricity, kWh', tableCop: 'COP', tableCost: 'Cost, €', tableHours: 'Run time, h', tableOutdoor: 'Outdoor, °C',
+    export: 'Export CSV', loading: 'Loading energy data…', error: 'Could not load energy data.',
+    empty: 'Not enough data for the selected period.',
+    noElectric: 'Electricity data comes from the heat pump local interface. Connect it in settings to see electricity used, COP and cost.',
+    note: 'Heat and electricity are integrated over time from the pump’s own power readings. COP = heat / electricity. The result is an estimate, not a calibrated meter.',
+    sourceLux: 'Source: heat pump local interface (heat and electric power).', sourceUplink: 'Source: myUplink (heat output only).',
+    total: 'Total', kwh: 'kWh', h: 'h'
   },
   settings: {
     ui: { title: 'Interface', subtitle: 'Choose how the app looks. Data and settings are the same in both.', aria: 'Interface', classic: 'Classic', next: 'New · Home plan' },

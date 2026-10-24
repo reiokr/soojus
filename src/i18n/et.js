@@ -1,16 +1,19 @@
 // Eesti keel (vaikimisi). Võtmed on jaotatud valdkondade kaupa; uued lehed lisavad võtmeid järk-järgult.
 export default {
   nav: {
+    energy: 'Energia',
     overview: 'Kodu', heating: 'Küte', water: 'Tarbevesi', ventilation: 'Ventilatsioon', history: 'Ajalugu',
     more: 'Veel', air: 'Õhk', live: 'Elav kodu', parameters: 'Parameetrid', alarms: 'Teavitused',
     analysis: 'Vigade analüüs', device: 'Minu seade', settings: 'Seaded ja ühendus'
   },
   titles: {
+    energy: 'Energia ja kulu',
     overview: 'Kodu', heating: 'Küte', water: 'Tarbevesi', ventilation: 'Ventilatsioon', live: 'Elav kodu',
     history: 'Ajalugu', parameters: 'Kõik parameetrid', alarms: 'Teavitused', analysis: 'Vigade analüüs',
     device: 'Minu seade', settings: 'Seaded ja ühendus'
   },
   subtitles: {
+    energy: 'Soojus, elekter, COP ja kulu valitud perioodil.',
     overview: 'Soojuspumba tööolek, temperatuurid ja süsteemi näidud.',
     heating: 'Kütteringi seadistused ja näidud.',
     water: 'Sooja vee temperatuur ja seadistused.',
@@ -80,7 +83,7 @@ export default {
     stripAria: 'Viimased 24 tundi: pump töötas {duration}, tarbevee tsükleid {cycles}',
     metricLabel: 'Näit', periodLabel: 'Ajavahemik',
     trend: 'Trend', favorites: 'Lemmiknäidud',
-    metricHeat: 'Küte', metricWater: 'Tarbevesi', metricPower: 'Võimsus', metricClimate: 'Toas vs väljas',
+    metricHeat: 'Küte', metricWater: 'Tarbevesi', metricPower: 'Soojusvõimsus', metricClimate: 'Toas vs väljas',
     periodDay: '24 tundi', periodWeek: 'Nädal', periodMonth: 'Kuu', openHistory: 'Ajalugu'
   },
   live: {
@@ -110,7 +113,7 @@ export default {
     clock: 'Kellaaeg', clockAria: 'Kellaaeg tundides', nowBtn: 'Praegu',
     weatherError: 'Ilmaandmeid ei õnnestunud laadida ({error}). Vaade töötab ilma ilmata edasi.',
     hotspotPump: 'Maasoojuspump', hotspotGround: 'Maakontuur', hotspotVent: 'Ventilatsioon', hotspotBoiler: 'Veeboiler',
-    infoPump: 'Võtab soojust maapinnast (maakontuuri soojakandjast), tõstab selle kompressoriga kõrgemale temperatuurile ja annab majale ning tarbeveele. Ekraanil on hetkevõimsus, klaasi taga pöörleb kompressor.',
+    infoPump: 'Võtab soojust maapinnast (maakontuuri soojakandjast), tõstab selle kompressoriga kõrgemale temperatuurile ja annab majale ning tarbeveele. Ekraanil on soojusvõimsus, klaasi taga pöörleb kompressor.',
     infoGround: 'Toru maa sees, kus soojakandja võtab maapinnast soojust ja viib selle pumbani. myUplink ei anna soojakandja temperatuure; need saab nähtavale, kui ühendad pumba kohtvõrguliidese (Seaded ja ühendus).',
     infoVent: 'Vahetab toaõhu värske vastu ja soojendab sissepuhutavat õhku väljatõmbeõhu soojusega. Kiirus ja režiim sõltuvad CO₂ tasemest.',
     infoBoiler: 'Hoiab sooja tarbevett dušši ja kraanide jaoks. Pump soojendab selle sihttemperatuurini, termomeeter näitab hetketaset.',
@@ -204,7 +207,7 @@ export default {
   point: {
     heatState: 'Kütte olek', hwHours: 'Tarbevee töötunnid', quickCharge: 'Boileri kiirlaadimine', boost: 'Kõrgendatud tarbevesi',
     supply: 'Pealevool', return: 'Tagasivool', returnTarget: 'Tagasivoolu siht', buffer: 'Akupaagi temperatuur',
-    water: 'Tarbevee temperatuur', waterTarget: 'Tarbevee siht', workState: 'Seadme tööolek', power: 'Hetkevõimsus',
+    water: 'Tarbevee temperatuur', waterTarget: 'Tarbevee siht', workState: 'Seadme tööolek', power: 'Soojusvõimsus',
     flow: 'Vooluhulk', outdoorAvg: 'Välisõhu keskmine', waterState: 'Tarbevee olek', heatOffset: 'Kütte temperatuuri nihe',
     heatMode: 'Kütte töörežiim', waterMode: 'Tarbevee töörežiim', waterSetpoint: 'Tarbevee sihttemperatuur',
     outdoorLimit: 'Kütte välisõhupiir', boostTarget: 'Kõrgendatud tarbevee siht', boostDuration: 'Ekstra sooja vee kestus',
@@ -234,7 +237,7 @@ export default {
   plan: {
     techRoom: 'TEHNORUUM', livingRoom: 'ELUTUBA', bathroom: 'VANNITUBA', footer: 'KODU-PLAAN · 1:50',
     ventilation: 'Ventilatsioon', ventSpeed: 'kiirus {level}/10 · CO₂ {co2}', noConnection: 'ühendus puudub',
-    indoor: 'Toas', outdoor: 'Väljas', power: 'Hetkevõimsus', buffer: 'Akupaak', supply: 'Pealevool', return: 'Tagasivool', water: 'Tarbevesi',
+    indoor: 'Toas', outdoor: 'Väljas', power: 'Soojusvõimsus', buffer: 'Akupaak', supply: 'Pealevool', return: 'Tagasivool', water: 'Tarbevesi',
     target: 'siht {value} °C', openVent: 'Ava ventilatsiooni leht', openDevice: 'Ava seadme leht', openHeat: 'Ava kütte leht', openWater: 'Ava tarbevee leht'
   },
   control: {
@@ -380,7 +383,7 @@ export default {
     methodBody: 'Kontekst on keskmine 35–5 minutit enne viga (viimased 5 min jäetakse välja, sest seade võib olla juba seiskunud). "Tavaline töö" on sama perioodi mõõtmised, kui kompressor töötas. Andmed: soojuspumba kohalik liides (Luxtronik) ja myUplink.',
     colParam: 'Parameeter', colError: 'Vea ajal', colBase: 'Tavaline töö', colDelta: 'Vahe',
     colTime: 'Aeg', colCode: 'Kood', colMode: 'Režiim', colBrine: 'Maast', colSpread: 'ΔT', colSuction: 'Imemist.',
-    colLow: 'Madal', colHigh: 'Kõrge', colPower: 'Võimsus', colOutdoor: 'Välisõhk',
+    colLow: 'Madal', colHigh: 'Kõrge', colPower: 'Soojusvõimsus', colOutdoor: 'Välisõhk',
     row: '{label}: {error} {unit} (tavaline {base}{delta})', rowDelta: ', vahe {delta}',
     ctxBrine: 'maast {value} °C', ctxSpread: 'ΔT {value} K', ctxSuction: 'imemist {value} °C', ctxOutdoor: 'väljas {value} °C',
     obsLowLoad: 'Viga esineb madalal koormusel: võimsus {error} kW, tavaline {base} kW.',
@@ -404,7 +407,7 @@ export default {
     note: 'Põhineb {count} veal, mille kohta oli enne viga piisavalt mõõtmisi.',
     errorsTitle: 'Vigade loend', errorsMeta: '{count} kirjet · kontekst enne viga',
     colTime: 'Aeg', colCode: 'Kood', colMode: 'Režiim', colBrine: 'Maast', colSpread: 'ΔT', colSuction: 'Imemist.',
-    colLow: 'Madal', colHigh: 'Kõrge', colPower: 'Võimsus', colOutdoor: 'Välisõhk',
+    colLow: 'Madal', colHigh: 'Kõrge', colPower: 'Soojusvõimsus', colOutdoor: 'Välisõhk',
     reportTitle: 'Raport tehnikule', reportMeta: 'Eelvaade – nii näeb raport e-kirjas ja PDF-is välja.',
     notesLabel: 'Märkused (lisatakse raportisse)', notesPlaceholder: 'Nt: tehnik käis 20.10, filtrid paigaldatud; puhastus lükatud edasi.',
     copy: 'Kopeeri', download: 'Laadi alla (.html)', print: 'Prindi / PDF', email: 'E-post',
@@ -437,8 +440,8 @@ export default {
   },
   ov: {
     outdoorAvg: 'Keskmine {value} °C', requestFailed: 'Värskendus ebaõnnestus', requestTime: 'Päring {time}', every60: 'iga 60 sek',
-    returnDetail: 'Tagasivool {value} °C', waterTarget: 'Sihttemperatuur {value} °C', compressor: 'Kompressor {value}', reportedPower: 'Seadme raporteeritud võimsus',
-    hintHeat: 'KÜTTERING', hintWater: 'TARBEVESI', hintPower: 'VÕIMSUS', hintClimate: 'VÄLISKLIIMA',
+    returnDetail: 'Tagasivool {value} °C', waterTarget: 'Sihttemperatuur {value} °C', compressor: 'Kompressor {value}', reportedPower: 'Seadme raporteeritud soojusvõimsus',
+    hintHeat: 'KÜTTERING', hintWater: 'TARBEVESI', hintPower: 'SOOJUSVÕIMSUS', hintClimate: 'VÄLISKLIIMA',
     flowTitle: 'Kodu soojusring', flowSubtitle: 'Soojus liigub sinna, kus seda vajad.', deviceReadings: 'Seadme näidud',
     noticesUnavailable: 'Häirete olek pole saadaval', alarmActive: 'Süsteemis on aktiivne häire', noAlarms: 'Aktiivseid häireid pole', deviceDetails: 'Seadme üksikasjad',
     quickTitle: 'Kiirjuhtimine', quickSubtitle: 'Kõige vajalikum käeulatuses.', seeSettings: 'Vaata seadistusi', openHeat: 'Ava kütte seaded',
@@ -470,6 +473,21 @@ export default {
     homeMode: 'Kodu režiim', current: 'Praegu: {mode}', editHome: 'Muuda kodurežiimi',
     readingsWater: 'Tarbevee näidud', readingsHeat: 'Kütteringi näidud', reported: 'Seadme raporteeritud väärtused',
     scheduleNote: 'Ajagraafikuid see seade avaliku API kaudu ei paku. Ajastust saad hallata seadme enda juhtpaneelilt.'
+  },
+  energy: {
+    title: 'Energia ja kulu', subtitle: 'Toodetud soojus, tarbitud elekter, COP ja kulu valitud perioodil.',
+    summary: 'Kokkuvõte', chartTitle: 'Päevane energia', tableTitle: 'Päevade kaupa',
+    period: 'Ajavahemik', d7: '7 päeva', d30: '30 päeva', d90: '90 päeva', d365: '365 päeva',
+    heat: 'Toodetud soojus', electric: 'Tarbitud elekter', cop: 'COP', cost: 'Kulu', hours: 'Kompressori tööaeg',
+    price: 'Elektri hind', priceUnit: '€/kWh', priceHint: 'Sisalda võrgutasu ja maksud.',
+    chartHeat: 'Soojus', chartElectric: 'Elekter',
+    tableDay: 'Päev', tableHeat: 'Soojus, kWh', tableElectric: 'Elekter, kWh', tableCop: 'COP', tableCost: 'Kulu, €', tableHours: 'Tööaeg, h', tableOutdoor: 'Välisõhk, °C',
+    export: 'Ekspordi CSV', loading: 'Laadin energiaandmeid…', error: 'Energiaandmeid ei saanud laadida.',
+    empty: 'Valitud perioodil pole piisavalt andmeid.',
+    noElectric: 'Elektriandmed pärinevad pumba kohalikust liidesest. Ühenda see seadetes, et näha tarbitud elektrit, COP-i ja kulu.',
+    note: 'Soojus ja elekter on arvutatud pumba enda võimsusnäitude ajalisest integraalist. COP = soojus / elekter. Tulemus on hinnanguline, mitte kalibreeritud arvesti.',
+    sourceLux: 'Allikas: pumba kohalik liides (soojus- ja elektrivõimsus).', sourceUplink: 'Allikas: myUplink (ainult soojusvõimsus).',
+    total: 'Kokku', kwh: 'kWh', h: 'h'
   },
   settings: {
     ui: { title: 'Liides', subtitle: 'Vali, kuidas rakendus välja näeb. Andmed ja seadistused on mõlemas samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },

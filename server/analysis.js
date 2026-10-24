@@ -12,7 +12,7 @@ export const ANALYSIS_PARAMS = [
   ['pressure_low', 'Madalrõhk', 'bar'],
   ['pressure_high', 'Kõrgrõhk', 'bar'],
   ['hot_gas', 'Kuumgaas', '°C'],
-  ['21', 'Võimsus', 'kW'],
+  ['21', 'Soojusvõimsus', 'kW'],
   ['5', 'Välisõhk', '°C'],
   ['6', 'Tarbevesi', '°C']
 ];

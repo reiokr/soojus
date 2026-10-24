@@ -111,6 +111,19 @@ test('mobile layout and navigation stay within viewport',async({page})=>{
   await page.screenshot({path:'test-results/mobile.png',fullPage:true});
 });
 
+test('energy page shows daily heat, electricity, COP, cost and exports CSV', async ({ page }) => {
+  await page.goto('/?ui=next&page=energy');
+  await expect(page.getByRole('heading', { name: 'Energia ja kulu', exact: true })).toBeVisible();
+  await expect(page.locator('.en-card')).toHaveCount(5);
+  await expect(page.locator('.en-card').filter({ hasText: 'Toodetud soojus' })).toContainText(/kWh/);
+  await expect(page.locator('.en-card').filter({ hasText: 'COP' })).toContainText(/\d/);
+  await expect(page.locator('.en-table tbody tr').first()).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Ekspordi CSV' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('soojus-energia-30p.csv');
+});
+
 test('history supports explicit windows, zoom by dragging and previous-period comparison',async({page,request})=>{
   const systems=await(await request.get('/api/systems')).json();const id=systems[0].devices[0].id;
   const to=new Date(),from=new Date(to.getTime()-6*3600000);

@@ -2958,3 +2958,112 @@ html[data-ui="next"] .nx-liide .segmented {
   .nx-good-dot { transition: none; }
   .nx-good-dot i::after { animation: none; opacity: .28; }
 }
+
+/* Energia ja kulu */
+.en-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 12px 0 14px;
+}
+.en-card {
+  border: 1px solid var(--nx-line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 12px 14px;
+}
+.en-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.en-card b {
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+.en-card b i {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 5px;
+}
+.en-card em {
+  display: block;
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.en-period { max-width: 100%; }
+.en-price-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.en-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.en-price input {
+  width: 84px;
+  padding: 6px 8px;
+  border: 1px solid var(--nx-line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+.en-price b {
+  font-weight: 600;
+  color: var(--muted);
+}
+.en-price-row small { color: var(--muted); font-size: 12px; }
+.en-price-row .nx-edit { margin-left: auto; }
+.en-chart { width: 100%; height: 300px; margin-top: 10px; }
+.en-table-wrap {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--nx-line);
+  border-radius: 10px;
+  margin-top: 10px;
+}
+.en-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.en-table th,
+.en-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--nx-line);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.en-table th:first-child,
+.en-table td:first-child { text-align: left; }
+.en-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.en-table tbody tr:last-child td { border-bottom: 0; }
+.en-note {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 12px 0 0;
+}
+@media (max-width: 700px) {
+  .en-chart { height: 240px; }
+  .en-table { font-size: 12px; }
+  .en-period { width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); }
+}
