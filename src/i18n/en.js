@@ -511,6 +511,14 @@ export default {
     needSplit: 'To calculate with day/night prices, enter the day and night kWh too.',
     billLine: 'Bill {bill} € · calculated {computed} € · difference {diff} €', estimate: 'Estimate for the whole period: {kwh} kWh · {cost} €'
   },
+  compare: {
+    title: 'Package comparison', subtitle: 'Variable cost for the selected period, excluding the monthly fee.',
+    package: 'Package', current: 'Current package', fixed: 'Fixed price', dual: 'Dual rate', exchange: 'Exchange price',
+    fixedPrice: 'Fixed, €/kWh', dayPrice: 'Day, €/kWh', nightPrice: 'Night, €/kWh', margin: 'Margin, €/kWh',
+    cost: 'Cost', average: 'Average', difference: 'Difference',
+    coverage: 'Exchange price covers {percent}% of consumption', noPrices: 'Could not load exchange prices. Try again later.',
+    note: 'The comparison uses the same measured compressor consumption and the same grid components. The fixed and dual prices include VAT; the exchange package adds the spot price (excl. VAT) and margin. The monthly fee is excluded. Exchange price: Nord Pool / Elering.'
+  },
   settings: {
     ui: { title: 'Interface', subtitle: 'Choose how the app looks. Data and settings are the same in both.', aria: 'Interface', classic: 'Classic', next: 'New · Home plan' },
     conn: {

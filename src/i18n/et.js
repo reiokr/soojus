@@ -511,6 +511,14 @@ export default {
     needSplit: 'Päevase ja öise hinnaga kulu jaoks sisesta ka päevane ja öine kWh.',
     billLine: 'Arve {bill} € · arvutus {computed} € · vahe {diff} €', estimate: 'Hinnang kogu perioodile: {kwh} kWh · {cost} €'
   },
+  compare: {
+    title: 'Pakettide võrdlus', subtitle: 'Muutuv kulu valitud perioodil, ilma kuutasuta.',
+    package: 'Pakett', current: 'Praegune pakett', fixed: 'Fikseeritud hind', dual: 'Kahetariifne', exchange: 'Börsihind',
+    fixedPrice: 'Fikseeritud, €/kWh', dayPrice: 'Päev, €/kWh', nightPrice: 'Öö, €/kWh', margin: 'Marginaal, €/kWh',
+    cost: 'Kulu', average: 'Keskmine', difference: 'Vahe',
+    coverage: 'Börsihind kaetud {percent}% ulatuses', noPrices: 'Börsihindu ei saanud laadida. Proovi hiljem uuesti.',
+    note: 'Võrdlus kasutab sama mõõdetud kompressori tarbimist ja samu võrgukomponente. Fikseeritud ja kahetariifne hind on lõpphind koos käibemaksuga; börsipakett lisab spot-hinna (ilma KM-ta) ja marginaali. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
+  },
   settings: {
     ui: { title: 'Liides', subtitle: 'Vali, kuidas rakendus välja näeb. Andmed ja seadistused on mõlemas samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },
     conn: {

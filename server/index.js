@@ -12,6 +12,7 @@ import { listAudio } from './audio.js';
 import { AppError, validatePoint, validateZone, pointResults, csvCell } from './domain.js';
 import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './store.js';
 import { energyReport, MAX_DAYS } from './energy.js';
+import { ensurePriceTable, syncPrices, pricesFor } from './prices.js';
 import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
 import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
 
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS pump_errors (time TEXT NOT NULL, code INTEGER NOT NUL
 db.exec(`UPDATE samples SET label = REPLACE(REPLACE(REPLACE(REPLACE(label, 'Alkoholi', 'Soojakandja'), 'alkoholi', 'soojakandja'), 'Alkohol', 'Soojakandja'), 'alkohol', 'soojakandja') WHERE label LIKE '%lkohol%';
 UPDATE samples SET label = REPLACE(label, 'Soojakandjai', 'Soojakandja') WHERE label LIKE '%Soojakandjai%'`);
 const { compact, archiveSamples } = createStore(db, root);
+ensurePriceTable(db);
 const getSetting = key => { const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key); return row ? JSON.parse(row.value) : null; };
 const setSetting = (key, value) => db.prepare('INSERT OR REPLACE INTO settings VALUES(?,?)').run(key, JSON.stringify(value));
 const audit = (device, action, detail) => db.prepare('INSERT INTO audit(time,device,action,detail) VALUES(?,?,?,?)').run(new Date().toISOString(), device, action, JSON.stringify(detail));
@@ -368,6 +370,13 @@ app.get('/api/energy', async (req, res) => {
   const days = Math.max(1, Math.min(MAX_DAYS, Number(req.query.days) || 30));
   const to = new Date(), from = new Date(to.getTime() - days * DAY_MS);
   res.json(energyReport(db, { deviceId: device, from: from.toISOString(), to: to.toISOString(), luxId: LUX_ID }));
+});
+// Börsihinna ajalugu (Nord Pool / Elering): tunnikeskmised hinnad kohalikus ajas, EUR/kWh ilma KM-ta.
+app.get('/api/prices', async (req, res) => {
+  const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
+  const to = new Date(), from = new Date(to.getTime() - days * DAY_MS);
+  const sync = await syncPrices(db, { from, to });
+  res.json({ from: from.toISOString(), to: to.toISOString(), source: 'elering', ...sync, prices: pricesFor(db, { from, to }) });
 });
 app.get('/api/history/:id', async (req, res) => {
   if (req.params.id === 'climate') return climateHistory(req, res);

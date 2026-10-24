@@ -2960,6 +2960,18 @@ html[data-ui="next"] .nx-liide .segmented {
 }
 
 /* Energia ja kulu */
+.en-compare-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px 14px;
+  margin: 10px 0 12px;
+}
+.en-compare-inputs .en-price span { flex: 1; }
+.en-compare-inputs .en-price input { flex: 0 0 84px; width: 84px; }
+.en-compare tr.current td { font-weight: 700; }
+.en-compare .cheaper { color: var(--nx-ok); }
+.en-compare .dearer { color: var(--nx-heat); }
+.en-compare small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
 .en-coverage { color: var(--muted); font-size: 12px; line-height: 1.5; margin: -4px 0 10px; }
 .en-meter-inputs {
   display: grid;
