@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdtempSync, existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { createStore, RETENTION_DAYS, DAY_MS } from '../server/store.js';
 
 function setup() {
@@ -10,7 +11,7 @@ function setup() {
   db.exec(`CREATE TABLE samples (device TEXT, point TEXT, time TEXT, value REAL, label TEXT, unit TEXT, PRIMARY KEY(device,point,time));
 CREATE INDEX samples_time ON samples(time);
 CREATE TABLE pump_errors (time TEXT NOT NULL, code INTEGER NOT NULL, seen TEXT NOT NULL, PRIMARY KEY(time,code));`);
-  const root = mkdtempSync('/tmp/opencode/soojus-store-');
+  const root = mkdtempSync(path.join(tmpdir(), 'soojus-store-'));
   return { db, root, store: createStore(db, root) };
 }
 const dayOf = t => new Date(Math.floor(Date.parse(t) / DAY_MS) * DAY_MS).toISOString();
