@@ -138,7 +138,7 @@ function Overview({ ctx }) {
   const dT = m.supply?.value != null && m.returnT?.value != null ? Number(m.supply.value) - Number(m.returnT.value) : null;
   return <>
     <section className="nx-hero">
-      {shownNotes.length > 0 ? <ul className="nx-notes">{shownNotes.map((n, i) => <li key={n.id ?? i} className={n.tone}><AlertCircle size={16}/><span>{n.text}</span><button type="button" className="nx-link nx-dismiss" onClick={() => hide(n)} aria-label={t('overview.hide')}>{t('overview.hide')}</button>{n.action && <button type="button" className="nx-link" onClick={() => ctx.navigate(n.action[1])}>{n.action[0]} <ArrowRight size={13}/></button>}</li>)}</ul> : notes.length === 0 && <AllGood text={t('overview.allgood')}/>}
+      {shownNotes.length > 0 ? <ul className="nx-notes">{shownNotes.map((n, i) => <li key={n.id ?? i} className={n.tone}><AlertCircle size={16}/><span>{n.text}</span><button type="button" className="nx-link nx-dismiss" onClick={() => hide(n)} aria-label={n.custom ? t('overview.hideError') : t('overview.hideNote', { text: n.text })}>{t('overview.hide')}</button>{n.action && <button type="button" className="nx-link" onClick={() => ctx.navigate(n.action[1])}>{n.action[0]} <ArrowRight size={13}/></button>}</li>)}</ul> : notes.length === 0 && <AllGood text={t('overview.allgood')}/>}
     </section>
     <div className="nx-overview">
     <Suspense fallback={<section className="nx-panel"><div className="nx-skeleton"><i/></div></section>}><LiveHome ctx={ctx} embedded/></Suspense>

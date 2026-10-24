@@ -70,6 +70,7 @@ export default {
     ventOffline: 'No connection to the ventilation unit.',
     subscription: '{name} is valid for {days} more days.',
     subscriptionExpired: '{name} has expired.',
+    hideError: 'Hide this error note (the log stays in Settings)', hideNote: 'Hide note: {text}',
     hide: 'Hide', show: 'Show', hidden: 'hidden', view: 'View',
     today: 'Last 24 hours', coverage: 'Data covers {percent}% of the time',
     atLeast: 'at least',

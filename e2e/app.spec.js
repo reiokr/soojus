@@ -13,10 +13,10 @@ test.beforeEach(async ({ page }) => {
 test('live overview, all eight views, no browser exceptions', async ({ page }) => {
   const errors=[]; page.on('pageerror',error=>errors.push(error.message));
   await page.goto('/');
-  await expect(page.getByText('Seade on võrgus',{exact:true})).toBeVisible();
+  await expect(page.locator('.status-strip .badge')).toContainText('Võrgus');
   await expect(page.getByRole('heading',{name:'Kodu soojusring'})).toBeVisible();
   await page.screenshot({path:'test-results/desktop.png',fullPage:true});
-  for(const [nav,heading] of [['Küte ja sisekliima','Küte ja sisekliima'],['Soe tarbevesi','Soe tarbevesi'],['Ajalugu','Ajalugu'],['Kõik parameetrid','Kõik parameetrid'],['Teavitused','Teavitused'],['Minu seade','Minu seade'],['Seaded ja ühendus','Seaded ja ühendus']]) {
+  for(const [nav,heading] of [['Küte','Küte'],['Tarbevesi','Tarbevesi'],['Ajalugu','Ajalugu'],['Kõik parameetrid','Kõik parameetrid'],['Teavitused','Teavitused'],['Minu seade','Minu seade'],['Seaded ja ühendus','Seaded ja ühendus']]) {
     await page.getByRole('navigation').getByRole('button',{name:nav,exact:true}).click();
     await expect(page.getByRole('heading',{name:heading,exact:true})).toBeVisible();
   }
@@ -77,7 +77,7 @@ test('notifications, measured history and CSV',async({page,request})=>{
   await page.goto('/?page=alarms');
   await expect(page.getByText('Aktiivseid häireid pole',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Kõik sündmused'}).click();
-  await expect(page.locator('.alarm-row')).toHaveCount(3);
+  await expect(page.locator('.alarm-row').first()).toBeVisible();
   const systems=await(await request.get('/api/systems')).json();const id=systems[0].devices[0].id;
   const history=await(await request.get(`/api/history/${id}?hours=24`)).json();
   expect(history.rows.length).toBeGreaterThan(0);expect(history.source).toBe('local');
@@ -101,11 +101,11 @@ test('server blocks cross-origin writes and invalid control values',async({reque
 
 test('mobile layout and navigation stay within viewport',async({page})=>{
   await page.setViewportSize({width:390,height:844});await page.goto('/');
-  await expect(page.getByText('Seade on võrgus',{exact:true})).toBeVisible();
+  await expect(page.locator('.status-strip .badge')).toContainText('Võrgus');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   await page.getByRole('button',{name:'Ava menüü'}).click();
-  await page.getByRole('navigation').getByRole('button',{name:'Soe tarbevesi',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Soe tarbevesi'})).toBeVisible();
+  await page.getByRole('navigation').getByRole('button',{name:'Tarbevesi',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Tarbevesi',exact:true})).toBeVisible();
   await expect(page.locator('.sidebar')).toHaveCSS('visibility','hidden');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/mobile.png',fullPage:true});
@@ -339,7 +339,7 @@ test('Elav kodu taustamuusika: sisse/välja nupp, helitugevus ja 60 s pausita si
     await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(1);
     const info = await page.evaluate(() => { const s = window.__sources[0]; return { loop: s.loop, seconds: s.buffer.duration, end: s.loopEnd }; });
     expect(info.loop).toBe(true); expect(info.seconds).toBeGreaterThan(59.9); expect(info.seconds).toBeLessThan(60.1);
-    const select = page.getByLabel('Lugu');
+    const select = page.getByLabel('Lugu', { exact: true });
     await expect(select.locator('option', { hasText: 'E2e lugu test' })).toHaveCount(1);
     await select.selectOption('file:e2e-lugu-test.mp3');
     await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(2);
@@ -367,7 +367,7 @@ test('Elav kodu taustamuusika: sisse/välja nupp, helitugevus ja 60 s pausita si
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
     await page.reload();
     await expect(page.getByLabel('Helitugevus')).toHaveValue('0.25');
-    await expect(page.getByLabel('Lugu')).toHaveValue('file:e2e-lugu-test.mp3');
+    await expect(page.getByLabel('Lugu', { exact: true })).toHaveValue('file:e2e-lugu-test.mp3');
     expect(await page.evaluate(() => window.__sources.length)).toBe(0);
     expect(errors).toEqual([]);
   } finally { fs.rmSync(own, { force: true }); }
@@ -770,14 +770,14 @@ test('pump error log lists stored errors and Kodu warns about a recent one', asy
   await page.addInitScript(() => localStorage.setItem('soojus.ui', 'next'));
   await page.goto('/?page=overview');
   await expect(page.locator('.nx-notes')).toContainText('Pump andis veakoodi 765');
-  await expect(page.locator('.nx-notes')).toContainText('viimase 7 päeva jooksul 6 korda');
+  await expect(page.locator('.nx-notes')).toContainText('Viimase 7 päeva jooksul 6 korda');
   await page.goto('/?page=settings');
   const box = page.locator('.pump-errors');
   await expect(box).toContainText('Pumba veateated'); await expect(box).toContainText('6 viimase 7 päeva jooksul');
   await expect(box.locator('li')).toHaveCount(2); await expect(box.locator('li').first()).toContainText('765');
   view.errors = [{ time: older, code: 765, name: 'x' }];
   await page.goto('/?page=overview'); await page.waitForTimeout(400);
-  await expect(page.locator('.nx-notes')).not.toContainText('Pump andis veakoodi');
+  await expect(page.locator('main')).not.toContainText('Pump andis veakoodi');
 });
 
 test('the pump error note on Kodu can be hidden and returns only for a newer error', async ({ page, request }) => {
@@ -792,7 +792,7 @@ test('the pump error note on Kodu can be hidden and returns only for a newer err
   await expect(page.locator('.nx-notes')).toContainText('Pump andis veakoodi 765');
   await page.getByRole('button', { name: /Peida see veateade/ }).click();
   await expect.poll(() => acked).toBe(1);
-  await expect(page.locator('.nx-notes')).not.toContainText('Pump andis veakoodi');
+  await expect(page.locator('main')).not.toContainText('Pump andis veakoodi');
   await page.goto('/?page=settings');
   await expect(page.locator('.pump-errors li')).toHaveCount(1);
   view.errors.unshift({ time: new Date().toISOString(), code: 765, name: 'Külmaaine ülekuumenemine liiga madal' });

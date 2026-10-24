@@ -119,11 +119,16 @@ Avalik API ei paku kõiki myUplinki enda veebilehe funktsioone. Ajagraafikud pol
 ## Kontrollimine
 
 ```sh
-npm test
-npm run build
-npx playwright test
+npm test                 # ühikutestid (sõnastikud, loogika, server)
+npm run build            # tootmisbuild
+npm run test:e2e         # Playwrighti täistestid (vajab töötavat rakendust ja seadet)
+npm run test:e2e:smoke   # suitsutestid (töötavad ka seadme ja kontota; CI-s)
 ```
 
-Brauseritestid kasutavad käivat serverit aadressil localhost:3210. Kirjutamise töövoogu kontrollitakse mock-vastusega, füüsilise soojuspumba seadistusi testide käigus ei muudeta.
+Brauseritestid kasutavad käivat serverit aadressil `http://localhost:3210` (muudetav `E2E_BASE_URL`-iga). Kui server juba töötab, kasutatakse seda; muidu käivitab Playwright `npm start` (eelnevalt `npm run build`). Esmakordselt installi brauser: `npx playwright install chromium`.
+
+Täistestid sõltuvad päris soojuspumbast ja myUplinki kontost. Suitsutestid (`e2e/smoke.spec.js`) kontrollivad keelevahetust ja mõlema liidese laadimist ka tühja andmebaasiga. Kirjutamise töövoogu kontrollitakse mock-vastusega, füüsilise soojuspumba seadistusi testide käigus ei muudeta.
+
+GitHub Actions (`.github/workflows/ci.yml`) jooksutab iga pushi ja pull requesti peale ühikutestid, buildi ja suitsutestid. Täistestid jäävad kohalikuks.
 
 **Kodu lehe teated.** Kodu lehel saab iga teate peita nupuga *Peida*; peidetud teade kaob lehelt täielikult ja jääb brauseris meelde (`localStorage`), kuni selle sisu oluliselt muutub. Peidetud teateid näeb ja saab tagasi tuua lehel *Veel → Teavitused*, jaotises *Kodu lehe teated*.
