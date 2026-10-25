@@ -326,6 +326,17 @@ test('history page mixes heat pump and ventilation series and exports them toget
   expect((await request.get('/api/history/mix?hours=24&pump=nope&s=p:5')).status()).toBe(404);
 });
 
+test('DHW cycle view shows heating cycles and pauses', async ({ page, request }) => {
+  const systems = await (await request.get('/api/systems')).json();
+  const id = systems[0].devices[0].id;
+  const data = await (await request.get(`/api/dhw/cycles?device=${encodeURIComponent(id)}&days=7`)).json();
+  expect(Array.isArray(data.cycles)).toBe(true);
+  expect(data.summary.count).toBeGreaterThan(0);
+  await page.goto('/?ui=next&page=water');
+  await expect(page.getByRole('heading', { name: 'Tarbevee tsüklid' })).toBeVisible();
+  await expect(page.locator('.dhw-cycle-row').first()).toBeVisible();
+});
+
 test('Elav kodu renders a live canvas, reacts to demo modes and the clock slider without errors', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => localStorage.setItem('soojus.ui', 'next'));

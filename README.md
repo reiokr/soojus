@@ -108,6 +108,7 @@ Ajaloo lehel on ventilatsiooni näidud soojuspumba omadega samas valijas: sama �
 - **Varukoopia ja taastamine:** ühe nupuga täielik SQLite-varukoopia allalaadimiseks, automaatne öine varukoopia (vaikimisi kell 03:00, 7 päeva) ning taastamine nimekirjast või üleslaaditud failist. Enne taastamist tehakse turvakoopia; systemd keskkonnas taaskäivitub server automaatselt. Varukoopiad on `data/backups/` kaustas (ainult kasutajale loetavad). Vt [Varukoopia ja taastamine](#varukoopia-ja-taastamine).
 - **Kuu elektrikulu prognoos:** energia lehel on eraldi paneel „Selle kuu prognoos”. See kasutab viimase ajaloo kompressori elektritarbimist ja välisõhku (küttekraadid), 7-päeva ilmaprognoosi ning ülejäänud kuu jaoks ajaloolist same-aja keskmist. Tulemus näitab kulunud, prognoositud ja kuu lõpu summat koos hinnangulise vahemikuga. Prognoos on ainult kompressori elekter, mitte kogu maja tarbimine.
 - **Tervis, mõõdikud ja logid:** `GET /api/health` annab masinloetava seisundi (andmebaas, koguja, seadmed, push, varukoopiad) ja `GET /api/metrics` Prometheusi tekstivormingu. Rakenduse logi kirjutatakse `data/logs/soojus.log` faili (5 MB × 5 rotatsioon) ning systemd journali.
+- **Tarbevee tsüklid:** tarbevee lehel on eraldi paneel, mis näitab viimaseid kütmistsükleid, nende algust/lõppu, temperatuure, kestust, kütte- ja pausiaegu ning seda, kas siht saavutati. Pausid on eraldi ribana; pausi põhjust avalik API ei näita, kuid muster (nt 45 min kütet + vaheaeg) on nähtav. 24 h / 7 päeva / 30 päeva.
 - **Küttekõver** (uus liides: *Veel → Küttekõver*): tagasivoolu siht välisõhu suhtes, ajalooline hajuvus ja sobitatud kõver, praegune tööpunkt, välisõhupiir ning kütte nihke eelvaade ja salvestus (punkt 5001). Kõver tuletatakse ajaloolistest sihtväärtustest, sest seadme enda kõveraparameetrid API kaudu ei ole.
 - **Energia ja kulu** (uus liides: *Veel → Energia*): pakettide võrdlus (praegune, fikseeritud, kahetariifne ja börsihind). Börsihinna ajalugu tuleb Nord Pooli / Eleringi avalikust API-st, salvestatakse kohalikku andmebaasi (`power_prices`) ja arvutatakse tunni spot-hinna + marginaali + võrgukomponentide + KM järgi; võrdlus näitab kulu, keskmist €/kWh ja vahet.  soojus- ja elektrivõimsuse ööpäevane integraal pumba kohalikust liidesest, COP, elektrihinna järgi arvutatud kulu ning CSV eksport (7/30/90/365 päeva). Elektrikulu mõõdetakse pumba kohaliku liidese `power_ac` näidust; myUplink ei anna elektrivõimsust. Kui kohalik server ei tööta, tekivad lüngad — aruanne näitab **andmete katvust** ja hoiatab alahindamise eest. Kogu mõõtepunkti (arve) koguse saab eraldi sisestada, et võrrelda soojuspumba osa ja arvutada kogu mõõtepunkti kulu (näiteks september 2026: 410,338 kWh → arvutus 99,25 €, arve 100 €). Valida saab ühe- või kahetariifse paketi, sisestada päeva- ja ööhinnad ning öise aja (kohalik kell), või sisestada **arve komponendid** (energia hind, võrgu päev/öö, varustuskindlus, aktsiis, taastuvenergia, käibemaks ja kuutasu) — rakendus arvutab neist päeva/öö lõpphinna. Kulu arvutatakse elektri tunnijaotuse järgi; kuutasu saab soovi korral kulusse lisada (vaikimisi eraldi, sest see on mõõtepunkti, mitte ainult soojuspumba kulu). Vaikimisi on ees Elektrum Eesti september 2026 Pilka mõõtepunkti komponendid: energia 0,10398 €/kWh (sisaldab tasakaalustamist), võrk 0,0607/0,0351 €/kWh, varustuskindlus 0,00758 €/kWh, aktsiis 0,0021 €/kWh, taastuvenergia 0,0084 €/kWh, käibemaks 24%, kuutasu 8,34 + 1,54 €/kuu. Energiahind muutub kuu kaupa ja tuleb uuelt arvelt üle kirjutada; müüja kuutasu võib arvel olla ka 2,92 € (teine mõõtepunkt). Ventilatsiooni elektrikulu on eraldi **hinnang** ventilaatori õhuvoolu ja tootja SFP-kõvera järgi (S2: 1,33 kW/(m³/s) @ 277 m³/h, max 0,34 kW; eelsoojendit see ei sisalda). Airoboti Modbus-kaardis võimsuse/energia registrit ei ole. Ilma kohaliku liideseta näidatakse ainult soojusvõimsust.
 - Püsivara versioonid ja fail, tellimused, seadme võimekused, abirežiimi olek.
@@ -194,6 +195,17 @@ Mudel:
 4. Kulu arvutatakse valitud elektritariifi (üks/kahetariifne/arve komponendid) ja ajaloolise päeva/öö osakaalu järgi. Hinnanguline vahemik tuleb mudeli jääkveast ja ilma ebakindlusest.
 
 **Piirangud:** see on hinnang, mitte garantii. See ei sisalda ventilatsiooni ega kogu maja elektrit, tarifimuutusi, muutusi kütteseadetes ega tarbimisharjumustes. Vähese ajaloo või madala andmekatvuse korral kuvatakse hoiatus.
+
+## Tarbevee tsüklid
+
+Tarbevee lehel (*Tarbevesi*) on paneel **„Tarbevee tsüklid”**. See koondab minutipõhisest ajaloost kütmistsüklid:
+
+- algus ja lõpp, algus-/min-/max-temperatuur ning siht,
+- kestus, kütteaeg ja pausiaeg,
+- pauside arv ja riba, kus kütmine ja pausid on eraldi nähtavad,
+- kas tsükkel jõudis sihini, kestab või peatus enne sihti.
+
+Lühikesed (alla 3 minuti) täiendused jäetakse eraldi tsüklitena välja. Pausi põhjust avalik API ei näita: see võib olla tarbevee maksimaalne laadimisaeg, küttetarve vahelesegamine või kompressori kaitsepaus. Kui tsükkel jääb korduvalt sihist lühemaks, tasub kontrollida tarbevee maksimaalset laadimisaega, andurit ja 3-way klappi.
 
 ## Andmed
 

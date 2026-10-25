@@ -563,6 +563,17 @@ export default {
     saved: 'Notification settings saved.', testSent: 'Test SMS sent.', log: 'Recent notifications', noLog: 'No notifications sent yet.',
     sent: 'sent', failed: 'failed'
   },
+  dhw: {
+    title: 'DHW cycles', hint: 'Heating cycles, pauses and whether the target was reached.',
+    d1: '24 h', d7: '7 days', d30: '30 days', loading: 'Loading cycles…', error: 'Could not load cycles: {error}',
+    empty: 'No DHW cycles in the selected period.',
+    summary: '{count} cycles · {reached} reached · {ongoing} ongoing', avg: 'average duration {duration}', avgPause: 'average pause {duration}',
+    reached: 'target reached', stopped: 'stopped before target', ongoing: 'ongoing',
+    start: 'start', min: 'min', max: 'max', target: 'target', duration: 'duration', heating: 'heating', pause: 'pause', pauses: '{count} pauses',
+    barAria: 'Heating {heat}, pause {pause}',
+    stoppedBefore: 'The cycle stopped before the target. The pause reason is not exposed by the API — it may be the maximum charge time, a heating demand or a protection pause.',
+    note: 'The API does not expose the pause reason. If a cycle repeatedly stops short of the target, check the maximum DHW charge time, the sensor and the valve.'
+  },
   curve: {
     title: 'Heating curve', summary: 'Summary', chartTitle: 'Curve and operating points', period: 'Period', loading: 'Loading the heating curve…',
     outdoor: 'Outdoor', target: 'Return target', returnNow: 'Actual return', deviation: 'Deviation from target', compressorOff: 'compressor is off',

@@ -12,6 +12,7 @@ import DevicePage from '../device.jsx';
 import SettingsPage from '../settings.jsx';
 import { VentilationPage } from '../ventilation.jsx';
 import { Empty, Button } from '../ui.jsx';
+import DhwCycles from './dhw-cycles.jsx';
 const EnergyPage = lazy(() => import('./energy.jsx'));
 const HeatingCurvePage = lazy(() => import('./curve.jsx'));
 import { co2Quality, climatePoints, climateQuery, readingQuality } from '../ventilation-logic.js';
@@ -368,6 +369,7 @@ function Control({ ctx, water }) {
     </div>
     {water && <LegionellaPanel notify={ctx.notify}/>}
     <Trend ctx={ctx} initial={water ? 'water' : 'heat'}/>
+    {water && <DhwCycles ctx={ctx}/>}
   </>;
 }
 

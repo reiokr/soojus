@@ -563,6 +563,17 @@ export default {
     saved: 'Teavituste seaded salvestatud.', testSent: 'Test-SMS saadetud.', log: 'Viimased teavitused', noLog: 'Teavitusi pole veel saadetud.',
     sent: 'saadetud', failed: 'ebaõnnestus'
   },
+  dhw: {
+    title: 'Tarbevee tsüklid', hint: 'Kütmistsüklid, pausid ja see, kas siht saavutati.',
+    d1: '24 h', d7: '7 päeva', d30: '30 päeva', loading: 'Laadin tsükleid…', error: 'Tsükleid ei saanud laadida: {error}',
+    empty: 'Valitud perioodil pole tarbevee tsükleid.',
+    summary: '{count} tsüklit · {reached} sihini · {ongoing} kestab', avg: 'keskmine kestus {duration}', avgPause: 'keskmine paus {duration}',
+    reached: 'sihini jõudis', stopped: 'peatus enne sihti', ongoing: 'kestab',
+    start: 'algus', min: 'min', max: 'max', target: 'siht', duration: 'kestus', heating: 'küte', pause: 'paus', pauses: '{count} pausi',
+    barAria: 'Küte {heat}, paus {pause}',
+    stoppedBefore: 'Tsükkel lõppes enne sihti. Pausi põhjus ei ole API kaudu nähtav — see võib olla maksimaalne laadimisaeg, küttetarve või kaitsepaus.',
+    note: 'Pausi põhjust avalik API ei näita. Kui tsükkel jääb korduvalt sihist lühemaks, kontrolli tarbevee maksimaalset laadimisaega, andurit ja klappi.'
+  },
   curve: {
     title: 'Küttekõver', summary: 'Kokkuvõte', chartTitle: 'Kõver ja tööpunktid', period: 'Ajavahemik', loading: 'Laadin küttekõverat…',
     outdoor: 'Välisõhk', target: 'Tagasivoolu siht', returnNow: 'Tegelik tagasivool', deviation: 'Erinevus sihist', compressorOff: 'kompressor seisab',

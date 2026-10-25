@@ -14,6 +14,7 @@ import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './sto
 import { energyReport, MAX_DAYS } from './energy.js';
 import { ensurePriceTable, syncPrices, pricesFor } from './prices.js';
 import { buildHeatingCurve } from './heating-curve.js';
+import { buildDhwCycles } from './dhw-cycles.js';
 import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueAlerts, dueNotifications, sendSms, kdeconnectDevices } from './notifications.js';
 import { createPushStore } from './push.js';
 import { createLogger } from './log.js';
@@ -419,6 +420,24 @@ app.get('/api/energy', async (req, res) => {
   const days = Math.max(1, Math.min(MAX_DAYS, Number(req.query.days) || 30));
   const to = new Date(), from = new Date(to.getTime() - days * DAY_MS);
   res.json(energyReport(db, { deviceId: device, from: from.toISOString(), to: to.toISOString(), luxId: LUX_ID }));
+});
+// Tarbevee tsüklid: kütmise/pauside ajalugu vee lehe jaoks.
+app.get('/api/dhw/cycles', async (req, res) => {
+  const device = String(req.query.device || '');
+  await historyDevice(device);
+  const days = Math.max(1, Math.min(30, Number(req.query.days) || 7));
+  const to = new Date(), from = new Date(to.getTime() - days * DAY_MS);
+  const rows = db.prepare(`SELECT substr(time,1,16) AS minute,
+    AVG(CASE WHEN point='6' THEN value END) AS water,
+    AVG(CASE WHEN point='7' THEN value END) AS target,
+    AVG(CASE WHEN point='46' THEN value END) AS hw,
+    AVG(CASE WHEN point='17' THEN value END) AS mode,
+    AVG(CASE WHEN point='70' THEN value END) AS compressor,
+    AVG(CASE WHEN point='21' THEN value END) AS power
+    FROM samples WHERE device=? AND time>=? AND time<? AND point IN ('6','7','46','17','70','21')
+    GROUP BY minute ORDER BY minute`).all(device, from.toISOString(), to.toISOString());
+  const result = buildDhwCycles(rows.map(row => ({ time: `${row.minute}:00.000Z`, ...row })), { now: to.getTime() });
+  res.json({ from: from.toISOString(), to: to.toISOString(), days, ...result });
 });
 // Küttekõver: tagasivoolu siht (2) välisõhu (5) suhtes + tegelikud tööpunktid.
 app.get('/api/heating-curve', async (req, res) => {
