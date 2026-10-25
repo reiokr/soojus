@@ -269,7 +269,7 @@ export default {
     airGood: 'hea', airOk: 'rahuldav', airHigh: 'kõrge', airBad: 'väga kõrge',
     dry: 'kuiv', veryDry: 'väga kuiv', humid: 'niiske', veryHumid: 'väga niiske',
     cool: 'jahe', cold: 'külm', warm: 'soe', hot: 'palav',
-    atTarget: 'siht käes', heatingUp: 'soojeneb', belowTarget: 'alla sihi', cooled: 'jahtunud'
+    atTarget: 'siht käes', slightlyBelow: 'veidi alla sihi', coolingDown: 'jaheneb', heatingUp: 'soojeneb', belowTarget: 'alla sihi', cooled: 'jahtunud'
   },
   zone: { hwProduction: 'Tarbeveetootmine', hwBoost: 'Kõrgendatud tarbevesi' },
   hist: {

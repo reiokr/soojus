@@ -15,7 +15,7 @@ import { Empty, Button } from '../ui.jsx';
 const EnergyPage = lazy(() => import('./energy.jsx'));
 const HeatingCurvePage = lazy(() => import('./curve.jsx'));
 import { co2Quality, climatePoints, climateQuery, readingQuality } from '../ventilation-logic.js';
-import { pumpState, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality } from './logic.js';
+import { pumpState, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality, temperatureTrend } from './logic.js';
 import { buildReportModel, buildReportHtml, buildReportText, buildReportDocument } from './error-report.js';
 import './palette.css';
 import './next.css';
@@ -291,6 +291,19 @@ function hintText(p) {
 
 const zoneLabel = name => /tarbeveetootmine/i.test(name) ? t('zone.hwProduction') : /kõrgendatud/i.test(name) ? t('zone.hwBoost') : name;
 
+function usePointTrend(deviceId, pointId, tick) {
+  const [trend, setTrend] = useState(null);
+  useEffect(() => {
+    if (!deviceId || !pointId) { setTrend(null); return undefined; }
+    const c = new AbortController();
+    api(`/history/${encodeURIComponent(deviceId)}?hours=1&point=${encodeURIComponent(pointId)}&raw=1`, { signal: c.signal })
+      .then(data => { if (!c.signal.aborted) setTrend(temperatureTrend(data.rows)); })
+      .catch(() => { if (!c.signal.aborted) setTrend(null); });
+    return () => c.abort();
+  }, [deviceId, pointId, tick]);
+  return trend;
+}
+
 function Control({ ctx, water }) {
   const { points, zones, online, setEditing, categories, mode, errors, m } = ctx;
   // Legionella programmi seis: kui kuumutus parasjagu käib, näitame seda ka "Näidud" kaartidel.
@@ -302,6 +315,7 @@ function Control({ ctx, water }) {
     load(); const timer = setInterval(load, 60000);
     return () => { live = false; clearInterval(timer); };
   }, [water]);
+  const waterTrend = usePointTrend(water ? ctx.selection : null, water ? m.water?.parameterId : null, ctx.tick);
   const group = water ? 'Tarbevesi' : 'Küte';
   const writable = points.filter(p => p.group === group && p.writable);
   // 40010 on sama paagiandur tsooni "Kõrgendatud tarbevesi" kaudu (vt README): kaart on duplikaat
@@ -329,7 +343,7 @@ function Control({ ctx, water }) {
   const qById = {};
   if (water) {
     // Legionella ajal on siht teadlikult kõrge (63 °C) – tavaline "alla sihi" punane oleks eksitav.
-    if (m.water) qById[m.water.parameterId] = legRunning ? { key: 'key', label: t('control.heatingUp') } : dhwQuality(m.water.value, m.waterTarget);
+    if (m.water) qById[m.water.parameterId] = legRunning ? { key: 'key', label: t('control.heatingUp') } : dhwQuality(m.water.value, m.waterTarget, { heating: state.hwOn, cooling: waterTrend?.direction === 'falling' });
     if (waterTargetPoint) qById[waterTargetPoint.parameterId] = { key: 'key', label: legRunning ? t('control.legionellaTarget') : t('control.setpoint') };
   } else {
     if (m.buffer) qById[m.buffer.parameterId] = bufferQuality(m.buffer.value, m.returnTarget?.value);

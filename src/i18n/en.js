@@ -269,7 +269,7 @@ export default {
     airGood: 'good', airOk: 'satisfactory', airHigh: 'high', airBad: 'very high',
     dry: 'dry', veryDry: 'very dry', humid: 'humid', veryHumid: 'very humid',
     cool: 'cool', cold: 'cold', warm: 'warm', hot: 'hot',
-    atTarget: 'at target', heatingUp: 'heating up', belowTarget: 'below target', cooled: 'cooled'
+    atTarget: 'at target', slightlyBelow: 'slightly below target', coolingDown: 'cooling down', heatingUp: 'heating up', belowTarget: 'below target', cooled: 'cooled'
   },
   zone: { hwProduction: 'Hot water production', hwBoost: 'Boosted hot water' },
   hist: {

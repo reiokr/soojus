@@ -77,10 +77,10 @@ test('fill times add empty rows so the cursor can land inside data gaps',()=>{
   assert.ok(mid && mid.a === undefined && mid[plotKey('a')] === undefined && mid[estKey('a')] === 10);
 });
 
-import { pumpState, stateSentence, formatDuration, daySummary, tempColor, scalePosition, secondsAsText, dhwQuality, bufferQuality } from '../src/next/logic.js';
+import { pumpState, stateSentence, formatDuration, daySummary, tempColor, scalePosition, secondsAsText, dhwQuality, bufferQuality, temperatureTrend } from '../src/next/logic.js';
 test('domestic hot water and buffer tank turn yellow and red as they fall below their setpoint',()=>{
   assert.equal(dhwQuality(48,48).key,'good'); assert.equal(dhwQuality(47.3,48).key,'good');
-  assert.equal(dhwQuality(46,48).key,'high'); assert.equal(dhwQuality(45,48).key,'high'); assert.equal(dhwQuality(45,48).label,'soojeneb');
+  assert.equal(dhwQuality(46,48).key,'high'); assert.equal(dhwQuality(45,48).key,'high'); assert.equal(dhwQuality(45,48).label,'veidi alla sihi'); assert.equal(dhwQuality(45,48,{heating:true}).label,'soojeneb'); assert.equal(dhwQuality(45,48,{cooling:true}).label,'jaheneb'); assert.equal(dhwQuality(41,48,{cooling:true}).key,'bad');
   assert.equal(dhwQuality(41,48).key,'bad'); assert.equal(dhwQuality(41,48).label,'alla sihi');
   assert.equal(dhwQuality(null,48),null); assert.equal(dhwQuality(45,null),null); assert.equal(dhwQuality(45,0),null);
   assert.equal(bufferQuality(28.4,27.3).key,'good');
@@ -88,6 +88,16 @@ test('domestic hot water and buffer tank turn yellow and red as they fall below 
   assert.equal(bufferQuality(18,27.3).key,'bad'); assert.equal(bufferQuality(18,27.3).label,'külm');
   assert.equal(bufferQuality(20,null),null); assert.equal(bufferQuality(null,27.3),null);
 });
+test('temperature trend detects rising, falling and post-peak cooling', () => {
+  const now = Date.now();
+  const rows = values => values.map((value, i) => ({ time: new Date(now - (values.length - 1 - i) * 60000).toISOString(), value }));
+  assert.equal(temperatureTrend(rows([46,46.1,46.2,46.3]), now).direction, 'rising');
+  assert.equal(temperatureTrend(rows([48,47.8,47.2,46.7]), now).direction, 'falling');
+  assert.equal(temperatureTrend(rows([46.7,46.7,46.7,46.7]), now).direction, 'stable');
+  assert.equal(temperatureTrend(rows([46,47.5,48,47.6,47.2]), now).direction, 'falling');
+  assert.equal(temperatureTrend(rows([46,46]), now), null);
+});
+
 test('pump state and plain-language sentence',()=>{
   const idle = pumpState({ workMode:{value:5}, heatingState:{value:1}, hwState:{value:1} });
   assert.equal(idle.running,false); assert.match(stateSentence(idle,true),/puhkab/);

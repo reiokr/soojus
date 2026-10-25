@@ -21,14 +21,36 @@ export function pumpState({ workMode, heatingState, hwState, compressor }) {
 // Tarbevee temperatuur seatud sihi suhtes: mida kaugemal allpool, seda tugevam hoiatus.
 // (Kütte puhul ei sobi pealevoolu ja tagasivoolu absoluutväärtusi hinnata, sest tarbevee
 // kütmise ajal tõusevad need ajutiselt – seepärast on norm ainult akupaagil ja toatemperatuuril.)
-export function dhwQuality(temp, target) {
+export function dhwQuality(temp, target, { heating = false, cooling = false } = {}) {
   const cur = temp == null || temp === '' ? NaN : Number(temp), g = target == null || target === '' ? NaN : Number(target);
   if (!Number.isFinite(cur) || !Number.isFinite(g) || g <= 0) return null;
   const below = g - cur;
   // 1 K tolerants ainult anduri müra jaoks; juba 2 K allpool ei ole "siht käes".
   if (below <= 1) return { key: 'good', label: t('quality.atTarget') };
-  if (below <= 5) return { key: 'high', label: t('quality.heatingUp') };
+  // "Soojeneb" ja "jaheneb" peavad kajastama tegelikku liikumist, mitte ainult kaugust sihist:
+  // kui kompressor seisab, võib vesi lihtsalt seista või jahtuda.
+  if (heating) return { key: below <= 5 ? 'high' : 'bad', label: t('quality.heatingUp') };
+  if (cooling) return { key: below <= 5 ? 'high' : 'bad', label: t('quality.coolingDown') };
+  if (below <= 5) return { key: 'high', label: t('quality.slightlyBelow') };
   return { key: 'bad', label: t('quality.belowTarget') };
+}
+
+// Viimase akna temperatuuritrend. "Falling" arvestab ka hiljutist tippu, sest pärast
+// tarbevee kuumutamist võib vesi langeda ka siis, kui akna algus oli madalamal.
+export function temperatureTrend(rows, now = Date.now(), { minutes = 30, threshold = 0.2 } = {}) {
+  const cutoff = now - Math.max(1, minutes) * 60000;
+  const values = (rows ?? [])
+    .map(row => ({ time: Date.parse(row.time), value: Number(row.value) }))
+    .filter(row => Number.isFinite(row.time) && Number.isFinite(row.value) && row.time >= cutoff)
+    .sort((a, b) => a.time - b.time);
+  if (values.length < 3) return null;
+  const first = values[0], last = values.at(-1);
+  const peak = Math.max(...values.map(row => row.value)), trough = Math.min(...values.map(row => row.value));
+  const delta = Math.round((last.value - first.value) * 100) / 100;
+  const peakDrop = Math.round((peak - last.value) * 100) / 100;
+  const rise = Math.round((last.value - trough) * 100) / 100;
+  const direction = delta <= -threshold || peakDrop >= threshold ? 'falling' : delta >= threshold ? 'rising' : 'stable';
+  return { direction, delta, peakDrop, rise, minutes, count: values.length, from: first.time, to: last.time };
 }
 
 // Akupaagi temperatuur kütte tagasivoolu sihi suhtes: paak peaks hoidma vähemalt sihttaset.
