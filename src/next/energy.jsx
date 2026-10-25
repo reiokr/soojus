@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Download, Info } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api, number } from '../lib.js';
-import { t } from '../i18n/index.js';
+import { t, getLocale } from '../i18n/index.js';
 import { DEFAULT_TARIFF, parseTariff, dayCost, totalCost, monthlyCost, effectiveRates, splitElectric, nightHours } from './tariff.js';
 import { spotMap, variableCost, dualCost, exchangeCost } from './prices.js';
+import { forecastMonth } from './forecast.js';
 
 const TARIFF_KEY = 'soojus.energy.tariff';
 const LEGACY_PRICE_KEY = 'soojus.energy.price';
@@ -50,6 +51,8 @@ export default function EnergyPage({ ctx }) {
   const [prices, setPrices] = useState(null);
   const [pricesBusy, setPricesBusy] = useState(true);
   const [pricesError, setPricesError] = useState(null);
+  const [forecastHistory, setForecastHistory] = useState(null);
+  const [forecastError, setForecastError] = useState(null);
 
   useEffect(() => {
     if (!ctx.selection) return;
@@ -60,6 +63,18 @@ export default function EnergyPage({ ctx }) {
       .catch(e => { if (live) setError(e.message); });
     return () => { live = false; };
   }, [ctx.selection, days]);
+
+  useEffect(() => {
+    if (!ctx.selection) return undefined;
+    let live = true;
+    const controller = new AbortController();
+    setForecastHistory(null);
+    setForecastError(null);
+    api(`/energy?device=${encodeURIComponent(ctx.selection)}&days=365`, { signal: controller.signal })
+      .then(result => { if (live) setForecastHistory(result); })
+      .catch(error => { if (live && !controller.signal.aborted) setForecastError(error.message); });
+    return () => { live = false; controller.abort(); };
+  }, [ctx.selection]);
 
   useEffect(() => {
     let live = true, timer = null, attempts = 0;
@@ -148,6 +163,14 @@ export default function EnergyPage({ ctx }) {
     electricChart: electricKnown ? day.electricKwh : null
   })), [data, electricKnown]);
   const rows = useMemo(() => [...(data?.days ?? [])].reverse(), [data]);
+  const forecast = useMemo(() => forecastMonth({
+    historyDays: forecastHistory?.days,
+    forecastDays: ctx.weather?.view?.weather?.days,
+    tariff,
+    now: new Date()
+  }), [forecastHistory, ctx.weather?.view?.weather?.days, tariff]);
+  const monthLabel = new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(new Date());
+
   const hasData = Boolean(data && (totals.heatKwh > 0 || (totals.electricKwh ?? 0) > 0));
 
   const exportCsv = () => {
@@ -235,6 +258,29 @@ export default function EnergyPage({ ctx }) {
           <button type="button" className="nx-edit" onClick={exportCsv}><Download size={14}/>{t('energy.export')}</button>
         </div>
       </> : <p className="nx-muted">{t('energy.empty')}</p>}
+    </section>
+
+    <section className="nx-panel en-forecast">
+      <div className="nx-panel-head"><h2>{t('energy.forecastTitle')}</h2><span className="nx-muted">{monthLabel}</span></div>
+      {forecastError && !forecastHistory && <p className="nx-warn"><AlertCircle size={15}/>{t('energy.forecastError', { error: forecastError })}</p>}
+      {!forecastHistory && !forecastError && <div className="nx-skeleton" aria-label={t('energy.forecastLoading')}><i/></div>}
+      {forecast?.available ? <>
+        <div className="en-cards en-forecast-cards">
+          <Card label={t('energy.forecastSpent')} value={number(forecast.actualCost, 2)} unit="€" hint={`${number(forecast.actualKwh, 1)} ${t('energy.kwh')}`}/>
+          <Card label={t('energy.forecastRemaining')} value={number(forecast.forecastCost, 2)} unit="€" hint={`${number(forecast.forecastKwh, 1)} ${t('energy.kwh')}`}/>
+          <Card label={t('energy.forecastTotal')} value={number(forecast.totalCost, 2)} unit="€" hint={t('energy.forecastRange', { low: number(forecast.lowCost, 2), high: number(forecast.highCost, 2) })}/>
+        </div>
+        <div className="en-forecast-progress" role="progressbar" aria-label={t('energy.forecastTitle')} aria-valuemin="0" aria-valuemax={forecast.daysInMonth} aria-valuenow={forecast.daysElapsed}>
+          <i style={{ width: `${forecast.daysInMonth ? Math.min(100, forecast.daysElapsed / forecast.daysInMonth * 100) : 0}%` }}/>
+        </div>
+        <p className="en-forecast-days">{t('energy.forecastDays', { elapsed: forecast.daysElapsed, total: forecast.daysInMonth, remaining: forecast.daysRemaining })}</p>
+        {!forecast.confident && <p className="nx-warn"><AlertCircle size={15}/>{t('energy.forecastUncertain')}</p>}
+        <p className="en-note">{forecast.model
+          ? (forecast.forecastDaysUsed > 0 ? t('energy.forecastBasis', { n: forecast.model.n, weather: forecast.forecastDaysUsed, climate: forecast.climateDaysUsed }) : t('energy.forecastBasisNoWeather', { n: forecast.model.n, climate: forecast.climateDaysUsed }))
+          : t('energy.forecastAverage')}</p>
+        {forecast.fixedCost > 0 && <p className="en-note">{t('energy.forecastFixed', { value: number(forecast.fixedCost, 2) })}</p>}
+        <p className="en-note">{t('energy.forecastCaveat')}</p>
+      </> : forecast && !forecast.available ? <p className="nx-muted">{t(forecast.reason === 'noElectric' ? 'energy.forecastNoElectric' : 'energy.forecastNoHistory')}</p> : null}
     </section>
 
     {hasData && <section className="nx-panel">
