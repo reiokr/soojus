@@ -80,7 +80,7 @@ test('fill times add empty rows so the cursor can land inside data gaps',()=>{
 import { pumpState, stateSentence, formatDuration, daySummary, tempColor, scalePosition, secondsAsText, dhwQuality, bufferQuality, temperatureTrend } from '../src/next/logic.js';
 test('domestic hot water and buffer tank turn yellow and red as they fall below their setpoint',()=>{
   assert.equal(dhwQuality(48,48).key,'good'); assert.equal(dhwQuality(47.3,48).key,'good');
-  assert.equal(dhwQuality(46,48).key,'high'); assert.equal(dhwQuality(45,48).key,'high'); assert.equal(dhwQuality(45,48).label,'veidi alla sihi'); assert.equal(dhwQuality(45,48,{heating:true}).label,'soojeneb'); assert.equal(dhwQuality(45,48,{cooling:true}).label,'jaheneb'); assert.equal(dhwQuality(41,48,{cooling:true}).key,'bad');
+  assert.equal(dhwQuality(46,48).key,'high'); assert.equal(dhwQuality(45,48).key,'high'); assert.equal(dhwQuality(45,48).label,'veidi alla sihi'); assert.equal(dhwQuality(45,48,{heating:true}).label,'soojeneb'); assert.equal(dhwQuality(45,48,{cooling:true}).label,'jaheneb'); assert.equal(dhwQuality(45,48,{heating:true,cooling:true}).label,'jaheneb'); assert.equal(dhwQuality(41,48,{cooling:true}).key,'bad');
   assert.equal(dhwQuality(41,48).key,'bad'); assert.equal(dhwQuality(41,48).label,'alla sihi');
   assert.equal(dhwQuality(null,48),null); assert.equal(dhwQuality(45,null),null); assert.equal(dhwQuality(45,0),null);
   assert.equal(bufferQuality(28.4,27.3).key,'good');

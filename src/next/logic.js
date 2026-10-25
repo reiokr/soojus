@@ -29,8 +29,9 @@ export function dhwQuality(temp, target, { heating = false, cooling = false } = 
   if (below <= 1) return { key: 'good', label: t('quality.atTarget') };
   // "Soojeneb" ja "jaheneb" peavad kajastama tegelikku liikumist, mitte ainult kaugust sihist:
   // kui kompressor seisab, võib vesi lihtsalt seista või jahtuda.
-  if (heating) return { key: below <= 5 ? 'high' : 'bad', label: t('quality.heatingUp') };
+  // Tegelik langus on olulisem kui pumba kütmistaotlus: kui vesi jahtub, näita "jaheneb".
   if (cooling) return { key: below <= 5 ? 'high' : 'bad', label: t('quality.coolingDown') };
+  if (heating) return { key: below <= 5 ? 'high' : 'bad', label: t('quality.heatingUp') };
   if (below <= 5) return { key: 'high', label: t('quality.slightlyBelow') };
   return { key: 'bad', label: t('quality.belowTarget') };
 }
