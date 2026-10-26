@@ -540,7 +540,7 @@ export default {
     estimate: 'Võrdlus on normaliseeritud kogu perioodile: mõõdetud {measured} kWh + hinnanguliselt puuduv {missing} kWh = {estimated} kWh (katvus {percent}%).',
     estimateNight: 'Puuduv osa jaotatakse öise osakaaluga {percent}%.',
     coverage: 'Börsihind kaetud {percent}% ulatuses', noPrices: 'Börsihindu ei saanud laadida. Proovi hiljem uuesti.',
-    note: 'Võrdlus kasutab sama hinnangulist kompressori tarbimist ja samu võrgukomponente. Fikseeritud ja kahetariifse paketi hinnad on lõpphinnad koos käibemaksuga; börsipakett lisab spot-hinna (ilma KM-ta) ja marginaali. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
+    note: 'Võrdlus kasutab sama hinnangulist kompressori tarbimist ja samu võrgukomponente. Fikseeritud ja kahetariifse paketi hinnad peavad olema lõpphinnad, mis sisaldavad lisaks energiale ka võrguteenust, tasusid ja käibemaksu. Kui sul on ainult müüja energia hind (nt 12,431 s/kWh), lisa enne sisestamist võrk ja tasud või kasuta „Arve järgi” vaadet. Börsipakett lisab spot-hinna (ilma KM-ta) ja marginaali. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
   },
   notify: {
     title: 'Nutikad teavitused', hint: 'Saada SMS või push-teavitus, kui tekib viga, filter vajab vahetust, CO₂ on kõrge või legionella ebaõnnestub. Kõige lihtsam on KDE Connect telefoni kaudu; push on tasuta, aga nõuab HTTPS-i või localhosti.',

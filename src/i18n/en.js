@@ -540,7 +540,7 @@ export default {
     estimate: 'The comparison is normalised to the whole period: {measured} kWh measured + {missing} kWh estimated missing = {estimated} kWh (coverage {percent}%).',
     estimateNight: 'The missing part is split using a {percent}% night share.',
     coverage: 'Exchange price covers {percent}% of consumption', noPrices: 'Could not load exchange prices. Try again later.',
-    note: 'The comparison uses the same estimated compressor consumption and the same grid components. The fixed and dual prices include VAT; the exchange package adds the spot price (excl. VAT) and margin. The monthly fee is excluded. Exchange price: Nord Pool / Elering.'
+    note: 'The comparison uses the same estimated compressor consumption and the same grid components. Fixed and dual prices must be final prices that include grid service, fees and VAT in addition to energy. If you only have the seller’s energy price (e.g. 12.431 s/kWh), add the grid and fees before entering it or use the “By bill” view. The exchange package adds the spot price (excl. VAT) and margin. The monthly fee is excluded. Exchange price: Nord Pool / Elering.'
   },
   notify: {
     title: 'Smart notifications', hint: 'Send an SMS or push notification on an error, a filter change, high CO₂ or a failed legionella cycle. The easiest SMS option is via KDE Connect on your phone; push is free but requires HTTPS or localhost.',
