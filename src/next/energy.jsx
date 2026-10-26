@@ -271,6 +271,7 @@ export default function EnergyPage({ ctx }) {
           <Card label={t('energy.forecastTotal')} value={number(forecast.totalCost, 2)} unit="€" hint={t('energy.forecastRange', { low: number(forecast.lowCost, 2), high: number(forecast.highCost, 2) })}/>
         </div>
         {forecast.imputedKwh > 0 && <p className="en-note">{t('energy.forecastImputed', { kwh: number(forecast.imputedKwh, 1), percent: Math.round(forecast.actualCoverage * 100) })}</p>}
+        {tariff.type !== 'single' && <p className="en-note">{t('energy.forecastNight', { percent: Math.round((forecast.nightShare ?? 0) * 100) })}</p>}
         <div className="en-forecast-progress" role="progressbar" aria-label={t('energy.forecastTitle')} aria-valuemin="0" aria-valuemax={forecast.daysInMonth} aria-valuenow={forecast.daysElapsed}>
           <i style={{ width: `${forecast.daysInMonth ? Math.min(100, forecast.daysElapsed / forecast.daysInMonth * 100) : 0}%` }}/>
         </div>

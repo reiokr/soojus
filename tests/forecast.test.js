@@ -98,3 +98,19 @@ test('accounts for measurement gaps instead of treating them as zero consumption
   assert.ok(Math.abs(estimated.actualCost - full.actualCost) < full.actualCost * 0.2);
   assert.equal(estimated.confident, false);
 });
+
+test('forecast cost uses the selected day and night tariff', () => {
+  const now = at(2026, 10, 15);
+  const rows = historyUntil(now);
+  const result = forecastMonth({
+    historyDays: rows,
+    forecastDays: [],
+    tariff: { type: 'dual', dayPrice: 0.30, nightPrice: 0.10, nightStart: 22, nightEnd: 7 },
+    now
+  });
+  assert.equal(result.available, true);
+  assert.ok(result.nightShare > 0 && result.nightShare < 1);
+  const expectedRate = (1 - result.nightShare) * 0.30 + result.nightShare * 0.10;
+  assert.ok(Math.abs(result.averageRate - expectedRate) < 0.0002);
+  assert.ok(Math.abs(result.forecastCost - result.forecastKwh * result.averageRate) < 0.05);
+});
