@@ -3199,4 +3199,4 @@ html[data-ui="next"] .nx-liide .segmented {
 .en-night-share .en-price { margin: 0; }
 .en-night-share .en-price input { width: 90px; }
 .en-night-share small { flex-basis: 100%; }
-.en-compare-auto, .en-compare-basis { margin: 2px 0 8px; font-size: 12px; line-height: 1.45; }
+.en-compare-auto, .en-compare-basis, .en-compare-margin-hint { margin: 2px 0 8px; font-size: 12px; line-height: 1.45; }

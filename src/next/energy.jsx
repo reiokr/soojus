@@ -373,8 +373,9 @@ export default function EnergyPage({ ctx }) {
         <label className="en-price"><span>{t(detailCompare ? 'compare.fixedEnergy' : 'compare.fixedPrice')}</span><input type="number" min="0" step="0.01" value={compare.auto ? (detailCompare ? priceInput(autoEnergy) : tariff.type === 'single' ? tariff.price : compare.fixed) : compare.fixed} onChange={e => updateCompare({ fixed: e.target.value })} aria-label={t(detailCompare ? 'compare.fixedEnergy' : 'compare.fixedPrice')}/></label>
         <label className="en-price"><span>{t(detailCompare ? 'compare.dayEnergy' : 'compare.dayPrice')}</span><input type="number" min="0" step="0.01" value={compare.auto && splitMode ? priceInput(detailCompare ? autoEnergy : rates.day) : compare.day} onChange={e => updateCompare({ day: e.target.value })} aria-label={t(detailCompare ? 'compare.dayEnergy' : 'compare.dayPrice')}/></label>
         <label className="en-price"><span>{t(detailCompare ? 'compare.nightEnergy' : 'compare.nightPrice')}</span><input type="number" min="0" step="0.01" value={compare.auto && splitMode ? priceInput(detailCompare ? autoEnergy : rates.night) : compare.night} onChange={e => updateCompare({ night: e.target.value })} aria-label={t(detailCompare ? 'compare.nightEnergy' : 'compare.nightPrice')}/></label>
-        <label className="en-price"><span>{t('compare.margin')}</span><input type="number" min="0" step="0.001" value={compare.margin} onChange={e => updateCompare({ margin: e.target.value })} aria-label={t('compare.margin')}/></label>
+        <label className="en-price"><span>{t('compare.margin')}</span><input type="number" min="0" step="0.001" value={compare.margin} onChange={e => updateCompare({ margin: e.target.value })} aria-label={t('compare.margin')} title={t('compare.marginHint')}/></label>
       </div>
+      <p className="en-compare-margin-hint muted">{t('compare.marginHint')}</p>
       <p className="en-compare-auto muted">
         {compare.auto
           ? t(detailCompare ? 'compare.autoEnergy' : tariff.type === 'single' ? 'compare.autoFixed' : 'compare.autoPrices', { value: number(tariff.price, 2), day: number(rates.day, 4), night: number(rates.night, 4) })

@@ -536,6 +536,7 @@ export default {
     fixedPrice: 'Fixed, €/kWh', dayPrice: 'Day, €/kWh', nightPrice: 'Night, €/kWh', margin: 'Margin, €/kWh',
     fixedEnergy: 'Fixed energy, €/kWh', dayEnergy: 'Day energy, €/kWh', nightEnergy: 'Night energy, €/kWh',
     energyOnly: 'In “From bill” mode these are the seller’s energy prices (incl. VAT). Grid, supply security, excise, renewable energy and balancing are added from the current bill components.',
+    marginHint: 'The margin is the seller’s markup on the Nord Pool spot price (€/kWh, before grid and VAT). It only affects the exchange-price package.',
     autoEnergy: 'The seller’s energy price comes from the current package; grid, fees and balancing are added automatically. Editing switches to manual mode.',
     cost: 'Cost', average: 'Average', difference: 'Difference',
     autoPrices: 'Day and night prices come from the current package; editing switches to manual mode.',

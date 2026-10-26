@@ -536,6 +536,7 @@ export default {
     fixedPrice: 'Fikseeritud, €/kWh', dayPrice: 'Päev, €/kWh', nightPrice: 'Öö, €/kWh', margin: 'Marginaal, €/kWh',
     fixedEnergy: 'Fikseeritud energia, €/kWh', dayEnergy: 'Päevane energia, €/kWh', nightEnergy: 'Öine energia, €/kWh',
     energyOnly: 'Arve järgi puhul on need müüja energia hinnad (koos KM-ga). Võrk, varustuskindlus, aktsiis, taastuvenergia ja bilansihaldus lisatakse praeguse arve komponentidest.',
+    marginHint: 'Marginaal on müüja juurdehindlus Nord Pooli spot-hinnale (€/kWh, enne võrku ja käibemaksu). See mõjutab ainult börsihinnaga paketti.',
     autoEnergy: 'Müüja energia hind on võetud praegusest paketist; võrk, tasud ja bilansihaldus lisatakse automaatselt. Muutmine lülitab käsitsi režiimi.',
     cost: 'Kulu', average: 'Keskmine', difference: 'Vahe',
     autoPrices: 'Päeva ja öö hind on võetud praegusest paketist; muutmine lülitab käsitsi režiimi.',
