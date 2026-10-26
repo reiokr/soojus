@@ -45,7 +45,7 @@ test('dayCost and totalCost support single and dual tariffs', () => {
 
 test('detail tariff derives the real day/night price from the bill components', () => {
   const detail = {
-    type: 'detail', energyPrice: 0.10398, networkDay: 0.0607, networkNight: 0.0351,
+    type: 'detail', energyPrice: 0.10025, balancing: 0.00373, networkDay: 0.0607, networkNight: 0.0351,
     security: 0.00758, excise: 0.0021, renewable: 0.0084, vat: 24,
     nightStart: 22, nightEnd: 7, monthlyNetwork: 8.34, monthlySeller: 1.54, includeMonthly: false
   };
@@ -63,4 +63,14 @@ test('detail tariff derives the real day/night price from the bill components', 
   const byHour = Array(24).fill(0); byHour[12] = 8; byHour[2] = 2;
   close(dayCost({ electricKwh: 10, electricByHour: byHour }, detail), 8 * 0.2266224 + 2 * 0.1948784);
   close(totalCost([{ electricKwh: 10, electricByHour: byHour }], withFee, 30.44), 8 * 0.2266224 + 2 * 0.1948784 + 12.2512);
+});
+
+
+test('legacy detail energy price migrates to separate energy and balancing rows', () => {
+  const legacy = parseTariff({ type: 'detail', energyPrice: 0.10398 });
+  close(legacy.energyPrice, 0.10025);
+  close(legacy.balancing, 0.00373);
+  const explicit = parseTariff({ type: 'detail', energyPrice: 0.10025, balancing: 0 });
+  close(explicit.energyPrice, 0.10025);
+  close(explicit.balancing, 0);
 });

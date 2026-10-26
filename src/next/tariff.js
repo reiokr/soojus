@@ -12,8 +12,9 @@ export const DEFAULT_TARIFF = Object.freeze({
   nightStart: 22,
   nightEnd: 7,
   // Detailne vaade, Elektrum Eesti september 2026, Pilka mõõtepunkt (410,338 kWh).
-  // Energiahind sisaldab tasakaalustamisvõimsuse kulu (0,10025 + 0,00373).
-  energyPrice: 0.10398,
+  // Müüja energia 0,10025 + bilansihaldus 0,00373 = 0,10398 €/kWh (ilma KM-ta).
+  energyPrice: 0.10025,
+  balancing: 0.00373,
   networkDay: 0.0607,
   networkNight: 0.0351,
   security: 0.00758,
@@ -41,6 +42,13 @@ const percent = (value, fallback) => {
 export function parseTariff(raw) {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_TARIFF };
   const type = raw.type === 'dual' ? 'dual' : raw.type === 'detail' ? 'detail' : 'single';
+  let energyPrice = price(raw.energyPrice, DEFAULT_TARIFF.energyPrice);
+  let balancing = raw.balancing == null ? DEFAULT_TARIFF.balancing : price(raw.balancing, DEFAULT_TARIFF.balancing);
+  // Vana salvestus hoidis energia ja bilansihalduse ühes numbris (0,10398).
+  if (raw.balancing == null && Math.abs(energyPrice - 0.10398) < 1e-6) {
+    energyPrice = DEFAULT_TARIFF.energyPrice;
+    balancing = DEFAULT_TARIFF.balancing;
+  }
   return {
     type,
     price: price(raw.price, DEFAULT_TARIFF.price),
@@ -48,7 +56,8 @@ export function parseTariff(raw) {
     nightPrice: price(raw.nightPrice, DEFAULT_TARIFF.nightPrice),
     nightStart: hour(raw.nightStart, DEFAULT_TARIFF.nightStart),
     nightEnd: hour(raw.nightEnd, DEFAULT_TARIFF.nightEnd),
-    energyPrice: price(raw.energyPrice, DEFAULT_TARIFF.energyPrice),
+    energyPrice,
+    balancing,
     networkDay: price(raw.networkDay, DEFAULT_TARIFF.networkDay),
     networkNight: price(raw.networkNight, DEFAULT_TARIFF.networkNight),
     security: price(raw.security, DEFAULT_TARIFF.security),
@@ -75,7 +84,7 @@ export function effectiveRates(tariff) {
   if (config.type === 'single') return { day: config.price, night: config.price, fixedMonthly: 0 };
   if (config.type === 'dual') return { day: config.dayPrice, night: config.nightPrice, fixedMonthly: 0 };
   const factor = 1 + config.vat / 100;
-  const base = config.energyPrice + config.security + config.excise + config.renewable;
+  const base = config.energyPrice + config.balancing + config.security + config.excise + config.renewable;
   return {
     day: (base + config.networkDay) * factor,
     night: (base + config.networkNight) * factor,

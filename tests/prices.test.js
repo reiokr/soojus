@@ -6,7 +6,7 @@ import { spotMap, dualCost, exchangeCost, periodSplit, variableCost } from '../s
 const close = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 
 const detail = {
-  type: 'detail', energyPrice: 0.10398, networkDay: 0.0607, networkNight: 0.0351,
+  type: 'detail', energyPrice: 0.10025, balancing: 0.00373, networkDay: 0.0607, networkNight: 0.0351,
   security: 0.00758, excise: 0.0021, renewable: 0.0084, vat: 24,
   nightStart: 22, nightEnd: 7, monthlyNetwork: 8.34, monthlySeller: 1.54, includeMonthly: false
 };

@@ -251,6 +251,7 @@ export default function EnergyPage({ ctx }) {
       <button type="button" className={dual ? 'selected' : ''} aria-pressed={dual} onClick={() => updateTariff({ type: 'dual' })}>{t('energy.dual')}</button>
       <button type="button" className={detail ? 'selected' : ''} aria-pressed={detail} onClick={() => updateTariff({ type: 'detail' })}>{t('energy.detail')}</button>
     </div>
+    <small className="en-tariff-hint">{t('energy.tariffHint')}</small>
     {tariff.type === 'single' && <label className="en-price"><span>{t('energy.price')}</span><input type="number" min="0" step="0.01" value={tariff.price} onChange={e => updateTariff({ price: e.target.value })} aria-label={t('energy.price')}/><b>{t('energy.priceUnit')}</b></label>}
     {dual && <>
       <label className="en-price"><span>{t('energy.dayPrice')}</span><input type="number" min="0" step="0.01" value={tariff.dayPrice} onChange={e => updateTariff({ dayPrice: e.target.value })} aria-label={t('energy.dayPrice')}/><b>{t('energy.priceUnit')}</b></label>
@@ -262,6 +263,7 @@ export default function EnergyPage({ ctx }) {
       <div className="en-detail-grid">
         {[
           ['energyPrice', 'energy.energyPrice', tariff.energyPrice, '0.00001'],
+          ['balancing', 'energy.balancing', tariff.balancing, '0.00001'],
           ['networkDay', 'energy.networkDay', tariff.networkDay, '0.00001'],
           ['networkNight', 'energy.networkNight', tariff.networkNight, '0.00001'],
           ['security', 'energy.security', tariff.security, '0.00001'],
