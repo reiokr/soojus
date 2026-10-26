@@ -523,12 +523,14 @@ export default {
     total: 'Kokku', kwh: 'kWh', h: 'h'
   },
   meter: {
-    title: 'Kogu mõõtepunkt', hint: 'Sisesta arvesti näidud valitud perioodi kohta (nt elektriarvelt). Soojuspump on sellest üks osa; mõõdetud elekter on kompressori oma.',
+    title: 'Kogu mõõtepunkt', hint: 'Vali kuu ja sisesta selle kuu arvesti näidud (nt elektriarvelt). Soojuspump on sellest üks osa; võrdlus kasutab sama kuu kompressori andmeid.',
+    month: 'Kuu', loading: 'Laadin kuu andmeid…', noData: 'Kuul {month} pole soojuspumba andmeid. Vali teine kuu või kontrolli, kas kohalik server oli sellel kuul töös.',
     total: 'Kokku, kWh', day: 'Päev, kWh', night: 'Öö, kWh', bill: 'Arve summa, €',
-    empty: 'Sisesta arvesti kogus, et võrrelda soojuspumba osa kogu tarbimisega.',
-    whole: 'Kogu mõõtepunkt', pump: 'Soojuspump / kompressor (mõõdetud)', other: 'Muu tarbimine', otherEstimated: 'Muu tarbimine (hinnang)', share: 'Soojuspumba osa', shareEstimated: 'Soojuspumba osa (hinnang)',
+    empty: 'Sisesta selle kuu arvesti kogus, et võrrelda soojuspumba osa kogu tarbimisega.',
+    whole: 'Kogu mõõtepunkt (valitud kuu)', pump: 'Soojuspump / kompressor (sama kuu)', other: 'Muu tarbimine', otherEstimated: 'Muu tarbimine (hinnang)', share: 'Soojuspumba osa', shareEstimated: 'Soojuspumba osa (hinnang)',
     needSplit: 'Päevase ja öise hinnaga kulu jaoks sisesta ka päevane ja öine kWh.',
-    billLine: 'Arve {bill} € · arvutus {computed} € · vahe {diff} €', estimate: 'Hinnang kogu perioodile: {kwh} kWh · {cost} €'
+    lowCoverage: 'Selle kuu kohalikud mõõtmised katavad ainult {percent}% kuust — soojuspumba osa on väga ebakindel. Server oli sel kuul tõenäoliselt maas.',
+    billLine: 'Arve {bill} € · arvutus {computed} € · vahe {diff} €', estimateMonth: 'Hinnang kuule {month}: {kwh} kWh · {cost} €'
   },
   compare: {
     title: 'Pakettide võrdlus', subtitle: 'Muutuv kulu kogu valitud perioodil, ilma kuutasuta.',

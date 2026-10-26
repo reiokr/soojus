@@ -152,6 +152,20 @@ test('energy page shows daily heat, electricity, COP, cost and exports CSV', asy
   await expect(dualCost).toHaveText(await currentCost.innerText());
   await page.locator('.en-check input').check();
   await expect(page.locator('.en-card').filter({ hasText: 'Kulu (kompressor)' })).toContainText('kuutasu');
+  // Kogu mõõtepunkt: kuu valik ja sama kuu pumpa andmed.
+  const meterMonth = page.getByLabel('Kuu', { exact: true });
+  await expect(meterMonth).toHaveValue(/^\d{4}-\d{2}$/);
+  await page.getByLabel('Kokku, kWh').fill('410.338');
+  await page.getByLabel('Päev, kWh').fill('227.102');
+  await page.getByLabel('Öö, kWh').fill('183.236');
+  await page.getByLabel('Arve summa, €').fill('99.44');
+  await expect(page.locator('.en-meter-list')).toContainText('410,3 kWh');
+  await expect(page.locator('.en-meter-list')).toContainText('99,43 €');
+  await expect(page.locator('.en-meter-bill').filter({ hasText: 'Arve 99,44 €' })).toBeVisible();
+  await meterMonth.selectOption({ index: 1 });
+  await expect(page.getByLabel('Kokku, kWh')).toHaveValue('');
+  await meterMonth.selectOption({ index: 0 });
+  await expect(page.getByLabel('Kokku, kWh')).toHaveValue('410.338');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Ekspordi CSV' }).click();
   const download = await downloadPromise;

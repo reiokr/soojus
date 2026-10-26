@@ -523,12 +523,14 @@ export default {
     total: 'Total', kwh: 'kWh', h: 'h'
   },
   meter: {
-    title: 'Whole metering point', hint: 'Enter the meter readings for the selected period (e.g. from the electricity bill). The heat pump is one part of it; the measured electricity is the compressor input.',
+    title: 'Whole metering point', hint: 'Choose a month and enter that month’s meter readings (e.g. from the electricity bill). The heat pump is one part of it; the comparison uses the same month’s compressor data.',
+    month: 'Month', loading: 'Loading month data…', noData: 'No heat pump data for {month}. Choose another month or check whether the local server was running that month.',
     total: 'Total, kWh', day: 'Day, kWh', night: 'Night, kWh', bill: 'Bill total, €',
-    empty: 'Enter the meter total to compare the heat pump share with the whole consumption.',
-    whole: 'Whole metering point', pump: 'Heat pump / compressor (measured)', other: 'Other consumption', otherEstimated: 'Other consumption (estimate)', share: 'Heat pump share', shareEstimated: 'Heat pump share (estimate)',
+    empty: 'Enter this month’s meter total to compare the heat pump share with the whole consumption.',
+    whole: 'Whole metering point (selected month)', pump: 'Heat pump / compressor (same month)', other: 'Other consumption', otherEstimated: 'Other consumption (estimate)', share: 'Heat pump share', shareEstimated: 'Heat pump share (estimate)',
     needSplit: 'To calculate with day/night prices, enter the day and night kWh too.',
-    billLine: 'Bill {bill} € · calculated {computed} € · difference {diff} €', estimate: 'Estimate for the whole period: {kwh} kWh · {cost} €'
+    lowCoverage: 'Local measurements cover only {percent}% of this month — the heat pump share is very uncertain. The server was probably off that month.',
+    billLine: 'Bill {bill} € · calculated {computed} € · difference {diff} €', estimateMonth: 'Estimate for {month}: {kwh} kWh · {cost} €'
   },
   compare: {
     title: 'Package comparison', subtitle: 'Variable cost for the entire selected period, excluding the monthly fee.',
