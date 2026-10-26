@@ -84,3 +84,17 @@ test('last day of the month returns actuals without a future forecast', () => {
   assert.equal(result.forecastKwh, 0);
   assert.equal(result.totalCost, result.actualCost);
 });
+
+test('accounts for measurement gaps instead of treating them as zero consumption', () => {
+  const now = at(2026, 10, 15);
+  const rows = historyUntil(now);
+  const partial = rows.map(row => row.day.startsWith('2026-10') ? { ...row, coverage: 0.5, electricKwh: row.electricKwh / 2 } : row);
+  const full = forecastMonth({ historyDays: rows, forecastDays: [], tariff: { type: 'single', price: 0.2 }, now });
+  const estimated = forecastMonth({ historyDays: partial, forecastDays: [], tariff: { type: 'single', price: 0.2 }, now });
+  assert.equal(estimated.available, true);
+  assert.ok(estimated.actualCoverage <= 0.51);
+  assert.ok(estimated.imputedKwh > 0);
+  assert.ok(Math.abs(estimated.actualKwh - full.actualKwh) < full.actualKwh * 0.2);
+  assert.ok(Math.abs(estimated.actualCost - full.actualCost) < full.actualCost * 0.2);
+  assert.equal(estimated.confident, false);
+});

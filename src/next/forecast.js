@@ -12,8 +12,15 @@ const finite = value => value == null || value === '' ? null : Number.isFinite(N
 
 // Vähimruutude sirge y = a + b·HDD. b<0 ei ole küttepumba puhul mõistlik, siis jääb ainult baastarve.
 export function fitElectricModel(days, { base = 15, minCoverage = 0.5, minDays = 7 } = {}) {
-  const rows = (days ?? []).filter(day => finite(day?.electricKwh) != null && finite(day?.outdoor) != null && (day.coverage == null || day.coverage >= minCoverage))
-    .map(day => ({ day: day.day, outdoor: Number(day.outdoor), electricKwh: Math.max(0, Number(day.electricKwh)) }));
+  // Katkestused: päevane kWh on ainult mõõdetud osa. Normaliseerime täispäevaks,
+  // et mudel ei õpiks poolikutest päevadest vale tarbimist.
+  const rows = (days ?? [])
+    .filter(day => finite(day?.electricKwh) != null && finite(day?.outdoor) != null)
+    .map(day => {
+      const coverage = Math.min(1, Math.max(0, finite(day.coverage) ?? 1));
+      return { day: day.day, outdoor: Number(day.outdoor), coverage, electricKwh: Math.max(0, Number(day.electricKwh)) / Math.max(coverage, minCoverage) };
+    })
+    .filter(row => row.coverage >= minCoverage);
   if (rows.length < minDays) return null;
   const xs = rows.map(day => Math.max(0, base - day.outdoor));
   const ys = rows.map(day => day.electricKwh);
@@ -70,16 +77,57 @@ export function forecastMonth({ historyDays = [], forecastDays = [], tariff, now
   const electricKnown = history.some(row => finite(row.electricKwh) != null);
   if (!electricKnown) return { available: false, reason: 'noElectric', month: prefix, daysInMonth: totalDays, daysElapsed, daysRemaining: totalDays - daysElapsed };
 
-  const actualDays = history.filter(row => row.day.startsWith(prefix) && row.day <= today && finite(row.electricKwh) != null);
-  const actualCoverage = daysElapsed > 0 ? actualDays.length / daysElapsed : 1;
-  const actualKwh = actualDays.reduce((sum, row) => sum + Number(row.electricKwh), 0);
-  const actualCost = actualDays.reduce((sum, row) => sum + (dayCost(row, tariff) ?? 0), 0);
   const fitDays = history.filter(row => row.day < today).sort((a, b) => a.day.localeCompare(b.day));
   const model = fitElectricModel(fitDays, { base });
-  const recent = fitDays.filter(row => finite(row.electricKwh) != null && finite(row.outdoor) != null).slice(-14);
-  const fallbackDaily = average(recent.map(row => Number(row.electricKwh))) ?? model?.meanKwh ?? null;
+  const recent = fitDays
+    .filter(row => finite(row.electricKwh) != null && finite(row.outdoor) != null && (finite(row.coverage) ?? 1) >= 0.5)
+    .slice(-14)
+    .map(row => ({ ...row, normalized: Number(row.electricKwh) / Math.max(0.5, Math.min(1, finite(row.coverage) ?? 1)) }));
+  const fallbackDaily = average(recent.map(row => row.normalized)) ?? model?.meanKwh ?? null;
   const recentOutdoor = average(recent.map(row => Number(row.outdoor))) ?? average(fitDays.map(row => finite(row.outdoor)).filter(value => value != null));
   if (fallbackDaily == null) return { available: false, reason: 'noHistory', month: prefix, daysInMonth: totalDays, daysElapsed, daysRemaining: totalDays - daysElapsed };
+
+  const rates = effectiveRates(tariff);
+  const split = fitDays.reduce((sum, row) => {
+    if (finite(row.electricKwh) == null) return sum;
+    const parts = splitElectric(row, tariff.nightStart, tariff.nightEnd);
+    sum.day += parts.dayKwh; sum.night += parts.nightKwh; return sum;
+  }, { day: 0, night: 0 });
+  const splitTotal = split.day + split.night;
+  const nightShare = splitTotal > 0 ? split.night / splitTotal : nightHours(tariff.nightStart, tariff.nightEnd).length / 24;
+  const averageRate = (1 - nightShare) * rates.day + nightShare * rates.night;
+
+  // Kuu kulunud osa: mõõdetud kWh + katvuse põhjal hinnatud puuduv osa.
+  // Kui päev on osaliselt mõõdetud, arvutame puuduva osa mudeli järgi; kui päev on täiesti puudu, siis terve päeva mudeli järgi.
+  const byDay = new Map(history.map(row => [row.day, row]));
+  let actualKwh = 0, actualCost = 0, measuredKwh = 0, measuredCost = 0, imputedKwh = 0, imputedCost = 0, coverageSum = 0, gapDays = 0;
+  for (let dayNumber = 1; dayNumber <= daysElapsed; dayNumber++) {
+    const day = `${prefix}-${pad(dayNumber)}`;
+    const row = byDay.get(day);
+    const coverage = Math.min(1, Math.max(0, finite(row?.coverage) ?? 0));
+    coverageSum += coverage;
+    if (coverage < 0.95) gapDays++;
+    const measured = finite(row?.electricKwh);
+    const outdoor = finite(row?.outdoor) ?? recentOutdoor;
+    const predicted = model && outdoor != null ? predictDaily(model, outdoor) : fallbackDaily;
+    if (measured != null && coverage >= 0.999) {
+      actualKwh += measured;
+      const cost = dayCost(row, tariff) ?? measured * averageRate;
+      actualCost += cost; measuredKwh += measured; measuredCost += cost;
+    } else if (measured != null && coverage > 0.01) {
+      const missing = 1 - coverage, missingKwh = missing * predicted;
+      const measuredPartCost = dayCost(row, tariff) ?? measured * averageRate;
+      actualKwh += measured + missingKwh;
+      actualCost += measuredPartCost + missingKwh * averageRate;
+      measuredKwh += measured; measuredCost += measuredPartCost;
+      imputedKwh += missingKwh; imputedCost += missingKwh * averageRate;
+    } else {
+      actualKwh += predicted;
+      actualCost += predicted * averageRate;
+      imputedKwh += predicted; imputedCost += predicted * averageRate;
+    }
+  }
+  const actualCoverage = daysElapsed > 0 ? coverageSum / daysElapsed : 1;
 
   const forecastMap = forecastTemperatures(forecastDays);
   const future = [];
@@ -92,28 +140,18 @@ export function forecastMonth({ historyDays = [], forecastDays = [], tariff, now
     const electricKwh = model ? predictDaily(model, outdoor) : fallbackDaily;
     future.push({ day, outdoor: outdoor == null ? null : round(outdoor, 1), electricKwh, source });
   }
+  const fixedCost = rates.fixedMonthly;
   if (!future.length) {
-    const fixed = effectiveRates(tariff).fixedMonthly;
-    return { available: true, month: prefix, daysInMonth: totalDays, daysElapsed, daysRemaining: 0, actualKwh: round(actualKwh, 1), actualCost: round(actualCost, 2), forecastKwh: 0, forecastCost: 0, fixedCost: fixed, totalKwh: round(actualKwh, 1), totalCost: round(actualCost + fixed, 2), lowCost: round(actualCost + fixed, 2), highCost: round(actualCost + fixed, 2), model, forecastDaysUsed: 0, climateDaysUsed: 0, nightShare: 0, averageRate: 0, actualCoverage: round(actualCoverage, 2), confident: false, days: [] };
+    return { available: true, month: prefix, daysInMonth: totalDays, daysElapsed, daysRemaining: 0, actualKwh: round(actualKwh, 1), actualCost: round(actualCost, 2), measuredKwh: round(measuredKwh, 1), measuredCost: round(measuredCost, 2), imputedKwh: round(imputedKwh, 1), imputedCost: round(imputedCost, 2), forecastKwh: 0, forecastCost: 0, fixedCost, totalKwh: round(actualKwh, 1), totalCost: round(actualCost + fixedCost, 2), lowCost: round(actualCost + fixedCost, 2), highCost: round(actualCost + fixedCost, 2), model, forecastDaysUsed: 0, climateDaysUsed: 0, nightShare: 0, averageRate, actualCoverage: round(actualCoverage, 2), gapDays, confident: false, days: [] };
   }
 
   const forecastKwh = future.reduce((sum, day) => sum + day.electricKwh, 0);
-  const rates = effectiveRates(tariff);
-  const split = fitDays.reduce((sum, row) => {
-    if (finite(row.electricKwh) == null) return sum;
-    const parts = splitElectric(row, tariff.nightStart, tariff.nightEnd);
-    sum.day += parts.dayKwh; sum.night += parts.nightKwh; return sum;
-  }, { day: 0, night: 0 });
-  const splitTotal = split.day + split.night;
-  const nightShare = splitTotal > 0 ? split.night / splitTotal : nightHours(tariff.nightStart, tariff.nightEnd).length / 24;
-  const averageRate = (1 - nightShare) * rates.day + nightShare * rates.night;
   const forecastCost = forecastKwh * averageRate;
-  const fixedCost = rates.fixedMonthly;
   const totalKwh = actualKwh + forecastKwh;
   const totalCost = actualCost + forecastCost + fixedCost;
-  // Ligikaudne vahemik: mudeli jääkviga + ilma/tarbimise ebakindlus.
+  // Ligikaudne vahemik: mudeli jääkviga + ilma ebakindlus + katkestuste hinnang.
   const dailyRmse = model?.rmse ?? (fallbackDaily ? fallbackDaily * 0.25 : 0);
-  const errorKwh = Math.sqrt(dailyRmse ** 2 * future.length + (forecastKwh * 0.10) ** 2);
+  const errorKwh = Math.sqrt(dailyRmse ** 2 * future.length + (forecastKwh * 0.10) ** 2 + (imputedKwh * 0.30) ** 2);
   const errorCost = errorKwh * averageRate;
   return {
     available: true,
@@ -123,6 +161,10 @@ export function forecastMonth({ historyDays = [], forecastDays = [], tariff, now
     daysRemaining: future.length,
     actualKwh: round(actualKwh, 1),
     actualCost: round(actualCost, 2),
+    measuredKwh: round(measuredKwh, 1),
+    measuredCost: round(measuredCost, 2),
+    imputedKwh: round(imputedKwh, 1),
+    imputedCost: round(imputedCost, 2),
     forecastKwh: round(forecastKwh, 1),
     forecastCost: round(forecastCost, 2),
     fixedCost: round(fixedCost, 2),
@@ -136,8 +178,9 @@ export function forecastMonth({ historyDays = [], forecastDays = [], tariff, now
     climateDaysUsed: future.filter(day => day.source === 'climate').length,
     nightShare: round(nightShare, 2),
     averageRate: round(averageRate, 4),
-    confident: Boolean(model && model.n >= 14 && actualDays.length >= 3 && actualCoverage >= 0.8),
+    confident: Boolean(model && model.n >= 14 && daysElapsed >= 3 && actualCoverage >= 0.8),
     actualCoverage: round(actualCoverage, 2),
+    gapDays,
     days: future.map(day => ({ ...day, electricKwh: round(day.electricKwh, 2) }))
   };
 }

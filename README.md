@@ -192,7 +192,8 @@ Mudel:
 1. Viimaste päevade mõõdetud **kompressori elektritarbimine** (kWh) ja **välisõhu keskmine** seotakse küttekraadidega (HDD, baas 15 °C): `kWh ≈ baastarve + kalle × max(0, 15 − välisõhk)`.
 2. Järgmise **7 päeva** jaoks kasutatakse Open-Meteo ilmaprognoosi (päeva max/min keskmine).
 3. Kaugemate päevade jaoks kasutatakse ajaloolist sama ajaperioodi keskmist; kui seda pole, viimase 14 päeva keskmist.
-4. Kulu arvutatakse valitud elektritariifi (üks/kahetariifne/arve komponendid) ja ajaloolise päeva/öö osakaalu järgi. Hinnanguline vahemik tuleb mudeli jääkveast ja ilma ebakindlusest.
+4. Kulu arvutatakse valitud elektritariifi (üks/kahetariifne/arve komponendid) ja ajaloolise päeva/öö osakaalu järgi. Hinnanguline vahemik tuleb mudeli jääkveast, ilma ebakindlusest ja mõõtmislünkadest.
+5. **Serveri seisakud ei lähe nulltarbimisena arvesse.** Iga päeva katvuse põhjal hinnatakse puuduv osa mudeliga; mudeli õppimisel normaliseeritakse osaliselt mõõdetud päevad täispäevaks. UI näitab, kui suur osa „kulunud” summast on hinnanguline ja kui suur oli mõõtmiste katvus.
 
 **Piirangud:** see on hinnang, mitte garantii. See ei sisalda ventilatsiooni ega kogu maja elektrit, tarifimuutusi, muutusi kütteseadetes ega tarbimisharjumustes. Vähese ajaloo või madala andmekatvuse korral kuvatakse hoiatus.
 

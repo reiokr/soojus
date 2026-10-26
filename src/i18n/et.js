@@ -500,7 +500,7 @@ export default {
     tableDayKwh: 'Päevane, kWh', tableNightKwh: 'Öine, kWh',
     price: 'Elektri hind', priceUnit: '€/kWh', priceHint: 'Sisalda võrgutasu ja maksud.',
     chartHeat: 'Soojus', chartElectric: 'Elekter',
-    forecastTitle: 'Selle kuu prognoos', forecastSpent: 'Kulunud', forecastRemaining: 'Prognoositud', forecastTotal: 'Kuu lõpuks',
+    forecastTitle: 'Selle kuu prognoos', forecastSpent: 'Kulunud', forecastSpentEstimate: 'Kulunud (hinnang)', forecastImputed: 'Kulunud osas on {kwh} kWh hinnanguline, sest mõõtmised katavad {percent}% ajast. Puuduv osa on arvutatud mudeli ja päevase katvuse järgi.', forecastRemaining: 'Prognoositud', forecastTotal: 'Kuu lõpuks',
     forecastRange: 'vahemik {low}–{high} €', forecastDays: '{elapsed}/{total} päeva · jäänud {remaining}',
     forecastBasis: 'Põhineb {n} päeva mõõdetud tarbimisel, {weather} päeva ilmaprognoosil ja {climate} päeva ajaloolisel keskmisel. Ainult kompressori elekter.',
     forecastBasisNoWeather: 'Ilmaprognoos pole saadaval; põhineb {n} päeva tarbimisel ja {climate} päeva ajaloolisel keskmisel. Ainult kompressori elekter.',
