@@ -103,7 +103,7 @@ Ajaloo lehel on ventilatsiooni näidud soojuspumba omadega samas valijas: sama �
 - **Elav kodu:** animeeritud majavaade kassiga, taustamuusika (ka omad helifailid) ja äikese-/vihmahelid — vaata osa *Elav kodu*.
 - Ilm ja asukoht Open-Meteost (ilmapaneel, 24 h ja 7 päeva prognoos) ilma API-võtmeta.
 - Kohalik mõõtmisajalugu: eri perioodid, kuni viis sama ühikuga graafikuseeriat, CSV eksport.
-- **Nutikad SMS-teavitused:** lisa oma mobiilinumber ja vali teenusepakkuja. **KDE Connect** on tasuta ja saadab SMS-i sinu telefoni SIM-kaardi kaudu: pairista telefon arvutiga, luba telefonis SMS-plugin ja vali seade. Alternatiivid: Twilio, MessageBird või üldine webhook (nt kohalik GSM gateway). Reeglid: soojuspumba viga, ventilatsiooni filter, kõrge CO₂, legionella ebaõnnestumine ja vananenud andmed. Lisaks vaikne aeg, kordusvahemik ja päevane piirmäär; test-SMS ja viimaste teavituste logi. Võtmed ja number jäävad kohalikku andmebaasi, GET ei tagasta saladusi. SMS-id on teenusepakkuja hinnakirja järgi tasulised; sõnumid on eesti keeles. Seaded: *Seaded ja ühendus → Nutikad teavitused*.
+- **Nutikad SMS-teavitused:** lisa oma mobiilinumber ja vali teenusepakkuja. **KDE Connect** on tasuta ja saadab SMS-i sinu telefoni SIM-kaardi kaudu: pairista telefon arvutiga, luba telefonis SMS-plugin ja vali seade. Alternatiivid: **Telegram** (tasuta, töötab interneti kaudu), Twilio, MessageBird või üldine webhook (nt kohalik GSM gateway). Telegram ei sõltu KDE Connecti võrgusolekust: loo Telegramis @BotFather kaudu bot (/newbot), kirjuta botile „start”, võta `api.telegram.org/bot<TOKEN>/getUpdates` vastusest `chat.id` ja sisesta seadetesse boti token + chat ID. See on soovitatav kanal, kui telefon peab teavituse saama ka siis, kui KDE Connecti app on suletud. Reeglid: soojuspumba viga, ventilatsiooni filter, kõrge CO₂, legionella ebaõnnestumine ja vananenud andmed. Lisaks vaikne aeg, kordusvahemik ja päevane piirmäär; test-SMS ja viimaste teavituste logi. Võtmed ja number jäävad kohalikku andmebaasi, GET ei tagasta saladusi. SMS-id on teenusepakkuja hinnakirja järgi tasulised; sõnumid on eesti keeles. Seaded: *Seaded ja ühendus → Nutikad teavitused*.
 - **PWA ja push-teavitused:** rakenduse saab paigaldada avaekraanile (manifest + service worker), offline-kest kuvab rakenduse kesta ka siis, kui server ei vasta, ja **Web Push** saadab tasuta teavitusi ilma SMS-ita. Luba *Seaded ja ühendus → Nutikad teavitused → Push-teavitused*; server genereerib VAPID-võtmed ja hoiab brauserite tellimusi kohalikus andmebaasis. Tellimus on brauseripõhine ja server saadab teavituse kõigile tellinud seadmetele. Push ja PWA paigaldus nõuavad **HTTPS-i või localhosti**; telefonis LAN-i HTTP-aadressil need ei tööta (SMS töötab edasi). Vt täpsemalt [PWA ja push-teavitused](#pwa-ja-push-teavitused).
 - **Varukoopia ja taastamine:** ühe nupuga täielik SQLite-varukoopia allalaadimiseks, automaatne öine varukoopia (vaikimisi kell 03:00, 7 päeva) ning taastamine nimekirjast või üleslaaditud failist. Enne taastamist tehakse turvakoopia; systemd keskkonnas taaskäivitub server automaatselt. Varukoopiad on `data/backups/` kaustas (ainult kasutajale loetavad). Vt [Varukoopia ja taastamine](#varukoopia-ja-taastamine).
 - **Kuu elektrikulu prognoos:** energia lehel on eraldi paneel „Selle kuu prognoos”. See kasutab viimase ajaloo kompressori elektritarbimist ja välisõhku (küttekraadid), 7-päeva ilmaprognoosi ning ülejäänud kuu jaoks ajaloolist same-aja keskmist. Tulemus näitab kulunud, prognoositud ja kuu lõpu summat koos hinnangulise vahemikuga. Prognoos on ainult kompressori elekter, mitte kogu maja tarbimine.
@@ -138,6 +138,16 @@ Mõõdikute näide:
 curl -s http://localhost:3210/api/health | jq
 curl -s http://localhost:3210/api/metrics
 ```
+
+### Telegrami seadistamine
+
+1. Telegramis ava **@BotFather** ja saada `/newbot`; vali nimi ja kasutajanimi.
+2. BotFather annab **tokeni** kujul `123456789:AA…`.
+3. Kirjuta loodud botile Telegramis „start” (või ükskõik milline sõnum).
+4. Ava brauseris `https://api.telegram.org/bot<TOKEN>/getUpdates` ja leia `"chat":{"id":…}` — see on **chat ID**.
+5. Rakenduses *Seaded ja ühendus → Nutikad teavitused* vali teenuseks **Telegram**, sisesta token ja chat ID, salvesta ning saada testteavitus.
+
+Telegrami teavitused on tasuta ja töötavad interneti kaudu; need ei vaja KDE Connecti ega telefoni samas Wi-Fi võrgus.
 
 ## PWA ja push-teavitused
 

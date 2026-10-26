@@ -15,7 +15,7 @@ import { energyReport, MAX_DAYS } from './energy.js';
 import { ensurePriceTable, syncPrices, pricesFor } from './prices.js';
 import { buildHeatingCurve } from './heating-curve.js';
 import { buildDhwCycles } from './dhw-cycles.js';
-import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueAlerts, dueNotifications, sendSms, kdeconnectDevices } from './notifications.js';
+import { NOTIFY_KEY, NOTIFY_LOG_KEY, parseNotifications, publicNotifications, dueAlerts, dueNotifications, sendSms, kdeconnectDevices, notificationChannelReady } from './notifications.js';
 import { createPushStore } from './push.js';
 import { createLogger } from './log.js';
 import { BACKUP_KEY, BackupError, applyPendingRestore, backupFile, createBackup, deleteBackup, listBackups, parseBackupSettings, runNightlyBackup, saveUpload, stageRestore, validateBackup } from './backup.js';
@@ -763,7 +763,7 @@ let notifyBusy = false;
 async function notificationTick() {
   if (notifyBusy) return;
   const config = getSetting(NOTIFY_KEY);
-  const sms = Boolean(config?.smsEnabled && config.phone);
+  const sms = Boolean(config?.smsEnabled && notificationChannelReady(parseNotifications(config)));
   const push = Boolean(config?.pushEnabled && pushStore.count() > 0);
   if (!sms && !push) return;
   const log = getSetting(NOTIFY_LOG_KEY) || { lastSent: {}, sent: [] };
@@ -806,7 +806,7 @@ app.post('/api/notifications/settings', (req, res) => {
 });
 app.post('/api/notifications/test', async (req, res) => {
   const config = parseNotifications(req.body, getSetting(NOTIFY_KEY));
-  if (!config.phone) throw new AppError('Sisesta telefoninumber.', 400);
+  if (config.provider !== 'telegram' && !config.phone) throw new AppError('Sisesta telefoninumber.', 400);
   const time = new Date().toISOString(), log = getSetting(NOTIFY_LOG_KEY) || { lastSent: {}, sent: [] };
   try {
     await sendSms(config, 'Soojus: testteavitus. SMS-teavitused töötavad.');

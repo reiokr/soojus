@@ -16,6 +16,8 @@ export const DEFAULT_NOTIFICATIONS = Object.freeze({
   provider: 'kdeconnect',
   twilioSid: '',
   twilioFrom: '',
+  telegramToken: '',
+  telegramChat: '',
   messagebirdFrom: 'Soojus',
   webhookUrl: '',
   kdeconnectDevice: '',
@@ -41,7 +43,7 @@ export function parseNotifications(input = {}, previous = null) {
   const merged = { ...base, ...input, rules: { ...base.rules, ...(input.rules || {}) } };
   const phone = text(merged.phone).replace(/[\s()-]/g, '');
   if (phone && !/^\+?\d{7,15}$/.test(phone)) throw new NotificationError('Telefoninumber peab olema kujul +372… ja 7–15 numbrit.');
-  const provider = ['kdeconnect', 'twilio', 'messagebird', 'webhook'].includes(merged.provider) ? merged.provider : 'kdeconnect';
+  const provider = ['kdeconnect', 'telegram', 'twilio', 'messagebird', 'webhook'].includes(merged.provider) ? merged.provider : 'kdeconnect';
   return {
     smsEnabled: bool(merged.smsEnabled, false),
     pushEnabled: bool(merged.pushEnabled, false),
@@ -50,6 +52,8 @@ export function parseNotifications(input = {}, previous = null) {
     twilioSid: text(merged.twilioSid),
     twilioToken: secret(input.twilioToken, base.twilioToken),
     twilioFrom: text(merged.twilioFrom),
+    telegramToken: secret(input.telegramToken, base.telegramToken),
+    telegramChat: text(merged.telegramChat),
     messagebirdKey: secret(input.messagebirdKey, base.messagebirdKey),
     messagebirdFrom: text(merged.messagebirdFrom) || 'Soojus',
     webhookUrl: text(merged.webhookUrl),
@@ -71,8 +75,8 @@ export function parseNotifications(input = {}, previous = null) {
 
 export function publicNotifications(settings) {
   const config = parseNotifications(settings);
-  const { twilioToken, messagebirdKey, webhookToken, ...rest } = config;
-  return { ...rest, secrets: { twilioToken: Boolean(twilioToken), messagebirdKey: Boolean(messagebirdKey), webhookToken: Boolean(webhookToken) } };
+  const { twilioToken, telegramToken, messagebirdKey, webhookToken, ...rest } = config;
+  return { ...rest, secrets: { twilioToken: Boolean(twilioToken), telegramToken: Boolean(telegramToken), messagebirdKey: Boolean(messagebirdKey), webhookToken: Boolean(webhookToken) } };
 }
 
 export function inQuietHours(date, from, to) {
@@ -125,9 +129,13 @@ export function dueAlerts({ settings, state, log, now = Date.now() }) {
   return due;
 }
 
+export const notificationChannelReady = config => config.provider === 'telegram'
+  ? Boolean(config.telegramToken && config.telegramChat)
+  : Boolean(config.phone);
+
 export function dueNotifications({ settings, state, log, now = Date.now() }) {
   const config = parseNotifications(settings);
-  if (!config.smsEnabled || !config.phone) return [];
+  if (!config.smsEnabled || !notificationChannelReady(config)) return [];
   return dueAlerts({ settings: config, state, log, now });
 }
 
@@ -155,7 +163,7 @@ export async function kdeconnectDevices({ execFileImpl = run } = {}) {
 
 export async function sendSms(settings, message, { fetchImpl = fetch, execFileImpl = run } = {}) {
   const config = parseNotifications(settings);
-  if (!config.phone) throw new NotificationError('Sisesta telefoninumber.');
+  if (config.provider !== 'telegram' && !config.phone) throw new NotificationError('Sisesta telefoninumber.');
   const timeout = () => AbortSignal.timeout(15000);
   if (config.provider === 'kdeconnect') {
     const list = await kdeconnectDevices({ execFileImpl });
@@ -166,6 +174,21 @@ export async function sendSms(settings, message, { fetchImpl = fetch, execFileIm
     try {
       await execFileImpl('kdeconnect-cli', ['--device', device, '--send-sms', message, '--destination', config.phone], { timeout: 30000 });
     } catch (e) { throw new NotificationError(`KDE Connect: ${e.message}`); }
+    return { ok: true };
+  }
+  if (config.provider === 'telegram') {
+    if (!config.telegramToken || !config.telegramChat) throw new NotificationError('Telegrami boti token ja chat ID on puudu.');
+    const response = await fetchImpl(`https://api.telegram.org/bot${config.telegramToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: config.telegramChat, text: message, disable_web_page_preview: true }),
+      signal: timeout()
+    });
+    if (!response.ok) {
+      let detail = '';
+      try { const body = await response.json(); detail = body?.description ? `: ${body.description}` : ''; } catch { /* vastus ei olnud JSON */ }
+      throw new NotificationError(`Telegram vastas veaga (${response.status})${detail}.`);
+    }
     return { ok: true };
   }
   if (config.provider === 'twilio') {

@@ -14,13 +14,18 @@ test('parseNotifications normalises the phone, keeps secrets and validates value
   assert.throws(() => parseNotifications({ phone: '123' }), /Telefoninumber/);
   const kept = parseNotifications({ phone: '+37255551234' }, config);
   assert.equal(kept.messagebirdKey, 'key-1');
+  const telegram = parseNotifications({ provider: 'telegram', telegramToken: 'tok', telegramChat: '42' });
+  assert.equal(telegram.provider, 'telegram');
+  assert.equal(telegram.telegramToken, 'tok');
+  assert.equal(telegram.telegramChat, '42');
 });
 
 test('publicNotifications never exposes secrets', () => {
   const publicConfig = publicNotifications({ phone: '+37255551234', twilioToken: 'secret', messagebirdKey: 'key', webhookToken: 'token' });
   assert.equal(publicConfig.twilioToken, undefined);
   assert.equal(publicConfig.messagebirdKey, undefined);
-  assert.deepEqual(publicConfig.secrets, { twilioToken: true, messagebirdKey: true, webhookToken: true });
+  assert.equal(publicConfig.telegramToken, undefined);
+  assert.deepEqual(publicConfig.secrets, { twilioToken: true, telegramToken: false, messagebirdKey: true, webhookToken: true });
 });
 
 test('dueAlerts evaluates rules independently of SMS so push can reuse it', () => {
@@ -64,7 +69,7 @@ test('dueNotifications respects rules, cooldown, quiet hours and the daily limit
   assert.deepEqual(quiet, []);
 });
 
-test('sendSms builds Twilio, MessageBird and webhook requests', async () => {
+test('sendSms builds Telegram, Twilio, MessageBird and webhook requests', async () => {
   const calls = [];
   const fetchImpl = async (url, options) => { calls.push({ url, options }); return { ok: true, status: 200 }; };
   await sendSms({ phone: '+37255551234', provider: 'twilio', twilioSid: 'AC1', twilioToken: 'tok', twilioFrom: '+15550001111' }, 'Tere', { fetchImpl });
@@ -77,10 +82,15 @@ test('sendSms builds Twilio, MessageBird and webhook requests', async () => {
   assert.equal(calls[1].url, 'https://rest.messagebird.com/messages');
   assert.equal(JSON.parse(calls[1].options.body).recipients[0], '+37255551234');
 
+  await sendSms({ phone: '+37255551234', provider: 'telegram', telegramToken: '123:abc', telegramChat: '42' }, 'Tere', { fetchImpl });
+  assert.equal(calls[2].url, 'https://api.telegram.org/bot123:abc/sendMessage');
+  assert.deepEqual(JSON.parse(calls[2].options.body), { chat_id: '42', text: 'Tere', disable_web_page_preview: true });
+
   await sendSms({ phone: '+37255551234', provider: 'webhook', webhookUrl: 'https://example.test/sms', webhookToken: 'x' }, 'Tere', { fetchImpl });
-  assert.equal(calls[2].url, 'https://example.test/sms');
-  assert.equal(JSON.parse(calls[2].options.body).to, '+37255551234');
-  assert.equal(calls[2].options.headers.Authorization, 'Bearer x');
+  assert.equal(calls[3].url, 'https://example.test/sms');
+  assert.equal(JSON.parse(calls[3].options.body).to, '+37255551234');
+  assert.equal(calls[3].options.headers.Authorization, 'Bearer x');
+  await assert.rejects(sendSms({ phone: '+37255551234', provider: 'telegram' }, 'x', { fetchImpl }), /Telegram/);
   await assert.rejects(sendSms({ phone: '+37255551234', provider: 'twilio' }, 'x', { fetchImpl }), /Twilio/);
 });
 
@@ -107,4 +117,16 @@ test('sendSms via KDE Connect selects the paired phone and passes the message', 
     }),
     /ei ole võrgus/
   );
+});
+
+test('Telegram notifications do not require a phone number', () => {
+  const now = new Date(2026, 0, 1, 12, 0).getTime();
+  const settings = {
+    smsEnabled: true, provider: 'telegram', phone: '', telegramToken: '123:abc', telegramChat: '42',
+    quietFrom: 0, quietTo: 0, cooldownMinutes: 60, dailyLimit: 10, rules: { ventFilter: true }
+  };
+  const log = { lastSent: {}, sent: [] };
+  assert.equal(dueNotifications({ settings, state: { ventFilter: true }, log, now }).length, 1);
+  assert.equal(dueNotifications({ settings: { ...settings, telegramToken: '' }, state: { ventFilter: true }, log, now }).length, 0);
+  assert.equal(dueNotifications({ settings: { ...settings, telegramChat: '' }, state: { ventFilter: true }, log, now }).length, 0);
 });

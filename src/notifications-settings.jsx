@@ -28,7 +28,7 @@ export default function NotificationSettings({ notify }) {
   const load = async () => {
     try {
       const [settings, activity, push] = await Promise.all([api('/notifications/settings'), api('/notifications/log'), api('/push/status')]);
-      setForm({ ...settings, twilioToken: '', messagebirdKey: '', webhookToken: '' });
+      setForm({ ...settings, twilioToken: '', telegramToken: '', messagebirdKey: '', webhookToken: '' });
       setLog(activity || { sent: [] });
       setPushStatus(push);
       if (pushCapable()) {
@@ -61,7 +61,7 @@ export default function NotificationSettings({ notify }) {
     e.preventDefault(); setBusy(true); setError(null);
     try {
       const saved = await api('/notifications/settings', { method: 'POST', body: JSON.stringify(form) });
-      setForm({ ...saved, twilioToken: '', messagebirdKey: '', webhookToken: '' });
+      setForm({ ...saved, twilioToken: '', telegramToken: '', messagebirdKey: '', webhookToken: '' });
       notify?.(t('notify.saved'));
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
@@ -76,7 +76,7 @@ export default function NotificationSettings({ notify }) {
   }
   async function savePushFlag(enabled) {
     const saved = await api('/notifications/settings', { method: 'POST', body: JSON.stringify({ ...form, pushEnabled: enabled }) });
-    setForm({ ...saved, twilioToken: '', messagebirdKey: '', webhookToken: '' });
+    setForm({ ...saved, twilioToken: '', telegramToken: '', messagebirdKey: '', webhookToken: '' });
   }
   async function enablePush() {
     setPushBusy(true); setError(null);
@@ -130,6 +130,7 @@ export default function NotificationSettings({ notify }) {
         <label className="field"><span>{t('notify.phone')}</span><input type="tel" value={form.phone} onChange={e => update({ phone: e.target.value })} placeholder="+372 5555 1234" autoComplete="tel"/></label>
         <label className="field"><span>{t('notify.provider')}</span><select value={form.provider} onChange={e => update({ provider: e.target.value })}>
           <option value="kdeconnect">{t('notify.kdeconnect')}</option>
+          <option value="telegram">Telegram</option>
           <option value="twilio">Twilio</option>
           <option value="messagebird">MessageBird</option>
           <option value="webhook">{t('notify.webhook')}</option>
@@ -158,6 +159,13 @@ export default function NotificationSettings({ notify }) {
         <p className="muted notify-hint">{t('notify.kdeconnectHint')}</p>
       </>}
 
+      {form.provider === 'telegram' && <>
+        <div className="notify-grid">
+          <label className="field"><span>{t('notify.telegramToken')}</span><input type="password" value={form.telegramToken} onChange={e => update({ telegramToken: e.target.value })} placeholder={form.secrets?.telegramToken ? t('notify.savedSecret') : '123456789:AA…'} autoComplete="new-password"/></label>
+          <label className="field"><span>{t('notify.telegramChat')}</span><input value={form.telegramChat} onChange={e => update({ telegramChat: e.target.value })} placeholder="123456789 või @kanal"/></label>
+        </div>
+        <p className="muted notify-hint">{t('notify.telegramHint')}</p>
+      </>}
       {form.provider === 'twilio' && <div className="notify-grid">
         <label className="field"><span>{t('notify.twilioSid')}</span><input value={form.twilioSid} onChange={e => update({ twilioSid: e.target.value })} placeholder="AC…"/></label>
         <label className="field"><span>{t('notify.twilioToken')}</span><input type="password" value={form.twilioToken} onChange={e => update({ twilioToken: e.target.value })} placeholder={form.secrets?.twilioToken ? t('notify.savedSecret') : ''} autoComplete="new-password"/></label>
@@ -188,7 +196,7 @@ export default function NotificationSettings({ notify }) {
       {error && <p className="inline-error" role="alert">{error}</p>}
       <div className="button-row">
         <button type="submit" className="button primary" disabled={busy}>{busy ? t('notify.saving') : t('notify.save')}</button>
-        <button type="button" className="button" onClick={test} disabled={testBusy || !form.phone}>{testBusy ? t('notify.sending') : t('notify.test')}</button>
+        <button type="button" className="button" onClick={test} disabled={testBusy || (['kdeconnect', 'twilio', 'messagebird'].includes(form.provider) && !form.phone)}>{testBusy ? t('notify.sending') : t('notify.test')}</button>
       </div>
       <p className="muted notify-hint">{t('notify.testHint')}</p>
 

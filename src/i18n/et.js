@@ -569,10 +569,10 @@ export default {
     noteDetail: 'Võrdlus kasutab sama normaliseeritud kompressori tarbimist. Sisesta müüja energia hind koos KM-ga; võrk, varustuskindlus, aktsiis, taastuvenergia ja bilansihaldus lisatakse praeguse arve komponentidest. Fikseeritud pakett arvestab kogu tarbimise päevase võrguhinnaga (ühetariifne võrk); kahetariifne pakett kasutab öist võrguhinda. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
   },
   notify: {
-    title: 'Nutikad teavitused', hint: 'Saada SMS või push-teavitus, kui tekib viga, filter vajab vahetust, CO₂ on kõrge või legionella ebaõnnestub. Kõige lihtsam on KDE Connect telefoni kaudu; push on tasuta, aga nõuab HTTPS-i või localhosti.',
-    loading: 'Laadin teavituste seadeid…', smsEnabled: 'Saada SMS-teavitusi', phone: 'Mobiilinumber', provider: 'SMS-teenus', webhook: 'Webhook', kdeconnect: 'KDE Connect (telefon)', kdeconnectDevice: 'Telefoni seade', kdeconnectAuto: 'Automaatne (esimene seade)', refreshDevices: 'Värskenda seadmete loendit', kdeconnectNone: 'Ühtegi KDE Connecti seadet pole paaris. Paarista telefon arvutiga ja luba telefonis SMS-plugin.',
-    kdeconnectOffline: 'pole võrgus', kdeconnectUnavailable: 'Telefon on paardunud, kuid pole praegu võrgus saadaval. Ava telefonis KDE Connect ja kontrolli, et telefon on samas Wi-Fi võrgus.', kdeconnectHint: 'SMS saadetakse sinu telefoni SIM-kaardi kaudu; tasu sõltub sinu mobiilipaketist. Telefon peab olema arvutiga paaris ja võrgus.', providerHint: 'KDE Connect on tasuta (kasutab telefoni SIM-kaarti). Twilio ja MessageBird on tasulised teenused.',
-    twilioSid: 'Twilio Account SID', twilioToken: 'Twilio Auth Token', twilioFrom: 'Twilio saatja number',
+    title: 'Nutikad teavitused', hint: 'Saada teavitus valitud kanalisse (Telegram, KDE Connect SMS või push), kui tekib viga, filter vajab vahetust, CO₂ on kõrge või legionella ebaõnnestub.',
+    loading: 'Laadin teavituste seadeid…', smsEnabled: 'Luba teavitused', phone: 'Mobiilinumber (SMS)', provider: 'SMS-teenus', webhook: 'Webhook', kdeconnect: 'KDE Connect (telefon)', kdeconnectDevice: 'Telefoni seade', kdeconnectAuto: 'Automaatne (esimene seade)', refreshDevices: 'Värskenda seadmete loendit', kdeconnectNone: 'Ühtegi KDE Connecti seadet pole paaris. Paarista telefon arvutiga ja luba telefonis SMS-plugin.',
+    kdeconnectOffline: 'pole võrgus', kdeconnectUnavailable: 'Telefon on paardunud, kuid pole praegu võrgus saadaval. Ava telefonis KDE Connect ja kontrolli, et telefon on samas Wi-Fi võrgus.', kdeconnectHint: 'SMS saadetakse sinu telefoni SIM-kaardi kaudu; tasu sõltub sinu mobiilipaketist. Telefon peab olema arvutiga paaris ja võrgus.', providerHint: 'KDE Connect on tasuta, aga vajab telefonis avatud appi ja sama Wi-Fi võrku. Telegram on tasuta ja töötab interneti kaudu. Twilio ja MessageBird on tasulised SMS-teenused.',
+    telegramToken: 'Telegrami boti token', telegramChat: 'Telegrami chat ID', telegramHint: 'Loo bot Telegramis @BotFather kaudu (/newbot) ja kopeeri token. Chat ID saad, kui kirjutad botile ja avad api.telegram.org/bot<TOKEN>/getUpdates — sealt chat.id. See kanal on tasuta ja ei sõltu KDE Connectist.', twilioSid: 'Twilio Account SID', twilioToken: 'Twilio Auth Token', twilioFrom: 'Twilio saatja number',
     messagebirdKey: 'MessageBirdi võti', messagebirdFrom: 'Saatja nimi', webhookUrl: 'Webhook’i URL', webhookToken: 'Webhook’i token',
     pushTitle: 'Push-teavitused', pushToggle: 'Luba push-teavitused selles seadmes', pushBusy: 'Seadistan…',
     pushHint: 'Push on tasuta ega vaja SMS-i. Brauser küsib teavituste luba; tellimus jääb selle seadme brauserisse.',
@@ -590,9 +590,9 @@ export default {
     rules: 'Millal teavitada', rule_pumpError: 'Soojuspumba viga', rule_ventFilter: 'Ventilatsiooni filter', rule_co2: 'CO₂ liiga kõrge',
     rule_legionella: 'Legionella ebaõnnestus', rule_stale: 'Andmed vananenud',
     quietFrom: 'Vaikne aeg alates', quietTo: 'Vaikne aeg kuni', cooldown: 'Kordusvähemalt (min)', dailyLimit: 'Päevane piirmäär',
-    quietHint: 'Vaiksel ajal SMS-e ei saadeta. Kui algus ja lõpp on samad, on vaikne aeg väljas.', costHint: 'SMS-id on tasulised vastavalt teenusepakkuja hinnakirjale.',
-    save: 'Salvesta', saving: 'Salvestan…', test: 'Saada test-SMS', sending: 'Saadan…', testHint: 'Test-SMS kulutab ühe SMS-i.',
-    saved: 'Teavituste seaded salvestatud.', testSent: 'Test-SMS saadetud.', log: 'Viimased teavitused', noLog: 'Teavitusi pole veel saadetud.',
+    quietHint: 'Vaiksel ajal SMS-e ei saadeta. Kui algus ja lõpp on samad, on vaikne aeg väljas.', costHint: 'SMS-teenused on tasulised vastavalt hinnakirjale; Telegram on tasuta.',
+    save: 'Salvesta', saving: 'Salvestan…', test: 'Saada testteavitus', sending: 'Saadan…', testHint: 'Testteavitus saadetakse valitud kanalisse. SMS-teenus võib kulusid tekitada.',
+    saved: 'Teavituste seaded salvestatud.', testSent: 'Testteavitus saadetud.', log: 'Viimased teavitused', noLog: 'Teavitusi pole veel saadetud.',
     sent: 'saadetud', failed: 'ebaõnnestus'
   },
   dhw: {

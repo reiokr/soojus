@@ -570,9 +570,9 @@ export default {
   },
   notify: {
     title: 'Smart notifications', hint: 'Send an SMS or push notification on an error, a filter change, high CO₂ or a failed legionella cycle. The easiest SMS option is via KDE Connect on your phone; push is free but requires HTTPS or localhost.',
-    loading: 'Loading notification settings…', smsEnabled: 'Send SMS notifications', phone: 'Mobile number', provider: 'SMS provider', webhook: 'Webhook', kdeconnect: 'KDE Connect (phone)', kdeconnectDevice: 'Phone device', kdeconnectAuto: 'Automatic (first device)', refreshDevices: 'Refresh device list', kdeconnectNone: 'No KDE Connect device is paired. Pair your phone with the computer and enable the SMS plugin on the phone.',
+    loading: 'Loading notification settings…', smsEnabled: 'Enable notifications', phone: 'Mobile number (SMS)', provider: 'SMS provider', webhook: 'Webhook', kdeconnect: 'KDE Connect (phone)', kdeconnectDevice: 'Phone device', kdeconnectAuto: 'Automatic (first device)', refreshDevices: 'Refresh device list', kdeconnectNone: 'No KDE Connect device is paired. Pair your phone with the computer and enable the SMS plugin on the phone.',
     kdeconnectOffline: 'not reachable', kdeconnectUnavailable: 'The phone is paired but not reachable right now. Open KDE Connect on the phone and check that it is on the same Wi-Fi network.', kdeconnectHint: 'The SMS is sent through your phone’s SIM card; the charge depends on your mobile plan. The phone must be paired and online.', providerHint: 'KDE Connect is free (uses the phone SIM). Twilio and MessageBird are paid services.',
-    twilioSid: 'Twilio Account SID', twilioToken: 'Twilio Auth Token', twilioFrom: 'Twilio sender number',
+    telegramToken: 'Telegram bot token', telegramChat: 'Telegram chat ID', telegramHint: 'Create a bot via @BotFather in Telegram (/newbot) and copy the token. Get the chat ID by messaging the bot and opening api.telegram.org/bot<TOKEN>/getUpdates — use chat.id from the response. This channel is free and does not depend on KDE Connect.', twilioSid: 'Twilio Account SID', twilioToken: 'Twilio Auth Token', twilioFrom: 'Twilio sender number',
     messagebirdKey: 'MessageBird key', messagebirdFrom: 'Sender name', webhookUrl: 'Webhook URL', webhookToken: 'Webhook token',
     pushTitle: 'Push notifications', pushToggle: 'Enable push notifications on this device', pushBusy: 'Setting up…',
     pushHint: 'Push is free and needs no SMS. The browser asks for notification permission; the subscription stays in this device’s browser.',
@@ -591,8 +591,8 @@ export default {
     rule_legionella: 'Legionella failed', rule_stale: 'Data is stale',
     quietFrom: 'Quiet hours from', quietTo: 'Quiet hours until', cooldown: 'Repeat no sooner than (min)', dailyLimit: 'Daily limit',
     quietHint: 'No SMS is sent during quiet hours. If start and end are the same, quiet hours are off.', costHint: 'SMS messages are charged by your provider.',
-    save: 'Save', saving: 'Saving…', test: 'Send test SMS', sending: 'Sending…', testHint: 'A test SMS uses one message.',
-    saved: 'Notification settings saved.', testSent: 'Test SMS sent.', log: 'Recent notifications', noLog: 'No notifications sent yet.',
+    save: 'Save', saving: 'Saving…', test: 'Send test notification', sending: 'Sending…', testHint: 'The test notification is sent through the selected channel. SMS services may incur costs.',
+    saved: 'Notification settings saved.', testSent: 'Test notification sent.', log: 'Recent notifications', noLog: 'No notifications sent yet.',
     sent: 'sent', failed: 'failed'
   },
   dhw: {
