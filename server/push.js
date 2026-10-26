@@ -28,6 +28,7 @@ export function createPushStore(db, getSetting, setSetting, { webpushImpl = webp
   }
 
   const count = () => Number(db.prepare('SELECT COUNT(*) AS count FROM push_subscriptions').get()?.count || 0);
+  const list = () => db.prepare('SELECT label, created FROM push_subscriptions ORDER BY created DESC').all();
 
   function subscribe(subscription, label = '') {
     const endpoint = endpointOf(subscription);
@@ -69,5 +70,5 @@ export function createPushStore(db, getSetting, setSetting, { webpushImpl = webp
     return { sent, failed, removed, total: rows.length };
   }
 
-  return { publicKey: () => vapid().publicKey, count, subscribe, unsubscribe, send };
+  return { publicKey: () => vapid().publicKey, count, list, subscribe, unsubscribe, send };
 }

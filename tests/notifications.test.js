@@ -87,18 +87,24 @@ test('sendSms builds Twilio, MessageBird and webhook requests', async () => {
 test('kdeconnectDevices parses paired phones and ignores the empty result line', async () => {
   const empty = await kdeconnectDevices({ execFileImpl: async () => ({ stdout: 'Leiti 0 seadet\n' }) });
   assert.deepEqual(empty.devices, []);
-  const paired = await kdeconnectDevices({ execFileImpl: async () => ({ stdout: 'abc123: Pixel 8\nxyz123 Phone\n' }) });
-  assert.deepEqual(paired.devices, [{ id: 'abc123', name: 'Pixel 8' }, { id: 'xyz123', name: 'Phone' }]);
+  const paired = await kdeconnectDevices({ execFileImpl: async (command, args) => ({ stdout: args.includes('--list-devices') ? 'abc123: Pixel 8\nxyz123 Phone\n' : 'abc123: Pixel 8\n' }) });
+  assert.deepEqual(paired.devices, [{ id: 'abc123', name: 'Pixel 8', available: true }, { id: 'xyz123', name: 'Phone', available: false }]);
 });
 
 test('sendSms via KDE Connect selects the paired phone and passes the message', async () => {
   const calls = [];
   const execFileImpl = async (command, args) => {
     calls.push([command, args]);
-    if (args.includes('--list-devices')) return { stdout: 'abc123: Pixel 8\n' };
+    if (args.includes('--list-devices') || args.includes('--list-available')) return { stdout: 'abc123: Pixel 8\n' };
     return { stdout: '' };
   };
   await sendSms({ phone: '+37255551234', provider: 'kdeconnect', kdeconnectDevice: 'abc123' }, 'Tere', { execFileImpl });
-  assert.equal(calls[0][0], 'kdeconnect-cli');
-  assert.deepEqual(calls[1][1], ['--device', 'abc123', '--send-sms', 'Tere', '--destination', '+37255551234']);
+  assert.equal(calls.at(-1)[0], 'kdeconnect-cli');
+  assert.deepEqual(calls.at(-1)[1], ['--device', 'abc123', '--send-sms', 'Tere', '--destination', '+37255551234']);
+  await assert.rejects(
+    sendSms({ phone: '+37255551234', provider: 'kdeconnect', kdeconnectDevice: 'abc123' }, 'Tere', {
+      execFileImpl: async (command, args) => args.includes('--list-devices') ? { stdout: 'abc123: Pixel 8\n' } : { stdout: 'Leiti 0 seadet\n' }
+    }),
+    /ei ole võrgus/
+  );
 });

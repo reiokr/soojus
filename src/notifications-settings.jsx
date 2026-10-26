@@ -142,7 +142,7 @@ export default function NotificationSettings({ notify }) {
       <label className="check-filter notify-toggle"><input type="checkbox" checked={Boolean(localPush && form.pushEnabled)} disabled={pushBusy || !pushCapable() || !window.isSecureContext || Boolean(pushServiceError)} onChange={e => (e.target.checked ? enablePush() : disablePush())}/>{pushBusy ? t('notify.pushBusy') : t('notify.pushToggle')}</label>
       <p className="muted notify-hint">{!pushCapable() ? t('notify.pushUnsupported') : !window.isSecureContext ? t('notify.pushInsecure') : t('notify.pushHint')}</p>
       {pushServiceError && <p className="inline-error">{t('notify.pushUnavailable')} {firefoxBased() && t('notify.pushFirefoxHint')} ({pushServiceError}) <button type="button" className="text-button" onClick={load}>{t('notify.pushRetry')}</button></p>}
-      {pushStatus && <p className="muted notify-hint">{t('notify.pushDevices', { count: pushStatus.count })} {t('notify.pushServerHint')}</p>}
+      {pushStatus && <p className="muted notify-hint">{t('notify.pushDevices', { count: pushStatus.count })}{pushStatus.devices?.length ? `: ${pushStatus.devices.map(device => device.label || '—').join(', ')}` : ''} {t('notify.pushServerHint')}</p>}
       <div className="button-row">
         <button type="button" className="button" onClick={testPush} disabled={pushBusy || !pushStatus?.count}>{t('notify.pushTest')}</button>
       </div>
@@ -150,10 +150,11 @@ export default function NotificationSettings({ notify }) {
       {form.provider === 'kdeconnect' && <>
         <label className="field"><span>{t('notify.kdeconnectDevice')}</span><select value={form.kdeconnectDevice || ''} onChange={e => update({ kdeconnectDevice: e.target.value })}>
           <option value="">{t('notify.kdeconnectAuto')}</option>
-          {devices.map(device => <option key={device.id} value={device.id}>{device.name}</option>)}
+          {devices.map(device => <option key={device.id} value={device.id}>{device.name}{device.available === false ? ` (${t('notify.kdeconnectOffline')})` : ''}</option>)}
         </select></label>
         <button type="button" className="text-button" onClick={loadDevices}>{t('notify.refreshDevices')}</button>
         {devices.length === 0 && <p className="inline-error">{devicesError || t('notify.kdeconnectNone')}</p>}
+        {devices.length > 0 && !devices.some(device => device.available) && <p className="inline-error">{t('notify.kdeconnectUnavailable')}</p>}
         <p className="muted notify-hint">{t('notify.kdeconnectHint')}</p>
       </>}
 

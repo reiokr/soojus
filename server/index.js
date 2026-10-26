@@ -823,7 +823,7 @@ app.get('/api/notifications/log', (req, res) => res.json(getSetting(NOTIFY_LOG_K
 
 // ---- Web Push ---------------------------------------------------------------
 app.get('/api/push/key', (req, res) => res.json({ publicKey: pushStore.publicKey(), count: pushStore.count() }));
-app.get('/api/push/status', (req, res) => res.json({ publicKey: pushStore.publicKey(), count: pushStore.count() }));
+app.get('/api/push/status', (req, res) => res.json({ publicKey: pushStore.publicKey(), count: pushStore.count(), devices: pushStore.list() }));
 app.post('/api/push/subscribe', (req, res) => {
   try {
     const count = pushStore.subscribe(req.body?.subscription, req.body?.label);

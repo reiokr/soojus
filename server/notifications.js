@@ -132,19 +132,24 @@ export function dueNotifications({ settings, state, log, now = Date.now() }) {
 }
 
 // KDE Connecti paardunud seadmed (telefonid). Kasutab kasutaja D-Busi (systemd user-teenusel on see olemas).
+const parseKdeDevices = output => String(output || '').split('\n').map(line => line.trim()).filter(Boolean)
+  .filter(line => !/^(Leiti|Found)\s+0\s+seadet|device/i.test(line))
+  .map(line => {
+    const colon = /^([^:\s]+):\s*(.*)$/.exec(line);
+    const space = colon ? null : /^(\S+)\s+(.*)$/.exec(line);
+    const id = colon?.[1] || space?.[1] || line;
+    return { id, name: colon?.[2] || space?.[2] || id };
+  });
+
+// Paardunud seadmed + kas seade on praegu võrgus (KDE Connecti "available" loend).
 export async function kdeconnectDevices({ execFileImpl = run } = {}) {
   try {
-    const { stdout } = await execFileImpl('kdeconnect-cli', ['--list-devices', '--id-name-only'], { timeout: 5000 });
-    return {
-      devices: String(stdout).split('\n').map(line => line.trim()).filter(Boolean)
-        .filter(line => !/^(Leiti|Found)\s+0\s+seadet|device/i.test(line))
-        .map(line => {
-          const colon = /^([^:\s]+):\s*(.*)$/.exec(line);
-          const space = colon ? null : /^(\S+)\s+(.*)$/.exec(line);
-          const id = colon?.[1] || space?.[1] || line;
-          return { id, name: colon?.[2] || space?.[2] || id };
-        })
-    };
+    const [paired, availableResult] = await Promise.all([
+      execFileImpl('kdeconnect-cli', ['--list-devices', '--id-name-only'], { timeout: 5000 }),
+      execFileImpl('kdeconnect-cli', ['--list-available', '--id-name-only'], { timeout: 5000 }).catch(() => ({ stdout: '' }))
+    ]);
+    const reachable = new Set(parseKdeDevices(availableResult.stdout).map(device => device.id));
+    return { devices: parseKdeDevices(paired.stdout).map(device => ({ ...device, available: reachable.has(device.id) })) };
   } catch (e) { return { devices: [], error: e.message }; }
 }
 
@@ -154,8 +159,10 @@ export async function sendSms(settings, message, { fetchImpl = fetch, execFileIm
   const timeout = () => AbortSignal.timeout(15000);
   if (config.provider === 'kdeconnect') {
     const list = await kdeconnectDevices({ execFileImpl });
-    const device = config.kdeconnectDevice || list.devices?.[0]?.id;
+    const device = config.kdeconnectDevice || list.devices?.find(item => item.available)?.id || list.devices?.[0]?.id;
     if (!device) throw new NotificationError('KDE Connecti seadet pole paaris. Paarista telefon ja luba SMS-plugin.');
+    const chosen = list.devices?.find(item => item.id === device);
+    if (!chosen?.available) throw new NotificationError(`KDE Connecti seade ${chosen?.name || device} ei ole võrgus saadaval. Ava telefonis KDE Connect ja kontrolli, et telefon on samas Wi-Fi võrgus.`);
     try {
       await execFileImpl('kdeconnect-cli', ['--device', device, '--send-sms', message, '--destination', config.phone], { timeout: 30000 });
     } catch (e) { throw new NotificationError(`KDE Connect: ${e.message}`); }
