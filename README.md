@@ -195,6 +195,8 @@ Mudel:
 4. Kulu arvutatakse valitud elektritariifi (üks/kahetariifne/arve komponendid) ja ajaloolise päeva/öö osakaalu järgi. Prognoos ei ennusta eraldi päeva- ja öökWh-d: see kasutab ajaloolist öist osakaalu ja rakendab sellele valitud päeva/öö hinnad. Kui tulevane küttemuster nihkub rohkem öö ajale, võib kuluprognoos erineda. Hinnanguline vahemik tuleb mudeli jääkveast, ilma ebakindlusest ja mõõtmislünkadest.
 5. **Serveri seisakud ei lähe nulltarbimisena arvesse.** Iga päeva katvuse põhjal hinnatakse puuduv osa mudeliga; mudeli õppimisel normaliseeritakse osaliselt mõõdetud päevad täispäevaks. UI näitab, kui suur osa „kulunud” summast on hinnanguline ja kui suur oli mõõtmiste katvus.
 
+**Öine osakaal:** kui kohalik server on öösiti maas, on kohalikust ajaloost arvutatud öine osakaal kallutatud. MyUplinki avalik ajaloo-endpoint ei ole rakendusele kättesaadav (403), seega saab prognoosipaneelil öise osakaalu **käsitsi sisestada** (myUplinki ajaloost vaadatud väärtus). Tühi väli tähendab ajaloolist hinnangut; väärtus salvestub brauserisse. Käsitsi osakaal mõjutab eelkõige katkestustega päevade ja tuleviku kuluarvutust; täielikult mõõdetud päevad kasutavad endiselt tegelikku tunnijaotust.
+
 **Piirangud:** see on hinnang, mitte garantii. See ei sisalda ventilatsiooni ega kogu maja elektrit, tarifimuutusi, muutusi kütteseadetes ega tarbimisharjumustes. Vähese ajaloo või madala andmekatvuse korral kuvatakse hoiatus.
 
 ## Tarbevee tsüklid

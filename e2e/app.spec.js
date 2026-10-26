@@ -131,6 +131,9 @@ test('energy page shows daily heat, electricity, COP, cost and exports CSV', asy
   await expect(page.locator('.en-table:not(.en-compare) tbody tr').first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Pakettide võrdlus' })).toBeVisible();
   await page.getByRole('button', { name: 'Kahetariifne', exact: true }).click();
+  await expect(page.getByLabel('Öine osakaal, %')).toBeVisible();
+  await page.getByLabel('Öine osakaal, %').fill('40');
+  await expect(page.locator('.en-forecast')).toContainText('Kasutatud öine osakaal on 40%');
   await expect(page.locator('.en-table:not(.en-compare) thead')).toContainText('Päevane, kWh');
   await expect(page.locator('.en-table:not(.en-compare) thead')).toContainText('Öine, kWh');
   await expect(page.locator('.en-card').filter({ hasText: 'Kulu (kompressor)' })).not.toContainText('—');
@@ -367,42 +370,42 @@ test('Elav kodu taustamuusika: sisse/välja nupp, helitugevus ja 60 s pausita si
   fs.mkdirSync(dir, { recursive: true }); fs.copyFileSync(path.join(dir, 'hubane-lounge.mp3'), own);
   try {
     await page.addInitScript(() => {
-      localStorage.setItem('soojus.ui', 'next'); if (!sessionStorage.getItem('fresh')) { localStorage.removeItem('soojus.sound.volume'); localStorage.removeItem('soojus.sound.track'); localStorage.removeItem('soojus.sound.mode'); sessionStorage.setItem('fresh', '1'); } window.__sources = [];
+      localStorage.setItem('soojus.ui', 'next'); if (!sessionStorage.getItem('fresh')) { localStorage.removeItem('soojus.sound.volume'); localStorage.removeItem('soojus.sound.track'); localStorage.removeItem('soojus.sound.mode'); sessionStorage.setItem('fresh', '1'); } window.__sources = []; window.__music = () => window.__sources.filter(s => s.__music);
       const make = AudioContext.prototype.createBufferSource;
       AudioContext.prototype.createBufferSource = function () { const s = make.call(this); window.__sources.push(s); return s; };
     });
     await page.goto('/?page=live');
     const toggle = page.getByRole('button', { name: /taustamuusika sisse/ }), volume = page.getByLabel('Helitugevus');
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    expect(await page.evaluate(() => window.__sources.length)).toBe(0);
+    expect(await page.evaluate(() => window.__music().length)).toBe(0);
     await toggle.click();
     const off = page.getByRole('button', { name: 'Lülita taustamuusika välja' });
     await expect(off).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(1);
-    const info = await page.evaluate(() => { const s = window.__sources[0]; return { loop: s.loop, seconds: s.buffer.duration, end: s.loopEnd }; });
+    await expect.poll(() => page.evaluate(() => window.__music().length)).toBe(1);
+    const info = await page.evaluate(() => { const s = window.__music()[0]; return { loop: s.loop, seconds: s.buffer.duration, end: s.loopEnd }; });
     expect(info.loop).toBe(true); expect(info.seconds).toBeGreaterThan(59.9); expect(info.seconds).toBeLessThan(60.1);
     const select = page.getByLabel('Lugu', { exact: true });
     await expect(select.locator('option', { hasText: 'E2e lugu test' })).toHaveCount(1);
     await select.selectOption('file:e2e-lugu-test.mp3');
-    await expect.poll(() => page.evaluate(() => window.__sources.length)).toBe(2);
-    const second = await page.evaluate(() => { const s = window.__sources[1]; return { loop: s.loop, seconds: s.buffer.duration }; });
+    await expect.poll(() => page.evaluate(() => window.__music().length)).toBe(2);
+    const second = await page.evaluate(() => { const s = window.__music()[1]; return { loop: s.loop, seconds: s.buffer.duration }; });
     expect(second.loop).toBe(true); expect(second.seconds).toBeGreaterThan(59.9); expect(second.seconds).toBeLessThan(60.1);
     const pauseBtn = page.getByRole('button', { name: 'Peata muusika pausile' });
     await pauseBtn.click();
-    await expect.poll(() => page.evaluate(() => window.__sources.at(-1).context.state)).toBe('suspended');
-    const frozen = await page.evaluate(() => window.__sources.at(-1).context.currentTime);
+    await expect.poll(() => page.evaluate(() => window.__music().at(-1).context.state)).toBe('suspended');
+    const frozen = await page.evaluate(() => window.__music().at(-1).context.currentTime);
     await page.waitForTimeout(600);
-    expect(await page.evaluate(() => window.__sources.at(-1).context.currentTime)).toBe(frozen);
+    expect(await page.evaluate(() => window.__music().at(-1).context.currentTime)).toBe(frozen);
     await page.getByRole('button', { name: 'Jätka muusikat' }).click();
-    await expect.poll(() => page.evaluate(() => window.__sources.at(-1).context.state)).toBe('running');
-    expect(await page.evaluate(() => window.__sources.length)).toBe(2);
+    await expect.poll(() => page.evaluate(() => window.__music().at(-1).context.state)).toBe('running');
+    expect(await page.evaluate(() => window.__music().length)).toBe(2);
     const mode = page.locator('.live-sound-mode');
     await expect(mode).toHaveAttribute('data-mode', 'one');
     await mode.click();
     await expect(mode).toHaveAttribute('data-mode', 'all');
-    expect(await page.evaluate(() => window.__sources.at(-1).loop)).toBe(false);
+    expect(await page.evaluate(() => window.__music().at(-1).loop)).toBe(false);
     await mode.click();
-    expect(await page.evaluate(() => window.__sources.at(-1).loop)).toBe(true);
+    expect(await page.evaluate(() => window.__music().at(-1).loop)).toBe(true);
     await volume.fill('0.25');
     expect(await page.evaluate(() => localStorage.getItem('soojus.sound.volume'))).toBe('0.25');
     await off.click();
@@ -410,7 +413,7 @@ test('Elav kodu taustamuusika: sisse/välja nupp, helitugevus ja 60 s pausita si
     await page.reload();
     await expect(page.getByLabel('Helitugevus')).toHaveValue('0.25');
     await expect(page.getByLabel('Lugu', { exact: true })).toHaveValue('file:e2e-lugu-test.mp3');
-    expect(await page.evaluate(() => window.__sources.length)).toBe(0);
+    expect(await page.evaluate(() => window.__music().length)).toBe(0);
     expect(errors).toEqual([]);
   } finally { fs.rmSync(own, { force: true }); }
 });
@@ -430,9 +433,9 @@ test('Elav kodu taustamuusika leiab dist/audio kataloogi lisatud failid', async 
 });
 
 const soundSpy = () => {
-  localStorage.setItem('soojus.ui', 'next'); window.__sources = []; window.__starts = [];
+  localStorage.setItem('soojus.ui', 'next'); window.__sources = []; window.__starts = []; window.__music = () => window.__sources.filter(s => s.__music);
   const make = AudioContext.prototype.createBufferSource;
-  AudioContext.prototype.createBufferSource = function () { const s = make.call(this); window.__sources.push(s); const st = s.start; s.start = function (...a) { window.__starts.push(a[1] ?? 0); return st.apply(this, a); }; return s; };
+  AudioContext.prototype.createBufferSource = function () { const s = make.call(this); window.__sources.push(s); const st = s.start; s.start = function (...a) { if (s.__music) window.__starts.push(a[1] ?? 0); return st.apply(this, a); }; return s; };
 };
 
 test('muusika ei katke Kodu ja Elava kodu lehe vahel liikudes ning sama muusikanupp näitab sama seisu', async ({ page }) => {
@@ -442,12 +445,12 @@ test('muusika ei katke Kodu ja Elava kodu lehe vahel liikudes ning sama muusikan
   await page.getByRole('button', { name: /taustamuusika sisse/ }).click();
   await expect(page.getByRole('button', { name: /taustamuusika välja/ })).toHaveAttribute('aria-pressed', 'true');
   await page.waitForTimeout(1200);
-  const before = await page.evaluate(() => window.__sources[0].context.currentTime);
+  const before = await page.evaluate(() => window.__music()[0].context.currentTime);
   await page.getByRole('button', { name: 'Demo ja ilmaprognoos' }).click();
   await expect(page.locator('.live-modes')).toBeVisible();
   await expect(page.getByRole('button', { name: /taustamuusika välja/ })).toHaveAttribute('aria-pressed', 'true');
   await page.waitForTimeout(2500);
-  const after = await page.evaluate(() => ({ n: window.__sources.length, state: window.__sources[0].context.state, t: window.__sources[0].context.currentTime }));
+  const after = await page.evaluate(() => ({ n: window.__music().length, state: window.__music()[0].context.state, t: window.__music()[0].context.currentTime }));
   expect(after.n).toBe(1); expect(after.state).toBe('running'); expect(after.t).toBeGreaterThan(before + 2);
 });
 
@@ -465,22 +468,22 @@ test('muusika sees/pausil seis, koht loos ja helitugevus jäävad lehe uuesti la
   await page.reload();
   await expect(page.getByRole('button', { name: 'Jätka muusikat' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByLabel('Helitugevus')).toHaveValue('0.35');
-  expect(await page.evaluate(() => window.__sources.length), 'pausil muusika ei hakka ise mängima').toBe(0);
+  expect(await page.evaluate(() => window.__music().length), 'pausil muusika ei hakka ise mängima').toBe(0);
   await page.getByRole('button', { name: 'Jätka muusikat' }).click();
   await expect(page.getByRole('button', { name: 'Peata muusika pausile' })).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__starts.length)).toBe(1);
   const starts = await page.evaluate(() => window.__starts);
   expect(starts.length).toBe(1); expect(starts[0]).toBeGreaterThan(1.5); expect(starts[0]).toBeLessThan(6);
   await page.reload();
-  await expect.poll(() => page.evaluate(() => window.__sources.length), { timeout: 8000 }).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__music().length), { timeout: 8000 }).toBe(1);
   await expect(page.getByRole('button', { name: /taustamuusika välja/ })).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => window.__starts[0])).toBeGreaterThan(1.5);
   await page.mouse.click(5, 5);
-  await expect.poll(() => page.evaluate(() => window.__sources[0].context.state)).toBe('running');
+  await expect.poll(() => page.evaluate(() => window.__music()[0].context.state)).toBe('running');
   await page.getByRole('button', { name: /taustamuusika välja/ }).click();
   await page.reload();
   await expect(page.getByRole('button', { name: /taustamuusika sisse/ })).toHaveAttribute('aria-pressed', 'false');
-  expect(await page.evaluate(() => window.__sources.length)).toBe(0);
+  expect(await page.evaluate(() => window.__music().length)).toBe(0);
 });
 
 test('Elav kodu respects reduced motion by painting a still frame', async ({ browser }) => {

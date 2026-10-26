@@ -114,3 +114,19 @@ test('forecast cost uses the selected day and night tariff', () => {
   assert.ok(Math.abs(result.averageRate - expectedRate) < 0.0002);
   assert.ok(Math.abs(result.forecastCost - result.forecastKwh * result.averageRate) < 0.05);
 });
+
+test('manual night share overrides the local historical share', () => {
+  const now = at(2026, 10, 15);
+  const rows = historyUntil(now);
+  const result = forecastMonth({
+    historyDays: rows,
+    forecastDays: [],
+    tariff: { type: 'dual', dayPrice: 0.30, nightPrice: 0.10, nightStart: 22, nightEnd: 7 },
+    nightShareOverride: 0.4,
+    now
+  });
+  assert.equal(result.available, true);
+  assert.equal(result.nightShare, 0.4);
+  assert.ok(result.historyNightShare > 0);
+  assert.ok(Math.abs(result.averageRate - (0.6 * 0.30 + 0.4 * 0.10)) < 0.0001);
+});

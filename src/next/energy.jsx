@@ -11,6 +11,7 @@ const TARIFF_KEY = 'soojus.energy.tariff';
 const LEGACY_PRICE_KEY = 'soojus.energy.price';
 const METER_KEY = 'soojus.energy.meter';
 const COMPARE_KEY = 'soojus.energy.compare';
+const NIGHT_SHARE_KEY = 'soojus.energy.nightShare';
 
 const readTariff = () => {
   try {
@@ -25,6 +26,15 @@ const readTariff = () => {
 const readMeter = () => {
   try { const raw = JSON.parse(localStorage.getItem(METER_KEY) || '{}'); return { total: raw.total ?? '', day: raw.day ?? '', night: raw.night ?? '', bill: raw.bill ?? '' }; }
   catch { return { total: '', day: '', night: '', bill: '' }; }
+};
+
+const readNightShare = () => {
+  try {
+    const raw = localStorage.getItem(NIGHT_SHARE_KEY);
+    if (raw == null || raw === '') return null;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
+  } catch { return null; }
 };
 
 const readCompare = () => {
@@ -48,6 +58,7 @@ export default function EnergyPage({ ctx }) {
   const [tariff, setTariff] = useState(readTariff);
   const [meter, setMeter] = useState(readMeter);
   const [compare, setCompare] = useState(readCompare);
+  const [nightShare, setNightShare] = useState(readNightShare);
   const [prices, setPrices] = useState(null);
   const [pricesBusy, setPricesBusy] = useState(true);
   const [pricesError, setPricesError] = useState(null);
@@ -105,6 +116,12 @@ export default function EnergyPage({ ctx }) {
     const next = { ...compare, ...patch };
     setCompare(next);
     try { localStorage.setItem(COMPARE_KEY, JSON.stringify(next)); } catch { /* privaatne režiim */ }
+  };
+  const updateNightShare = value => {
+    const next = value === '' || value == null ? null : Number(value);
+    const valid = next != null && Number.isFinite(next) && next >= 0 && next <= 100 ? next : null;
+    setNightShare(valid);
+    try { valid == null ? localStorage.removeItem(NIGHT_SHARE_KEY) : localStorage.setItem(NIGHT_SHARE_KEY, String(valid)); } catch { /* privaatne režiim */ }
   };
 
   const dark = ctx.theme === 'dark';
@@ -167,8 +184,9 @@ export default function EnergyPage({ ctx }) {
     historyDays: forecastHistory?.days,
     forecastDays: ctx.weather?.view?.weather?.days,
     tariff,
+    nightShareOverride: nightShare == null ? null : nightShare / 100,
     now: new Date()
-  }), [forecastHistory, ctx.weather?.view?.weather?.days, tariff]);
+  }), [forecastHistory, ctx.weather?.view?.weather?.days, tariff, nightShare]);
   const monthLabel = new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(new Date());
 
   const hasData = Boolean(data && (totals.heatKwh > 0 || (totals.electricKwh ?? 0) > 0));
@@ -271,7 +289,15 @@ export default function EnergyPage({ ctx }) {
           <Card label={t('energy.forecastTotal')} value={number(forecast.totalCost, 2)} unit="€" hint={t('energy.forecastRange', { low: number(forecast.lowCost, 2), high: number(forecast.highCost, 2) })}/>
         </div>
         {forecast.imputedKwh > 0 && <p className="en-note">{t('energy.forecastImputed', { kwh: number(forecast.imputedKwh, 1), percent: Math.round(forecast.actualCoverage * 100) })}</p>}
-        {tariff.type !== 'single' && <p className="en-note">{t('energy.forecastNight', { percent: Math.round((forecast.nightShare ?? 0) * 100) })}</p>}
+        {tariff.type !== 'single' && <>
+          <p className="en-note">{t('energy.forecastNight', { percent: Math.round((forecast.nightShare ?? 0) * 100) })}</p>
+          <div className="en-forecast-night">
+            <label className="en-price"><span>{t('energy.forecastNightShare')}</span><input type="number" min="0" max="100" step="1" value={nightShare ?? ''} placeholder={forecast.historyNightShare == null ? '' : Math.round(forecast.historyNightShare * 100)} onChange={e => updateNightShare(e.target.value)} aria-label={t('energy.forecastNightShare')}/></label>
+            <span className="muted">{nightShare == null ? t('energy.forecastNightAuto', { percent: Math.round((forecast.historyNightShare ?? 0) * 100) }) : t('energy.forecastNightManual')}</span>
+            {nightShare != null && <button type="button" className="text-button" onClick={() => updateNightShare('')}>{t('energy.forecastNightReset')}</button>}
+            <small className="muted">{t('energy.forecastNightHint')}</small>
+          </div>
+        </>}
         <div className="en-forecast-progress" role="progressbar" aria-label={t('energy.forecastTitle')} aria-valuemin="0" aria-valuemax={forecast.daysInMonth} aria-valuenow={forecast.daysElapsed}>
           <i style={{ width: `${forecast.daysInMonth ? Math.min(100, forecast.daysElapsed / forecast.daysInMonth * 100) : 0}%` }}/>
         </div>

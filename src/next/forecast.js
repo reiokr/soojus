@@ -67,7 +67,7 @@ function forecastTemperatures(forecastDays) {
   return map;
 }
 
-export function forecastMonth({ historyDays = [], forecastDays = [], tariff, now = new Date(), base = 15 } = {}) {
+export function forecastMonth({ historyDays = [], forecastDays = [], tariff, now = new Date(), base = 15, nightShareOverride = null } = {}) {
   const year = now.getFullYear(), month = now.getMonth();
   const prefix = `${year}-${pad(month + 1)}`;
   const totalDays = new Date(year, month + 1, 0).getDate();
@@ -94,7 +94,9 @@ export function forecastMonth({ historyDays = [], forecastDays = [], tariff, now
     sum.day += parts.dayKwh; sum.night += parts.nightKwh; return sum;
   }, { day: 0, night: 0 });
   const splitTotal = split.day + split.night;
-  const nightShare = splitTotal > 0 ? split.night / splitTotal : nightHours(tariff.nightStart, tariff.nightEnd).length / 24;
+  const historyNightShare = splitTotal > 0 ? split.night / splitTotal : nightHours(tariff.nightStart, tariff.nightEnd).length / 24;
+  const override = finite(nightShareOverride);
+  const nightShare = override == null ? historyNightShare : Math.min(1, Math.max(0, override));
   const averageRate = (1 - nightShare) * rates.day + nightShare * rates.night;
 
   // Kuu kulunud osa: mõõdetud kWh + katvuse põhjal hinnatud puuduv osa.
@@ -142,7 +144,7 @@ export function forecastMonth({ historyDays = [], forecastDays = [], tariff, now
   }
   const fixedCost = rates.fixedMonthly;
   if (!future.length) {
-    return { available: true, month: prefix, daysInMonth: totalDays, daysElapsed, daysRemaining: 0, actualKwh: round(actualKwh, 1), actualCost: round(actualCost, 2), measuredKwh: round(measuredKwh, 1), measuredCost: round(measuredCost, 2), imputedKwh: round(imputedKwh, 1), imputedCost: round(imputedCost, 2), forecastKwh: 0, forecastCost: 0, fixedCost, totalKwh: round(actualKwh, 1), totalCost: round(actualCost + fixedCost, 2), lowCost: round(actualCost + fixedCost, 2), highCost: round(actualCost + fixedCost, 2), model, forecastDaysUsed: 0, climateDaysUsed: 0, nightShare: 0, averageRate, actualCoverage: round(actualCoverage, 2), gapDays, confident: false, days: [] };
+    return { available: true, month: prefix, daysInMonth: totalDays, daysElapsed, daysRemaining: 0, actualKwh: round(actualKwh, 1), actualCost: round(actualCost, 2), measuredKwh: round(measuredKwh, 1), measuredCost: round(measuredCost, 2), imputedKwh: round(imputedKwh, 1), imputedCost: round(imputedCost, 2), forecastKwh: 0, forecastCost: 0, fixedCost, totalKwh: round(actualKwh, 1), totalCost: round(actualCost + fixedCost, 2), lowCost: round(actualCost + fixedCost, 2), highCost: round(actualCost + fixedCost, 2), model, forecastDaysUsed: 0, climateDaysUsed: 0, nightShare: round(nightShare, 2), historyNightShare: round(historyNightShare, 2), averageRate, actualCoverage: round(actualCoverage, 2), gapDays, confident: false, days: [] };
   }
 
   const forecastKwh = future.reduce((sum, day) => sum + day.electricKwh, 0);
@@ -177,6 +179,7 @@ export function forecastMonth({ historyDays = [], forecastDays = [], tariff, now
     forecastDaysUsed: future.filter(day => day.source === 'forecast').length,
     climateDaysUsed: future.filter(day => day.source === 'climate').length,
     nightShare: round(nightShare, 2),
+    historyNightShare: round(historyNightShare, 2),
     averageRate: round(averageRate, 4),
     confident: Boolean(model && model.n >= 14 && daysElapsed >= 3 && actualCoverage >= 0.8),
     actualCoverage: round(actualCoverage, 2),

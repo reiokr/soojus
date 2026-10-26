@@ -182,6 +182,7 @@ export class Ambience {
     if (token !== this.token) return;
     const source = this.ctx.createBufferSource(), gain = this.ctx.createGain(), duration = buffer.duration;
     const start = duration > 1 ? offset % duration : 0;
+    source.__music = true; // e2e eristab muusikat vihma-/äikesehelist
     source.buffer = buffer; source.loop = this.mode === 'one'; source.loopStart = 0; source.loopEnd = duration;
     gain.gain.value = 0; source.connect(gain); gain.connect(this.master); source.start(0, start);
     gain.gain.setTargetAtTime(1, this.ctx.currentTime, fade / 3);

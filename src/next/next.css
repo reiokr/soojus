@@ -3194,3 +3194,7 @@ html[data-ui="next"] .nx-liide .segmented {
 .dhw-cycle-bar i.pause { background: var(--t24); }
 .dhw-cycle-meta { font-size: 11.5px; color: var(--muted); }
 .dhw-cycle-warn { font-size: 11.5px; color: var(--orange); margin: 5px 0 0; }
+.en-forecast-night { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 6px 0; }
+.en-forecast-night .en-price { margin: 0; }
+.en-forecast-night .en-price input { width: 90px; }
+.en-forecast-night small { flex-basis: 100%; }
