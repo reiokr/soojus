@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_TARIFF } from '../src/next/tariff.js';
-import { spotMap, dualCost, exchangeCost } from '../src/next/prices.js';
+import { spotMap, dualCost, exchangeCost, periodSplit, variableCost } from '../src/next/prices.js';
 
 const close = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 
@@ -53,4 +53,36 @@ test('exchangeCost falls back to the default V2 components for non-detail packag
   const result = exchangeCost([{ day: '2026-10-20', electricKwh: 1, electricByHour: byHour }], spot, { type: 'single', price: 0.19 }, 0);
   const expected = (0.05 + DEFAULT_TARIFF.networkDay + DEFAULT_TARIFF.security + DEFAULT_TARIFF.excise + DEFAULT_TARIFF.renewable) * 1.24;
   close(result.cost, expected);
+});
+
+
+test('periodSplit normalises gaps and splits the missing part by night share', () => {
+  const byHour = Array(24).fill(0); byHour[12] = 8; byHour[2] = 2;
+  const days = [
+    { day: '2026-10-01', electricKwh: 10, electricByHour: byHour, coverage: 1 },
+    { day: '2026-10-02', electricKwh: 10, electricByHour: byHour, coverage: 1 },
+    { day: '2026-10-03', electricKwh: 5, electricByHour: byHour.map(value => value / 2), coverage: 0.5 }
+  ];
+  const split = periodSplit(days, { type: 'dual', dayPrice: 0.30, nightPrice: 0.10, nightStart: 22, nightEnd: 7 }, { coverage: 0.5, nightShare: 0.4 });
+  close(split.measuredKwh, 25);
+  close(split.estimatedKwh, 50);
+  close(split.missingKwh, 25);
+  close(split.historyNightShare, 0.2);
+  close(split.nightShare, 0.4);
+  close(split.dayKwh, 20 + 25 * 0.6);
+  close(split.nightKwh, 5 + 25 * 0.4);
+  close(split.averageRate, 0.6 * 0.30 + 0.4 * 0.10);
+});
+
+test('a dual current package equals the same dual comparison prices after normalisation', () => {
+  const byHour = Array(24).fill(0); byHour[12] = 8; byHour[2] = 2;
+  const days = [
+    { day: '2026-10-01', electricKwh: 10, electricByHour: byHour, coverage: 1 },
+    { day: '2026-10-02', electricKwh: 5, electricByHour: byHour.map(value => value / 2), coverage: 0.5 }
+  ];
+  const tariff = { type: 'dual', dayPrice: 0.22, nightPrice: 0.12, nightStart: 22, nightEnd: 7 };
+  const split = periodSplit(days, tariff, { coverage: 0.75, nightShare: 0.3 });
+  const current = variableCost(days, tariff) + split.missingKwh * split.averageRate;
+  const dual = split.dayKwh * 0.22 + split.nightKwh * 0.12;
+  close(current, dual);
 });

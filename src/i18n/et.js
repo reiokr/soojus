@@ -530,12 +530,17 @@ export default {
     billLine: 'Arve {bill} € · arvutus {computed} € · vahe {diff} €', estimate: 'Hinnang kogu perioodile: {kwh} kWh · {cost} €'
   },
   compare: {
-    title: 'Pakettide võrdlus', subtitle: 'Muutuv kulu valitud perioodil, ilma kuutasuta.',
+    title: 'Pakettide võrdlus', subtitle: 'Muutuv kulu kogu valitud perioodil, ilma kuutasuta.',
     package: 'Pakett', current: 'Praegune pakett', fixed: 'Fikseeritud hind', dual: 'Kahetariifne', exchange: 'Börsihind',
     fixedPrice: 'Fikseeritud, €/kWh', dayPrice: 'Päev, €/kWh', nightPrice: 'Öö, €/kWh', margin: 'Marginaal, €/kWh',
     cost: 'Kulu', average: 'Keskmine', difference: 'Vahe',
+    autoPrices: 'Päeva ja öö hind on võetud praegusest paketist; muutmine lülitab käsitsi režiimi.',
+    autoFixed: 'Hind on võetud praegusest paketist; muutmine lülitab käsitsi režiimi.',
+    useCurrent: 'Kasuta praeguse paketi hindu',
+    estimate: 'Võrdlus on normaliseeritud kogu perioodile: mõõdetud {measured} kWh + hinnanguliselt puuduv {missing} kWh = {estimated} kWh (katvus {percent}%).',
+    estimateNight: 'Puuduv osa jaotatakse öise osakaaluga {percent}%.',
     coverage: 'Börsihind kaetud {percent}% ulatuses', noPrices: 'Börsihindu ei saanud laadida. Proovi hiljem uuesti.',
-    note: 'Võrdlus kasutab sama mõõdetud kompressori tarbimist ja samu võrgukomponente. Fikseeritud ja kahetariifne hind on lõpphind koos käibemaksuga; börsipakett lisab spot-hinna (ilma KM-ta) ja marginaali. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
+    note: 'Võrdlus kasutab sama hinnangulist kompressori tarbimist ja samu võrgukomponente. Fikseeritud ja kahetariifse paketi hinnad on lõpphinnad koos käibemaksuga; börsipakett lisab spot-hinna (ilma KM-ta) ja marginaali. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
   },
   notify: {
     title: 'Nutikad teavitused', hint: 'Saada SMS või push-teavitus, kui tekib viga, filter vajab vahetust, CO₂ on kõrge või legionella ebaõnnestub. Kõige lihtsam on KDE Connect telefoni kaudu; push on tasuta, aga nõuab HTTPS-i või localhosti.',

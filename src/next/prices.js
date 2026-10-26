@@ -1,5 +1,5 @@
 // Pakettide võrdlus: börsihinna kulu samast tunnijaotusest ja samadest võrgukomponentidest.
-import { DEFAULT_TARIFF, parseTariff, splitElectric, dayCost, nightHours } from './tariff.js';
+import { DEFAULT_TARIFF, parseTariff, splitElectric, dayCost, effectiveRates, nightHours } from './tariff.js';
 
 export function spotMap(prices) {
   const map = new Map();
@@ -9,6 +9,37 @@ export function spotMap(prices) {
 
 export function variableCost(days, tariff) {
   return (days ?? []).reduce((sum, day) => sum + (dayCost(day, tariff) ?? 0), 0);
+}
+
+// Normaliseerib mõõdetud perioodi täispikkuseks: mõõtmislüngad jagatakse öise osakaalu järgi.
+// Täielikult mõõdetud osa kasutab tegelikku tunnijaotust, puuduv osa käsitsi või ajaloolist osakaalu.
+export function periodSplit(days, tariff, { coverage = null, nightShare = null } = {}) {
+  const config = parseTariff(tariff), rates = effectiveRates(config);
+  const clamp = value => Math.min(1, Math.max(0, Number(value)));
+  let measuredKwh = 0, measuredDayKwh = 0, measuredNightKwh = 0, coverageSum = 0, count = 0;
+  for (const day of days ?? []) {
+    measuredKwh += Number(day?.electricKwh) || 0;
+    const split = splitElectric(day, config.nightStart, config.nightEnd);
+    measuredDayKwh += split.dayKwh; measuredNightKwh += split.nightKwh;
+    coverageSum += day?.coverage != null && Number.isFinite(Number(day.coverage)) ? clamp(day.coverage) : 1;
+    count += 1;
+  }
+  const periodCoverage = coverage != null && Number.isFinite(Number(coverage)) ? clamp(coverage) : count ? coverageSum / count : 1;
+  const estimatedKwh = periodCoverage > 0.05 ? measuredKwh / periodCoverage : measuredKwh;
+  const missingKwh = Math.max(0, estimatedKwh - measuredKwh);
+  const measuredSplit = measuredDayKwh + measuredNightKwh;
+  const historyNightShare = measuredSplit > 0 ? measuredNightKwh / measuredSplit : nightHours(config.nightStart, config.nightEnd).length / 24;
+  const manual = nightShare != null && Number.isFinite(Number(nightShare)) ? clamp(nightShare) : null;
+  const share = manual == null ? historyNightShare : manual;
+  return {
+    measuredKwh, estimatedKwh, missingKwh,
+    coverage: periodCoverage,
+    dayKwh: measuredDayKwh + missingKwh * (1 - share),
+    nightKwh: measuredNightKwh + missingKwh * share,
+    measuredDayKwh, measuredNightKwh,
+    historyNightShare, nightShare: share,
+    averageRate: (1 - share) * rates.day + share * rates.night
+  };
 }
 
 export function dualCost(days, dayPrice, nightPrice, nightStart, nightEnd) {
