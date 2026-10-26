@@ -12,9 +12,10 @@ export const DEFAULT_TARIFF = Object.freeze({
   nightStart: 22,
   nightEnd: 7,
   // Detailne vaade, Elektrum Eesti september 2026, Pilka mõõtepunkt (410,338 kWh).
-  // VÄIKE KLÕPS: 2024. a lepingus oli 12,230 s/kWh 22% KM-ga; 24% KM-ga on sama
-  // netohind 0,10025 €/kWh → 12,431 s/kWh. Bilansihaldus 0,00373 eraldi;
-  // kuutasu 1,88 €/kuu (22% KM) → 1,91 €/kuu (24% KM), neto 1,54 €/kuu.
+  // VÄIKE KLÕPS: 2023 13,310 s/kWh (20% KM) = 11,09 neto; 2024 12,230 (22% KM)
+  // = 10,025 neto; 2026 12,431 (24% KM) = sama 10,025 neto. Kuutasu neto on
+  // kogu aeg 1,54 €/kuu (1,85 / 1,88 / 1,91 €/kuu koos KM-ga).
+  // Bilansihaldus 0,00373 €/kWh on eraldi.
   energyPrice: 0.10025,
   balancing: 0.00373,
   networkDay: 0.0607,
