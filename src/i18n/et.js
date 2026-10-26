@@ -251,6 +251,24 @@ export default {
     zoneOnlyCommands: 'Ainult käsklused', zoneNow: 'Hetkel {temp}', zoneSetpoint: 'siht {temp} °', editZoneAria: 'Tsooni seadistused: {name}',
     noSettings: 'Selles valdkonnas ei paku seade avaliku API kaudu muudetavaid seadistusi.', zonesError: 'Tsoonid: {error}'
   },
+  diag: {
+    title: 'Süsteemi diagnostika', hint: 'Ainult lugemine — seadeid ei muudeta.', readOnly: 'See paneel loeb ainult pumba olekut ja temperatuure. Muudatusi siit teha ei saa.',
+    mode: 'Töörežiim', heatingState: 'Kütte olek', dhwState: 'Tarbevee olek', compressor: 'Kompressor', hup: 'Kütte ringipump (HUP)', hwPump: 'Tarbevee pump',
+    supply: 'Pealevool', return: 'Tagasivool', target: 'Tagasivoolu siht', buffer: 'Akupaak', water: 'Tarbevesi', waterTarget: 'Tarbevee siht', power: 'Soojusvõimsus',
+    heatOn: 'Küte töötab: pealevool {supply} °C, tagasivool {return} °C.',
+    dhwOn: 'Tarbevesi soojeneb: {water} °C / siht {target} °C.',
+    stalled: 'Kompressor seisab, kuigi töörežiim näitab kütte- või tarbevee vajadust.',
+    heatDemand: 'Küttetarve on, kuid kompressor ei tööta.',
+    dhwDemand: 'Tarbevee nõudlus on, kuid tarbevesi ei kuumene.',
+    compressorNoHeatingPump: 'Kompressor töötab kütterežiimis, kuid kütte ringipump (HUP) on väljas.',
+    returnAboveTarget: 'Tagasivool on sihist {diff} K kõrgem — pump võib tarbetult käia.',
+    bufferStagnant: 'Akupaak on tagasivoolust {diff} K madalam. Kütte ringipumba seistes võib andur mõõta seisvat toru, mitte paaki.',
+    bufferBelowReturn: 'Akupaak on tagasivoolust {diff} K madalam — võib olla kihistumine või anduri asukoht.',
+    bufferAboveTarget: 'Akupaak on sihist {diff} K kõrgem, kuigi kütte ringipump seisab — võib olla soojuse ülekandumine tarbevee kütmisest või anduri asukoht.',
+    minPower: 'Kompressor töötab minimaalsel võimsusel ({power} kW).',
+    compressorNoLoop: 'Kompressor töötab, kuid kütte ega tarbevee ring ei ole aktiivne (võib olla sulatus või lisaküte).',
+    normal: 'Andmete põhjal ei paista praegu anomaaliat.'
+  },
   hint: { choices: '{count} valikut', step30: 'samm 30 min', range: '{min}–{max} {unit} · samm {step}' },
   enum: {
     manual: 'Manuaalne', noDemand: 'Puudub vajadus', demand: 'Vajadus', heatMode: 'Kütterežiim', hwMode: 'Soe tarbevesi', pool: 'Basseiniküte', defrost: 'Sulatus', aux: 'Lisaküte', cooling: 'Jahutus', boost: 'Õhutus', overpressure: 'Ülerõhk',

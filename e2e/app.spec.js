@@ -111,6 +111,15 @@ test('mobile layout and navigation stay within viewport',async({page})=>{
   await page.screenshot({path:'test-results/mobile.png',fullPage:true});
 });
 
+test('heating page shows read-only system diagnostics', async ({ page }) => {
+  await page.goto('/?ui=next&page=heating');
+  await expect(page.getByRole('heading', { name: 'Süsteemi diagnostika' })).toBeVisible();
+  await expect(page.locator('.nx-diag')).toContainText('Ainult lugemine');
+  await expect(page.locator('.nx-diag-grid')).toContainText('Pealevool');
+  await expect(page.locator('.nx-diag-grid')).toContainText('Akupaak');
+  await expect(page.locator('.nx-diag-list li')).not.toHaveCount(0);
+});
+
 test('heating curve page shows the fitted curve, current point and offset control', async ({ page }) => {
   await page.goto('/?ui=next&page=curve');
   await expect(page.getByRole('heading', { name: 'Küttekõver', exact: true })).toBeVisible();

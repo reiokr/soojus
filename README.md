@@ -199,6 +199,17 @@ Mudel:
 
 **Piirangud:** see on hinnang, mitte garantii. See ei sisalda ventilatsiooni ega kogu maja elektrit, tarifimuutusi, muutusi kütteseadetes ega tarbimisharjumustes. Vähese ajaloo või madala andmekatvuse korral kuvatakse hoiatus.
 
+## Süsteemi diagnostika
+
+Kütte lehel on **ainult lugemisega** diagnostikaplokk, mis ei muuda ühtegi seadet. See näitab töörežiimi, kütte- ja tarbevee olekut, kompressori ja pumpade seisu, pealevoolu/tagasivoolu/sihti, akupaagi ja tarbevee temperatuuri ning soojusvõimsust. Automaatsed tähelepanekud tõstavad esile olukorrad, kus:
+
+- kompressor töötab, aga kütte ringipump (HUP) on väljas;
+- tagasivool on sihist oluliselt kõrgem;
+- akupaagi andur on tagasivoolust madalam või sihist kõrgem, kuigi ringipump seisab (võib viidata anduri asukohale või soojuse ülekandumisele);
+- kompressor töötab minimaalsel võimsusel või ilma aktiivse kütte-/tarbevee ringita.
+
+See on mõeldud tehnikule tõendiks, mitte seadistamiseks.
+
 ## Tarbevee tsüklid
 
 Tarbevee lehel (*Tarbevesi*) on paneel **„Tarbevee tsüklid”**. See koondab minutipõhisest ajaloost kütmistsüklid:

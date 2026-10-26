@@ -16,7 +16,7 @@ import DhwCycles from './dhw-cycles.jsx';
 const EnergyPage = lazy(() => import('./energy.jsx'));
 const HeatingCurvePage = lazy(() => import('./curve.jsx'));
 import { co2Quality, climatePoints, climateQuery, readingQuality } from '../ventilation-logic.js';
-import { pumpState, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality, temperatureTrend } from './logic.js';
+import { pumpState, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality, temperatureTrend, systemDiagnostics } from './logic.js';
 import { buildReportModel, buildReportHtml, buildReportText, buildReportDocument } from './error-report.js';
 import './palette.css';
 import './next.css';
@@ -305,6 +305,45 @@ function usePointTrend(deviceId, pointId, tick) {
   return trend;
 }
 
+function SystemDiagnostics({ ctx, m, state }) {
+  const data = ctx.lux?.view?.data;
+  const outputs = data?.outputs, temps = data?.temperatures;
+  const value = point => point?.value == null || point.value === '' ? null : Number(point.value);
+  const supply = value(m.supply) ?? temps?.flow ?? null;
+  const returnT = value(m.returnT) ?? temps?.return ?? null;
+  const returnTarget = value(m.returnTarget) ?? temps?.returnSet ?? null;
+  const buffer = value(m.buffer) ?? temps?.buffer ?? null;
+  const water = value(m.water) ?? temps?.hotWater ?? null;
+  const waterTarget = value(m.waterTarget) ?? temps?.hotWaterSet ?? null;
+  const power = data?.power?.heatOutput ?? value(m.power);
+  const compressor = outputs?.compressor ?? state.compressor;
+  const heatingPump = outputs?.heatingPump;
+  const hotWaterPump = outputs?.hotWaterPump;
+  const items = systemDiagnostics({ state, supply, returnT, returnTarget, buffer, water, waterTarget, power, compressor, heatingPump, hotWaterPump });
+  const onOff = value => value == null ? '—' : t(value ? 'enum.on' : 'enum.off');
+  const stateText = point => point?.strVal ? enumText(point.strVal) : '—';
+  return <section className="nx-panel nx-diag">
+    <div className="nx-panel-head"><h2>{t('diag.title')}</h2><span className="nx-muted">{t('diag.hint')}</span></div>
+    <dl className="nx-diag-grid">
+      <div><dt>{t('diag.mode')}</dt><dd>{stateText(m.workMode)}</dd></div>
+      <div><dt>{t('diag.heatingState')}</dt><dd>{stateText(m.heatingState)}</dd></div>
+      <div><dt>{t('diag.dhwState')}</dt><dd>{stateText(m.hwState)}</dd></div>
+      <div><dt>{t('diag.compressor')}</dt><dd>{onOff(compressor)}</dd></div>
+      <div><dt>{t('diag.hup')}</dt><dd>{onOff(heatingPump)}</dd></div>
+      <div><dt>{t('diag.hwPump')}</dt><dd>{onOff(hotWaterPump)}</dd></div>
+      <div><dt>{t('diag.supply')}</dt><dd>{number(supply, 1)} °C</dd></div>
+      <div><dt>{t('diag.return')}</dt><dd>{number(returnT, 1)} °C</dd></div>
+      <div><dt>{t('diag.target')}</dt><dd>{number(returnTarget, 1)} °C</dd></div>
+      <div><dt>{t('diag.buffer')}</dt><dd>{number(buffer, 1)} °C</dd></div>
+      <div><dt>{t('diag.water')}</dt><dd>{number(water, 1)} °C</dd></div>
+      <div><dt>{t('diag.waterTarget')}</dt><dd>{number(waterTarget, 1)} °C</dd></div>
+      <div><dt>{t('diag.power')}</dt><dd>{number(power, 2)} kW</dd></div>
+    </dl>
+    <ul className="nx-diag-list">{items.map((item, index) => <li key={`${item.key}-${index}`} className={item.tone}>{t(item.key, item.params)}</li>)}</ul>
+    <p className="nx-note">{t('diag.readOnly')}</p>
+  </section>;
+}
+
 function Control({ ctx, water }) {
   const { points, zones, online, setEditing, categories, mode, errors, m } = ctx;
   // Legionella programmi seis: kui kuumutus parasjagu käib, näitame seda ka "Näidud" kaartidel.
@@ -367,6 +406,7 @@ function Control({ ctx, water }) {
         {water && errors.zones && <p className="nx-warn"><AlertCircle size={15}/>{t('control.zonesError', { error: errors.zones })}</p>}
       </section>
     </div>
+    {!water && <SystemDiagnostics ctx={ctx} m={m} state={state}/>}
     {water && <LegionellaPanel notify={ctx.notify}/>}
     <Trend ctx={ctx} initial={water ? 'water' : 'heat'}/>
     {water && <DhwCycles ctx={ctx}/>}

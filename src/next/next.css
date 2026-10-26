@@ -3203,3 +3203,15 @@ html[data-ui="next"] .nx-liide .segmented {
 .en-night-share .en-price input { width: 90px; }
 .en-night-share small { flex-basis: 100%; }
 .en-compare-auto, .en-compare-basis, .en-compare-margin-hint { margin: 2px 0 8px; font-size: 12px; line-height: 1.45; }
+
+/* Süsteemi diagnostika: ainult lugemine */
+.nx-diag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 18px; margin: 10px 0; }
+.nx-diag-grid > div { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--nx-line); }
+.nx-diag-grid dt { color: var(--muted); font-size: 12px; }
+.nx-diag-grid dd { margin: 0; font-weight: 600; font-size: 12.5px; text-align: right; }
+.nx-diag-list { display: grid; gap: 5px; list-style: none; margin: 10px 0 0; padding: 0; }
+.nx-diag-list li { border-left: 3px solid var(--nx-line); font-size: 12.5px; line-height: 1.45; padding: 4px 0 4px 10px; }
+.nx-diag-list li.ok { border-color: var(--nx-ok); }
+.nx-diag-list li.warn { border-color: var(--orange); }
+.nx-diag-list li.bad { border-color: var(--nx-heat); }
+.nx-diag-list li.info { border-color: var(--nx-water); }

@@ -251,6 +251,24 @@ export default {
     zoneOnlyCommands: 'Commands only', zoneNow: 'Currently {temp}', zoneSetpoint: 'target {temp} °', editZoneAria: 'Zone settings: {name}',
     noSettings: 'The device does not expose any editable settings for this area through the public API.', zonesError: 'Zones: {error}'
   },
+  diag: {
+    title: 'System diagnostics', hint: 'Read-only — no settings are changed.', readOnly: 'This panel only reads pump status and temperatures. No changes can be made here.',
+    mode: 'Work mode', heatingState: 'Heating state', dhwState: 'DHW state', compressor: 'Compressor', hup: 'Heating circuit pump (HUP)', hwPump: 'DHW pump',
+    supply: 'Flow', return: 'Return', target: 'Return target', buffer: 'Buffer tank', water: 'DHW', waterTarget: 'DHW target', power: 'Heat output',
+    heatOn: 'Heating is running: flow {supply} °C, return {return} °C.',
+    dhwOn: 'DHW is heating: {water} °C / target {target} °C.',
+    stalled: 'The compressor is stopped even though the work mode shows heating or DHW demand.',
+    heatDemand: 'Heating demand exists, but the compressor is not running.',
+    dhwDemand: 'DHW demand exists, but DHW is not heating.',
+    compressorNoHeatingPump: 'The compressor runs in heating mode, but the heating circuit pump (HUP) is off.',
+    returnAboveTarget: 'Return is {diff} K above target — the pump may be running unnecessarily.',
+    bufferStagnant: 'Buffer tank is {diff} K below return. With the heating circuit pump off, the sensor may be reading a stagnant pipe instead of the tank.',
+    bufferBelowReturn: 'Buffer tank is {diff} K below return — could be stratification or sensor placement.',
+    bufferAboveTarget: 'Buffer tank is {diff} K above target although the heating circuit pump is off — could be heat carry-over from DHW heating or sensor placement.',
+    minPower: 'Compressor is running at minimum output ({power} kW).',
+    compressorNoLoop: 'Compressor is running, but neither the heating nor DHW circuit is active (could be defrost or auxiliary heat).',
+    normal: 'No anomaly is apparent from the current data.'
+  },
   hint: { choices: '{count} options', step30: 'step 30 min', range: '{min}–{max} {unit} · step {step}' },
   enum: {
     manual: 'Manual', noDemand: 'No demand', demand: 'Demand', heatMode: 'Heating mode', hwMode: 'Hot water', pool: 'Pool heating', defrost: 'Defrost', aux: 'Auxiliary heat', cooling: 'Cooling', boost: 'Boost', overpressure: 'Overpressure',

@@ -1,4 +1,4 @@
-import { clipSpans, stateSpans, wzsvWorkState } from '../lib.js';
+import { clipSpans, stateSpans, wzsvWorkState, number } from '../lib.js';
 import { t } from '../i18n/index.js';
 
 const HOUR = 3600000;
@@ -63,6 +63,28 @@ export function bufferQuality(temp, target) {
   if (below <= 1) return { key: 'good', label: t('quality.atTarget') };
   if (below <= 6) return { key: 'high', label: t('quality.cooled') };
   return { key: 'bad', label: t('quality.cold') };
+}
+
+// Kütte ja tarbevee süsteemi ainult lugemisega diagnoos. Tagastab tähelepanekud
+// tõsiduse järjekorras; UI tõlgib need ja ei muuda ühtegi seadet.
+export function systemDiagnostics({ state, supply, returnT, returnTarget, buffer, water, waterTarget, power, compressor, heatingPump, hotWaterPump } = {}) {
+  const items = [];
+  const add = (tone, key, params = {}) => items.push({ tone, key, params });
+  const num = value => value == null || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+  const s = num(supply), r = num(returnT), rt = num(returnTarget), b = num(buffer), w = num(water), wt = num(waterTarget), p = num(power);
+  if (state?.heatOn) add('ok', 'diag.heatOn', { supply: number(s), return: number(r) });
+  if (state?.hwOn) add('ok', 'diag.dhwOn', { water: number(w), target: number(wt, 0) });
+  if (state?.stalled) add('bad', 'diag.stalled');
+  if (state?.heatDemand) add('warn', 'diag.heatDemand');
+  if (state?.hwDemand) add('warn', 'diag.dhwDemand');
+  if (compressor && heatingPump === false && state?.heatOn) add('warn', 'diag.compressorNoHeatingPump');
+  if (compressor && r != null && rt != null && r - rt > 5 && !state?.hwOn) add('warn', 'diag.returnAboveTarget', { diff: number(r - rt) });
+  if (b != null && r != null && r - b > 5) add(heatingPump === false ? 'info' : 'warn', heatingPump === false ? 'diag.bufferStagnant' : 'diag.bufferBelowReturn', { diff: number(r - b) });
+  if (b != null && rt != null && b - rt > 3 && heatingPump === false) add('info', 'diag.bufferAboveTarget', { diff: number(b - rt) });
+  if (compressor && p != null && p < 0.6) add('info', 'diag.minPower', { power: number(p, 2) });
+  if (compressor && !state?.heatOn && !state?.hwOn) add('info', 'diag.compressorNoLoop');
+  if (!items.length) add('ok', 'diag.normal');
+  return items;
 }
 
 // Tervitus kellaaja järgi (näidatakse Elava kodu pildil kellaaja kohal; järgib pildil näidatavat aega, mitte alati praegust).
