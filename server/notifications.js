@@ -21,7 +21,17 @@ export const DEFAULT_NOTIFICATIONS = Object.freeze({
   messagebirdFrom: 'Soojus',
   webhookUrl: '',
   kdeconnectDevice: '',
-  rules: { pumpError: true, ventFilter: true, co2: true, legionella: true, stale: false },
+  rules: {
+    pumpError: true, ventFilter: true, co2: true, legionella: true, stale: false,
+    dhwLow: true, indoorLow: true, dhwTarget: true, humidity: true, ventStopped: true
+  },
+  thresholds: {
+    dhwLow: 35, dhwLowMinutes: 30,
+    indoorLow: 19, indoorLowMinutes: 60, indoorSeasonOutdoor: 15,
+    dhwGap: 5, dhwGapMinutes: 60,
+    humidity: 70, humidityMinutes: 120,
+    ventStoppedMinutes: 30, ventStoppedCo2: 1000
+  },
   quietFrom: 22,
   quietTo: 7,
   cooldownMinutes: 360,
@@ -36,11 +46,23 @@ const integer = (value, fallback, min, max) => {
   const number = Number(value);
   return Number.isInteger(number) && number >= min && number <= max ? number : fallback;
 };
+const decimal = (value, fallback, min, max) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max ? number : fallback;
+};
 const secret = (incoming, previous) => typeof incoming === 'string' && incoming.trim() ? incoming.trim() : (previous || '');
 
 export function parseNotifications(input = {}, previous = null) {
-  const base = previous ? { ...DEFAULT_NOTIFICATIONS, ...previous, rules: { ...DEFAULT_NOTIFICATIONS.rules, ...(previous.rules || {}) } } : { ...DEFAULT_NOTIFICATIONS };
-  const merged = { ...base, ...input, rules: { ...base.rules, ...(input.rules || {}) } };
+  const base = previous ? {
+    ...DEFAULT_NOTIFICATIONS, ...previous,
+    rules: { ...DEFAULT_NOTIFICATIONS.rules, ...(previous.rules || {}) },
+    thresholds: { ...DEFAULT_NOTIFICATIONS.thresholds, ...(previous.thresholds || {}) }
+  } : { ...DEFAULT_NOTIFICATIONS };
+  const merged = {
+    ...base, ...input,
+    rules: { ...base.rules, ...(input.rules || {}) },
+    thresholds: { ...base.thresholds, ...(input.thresholds || {}) }
+  };
   const phone = text(merged.phone).replace(/[\s()-]/g, '');
   if (phone && !/^\+?\d{7,15}$/.test(phone)) throw new NotificationError('Telefoninumber peab olema kujul +372… ja 7–15 numbrit.');
   const provider = ['kdeconnect', 'telegram', 'twilio', 'messagebird', 'webhook'].includes(merged.provider) ? merged.provider : 'kdeconnect';
@@ -64,7 +86,25 @@ export function parseNotifications(input = {}, previous = null) {
       ventFilter: bool(merged.rules.ventFilter, true),
       co2: bool(merged.rules.co2, true),
       legionella: bool(merged.rules.legionella, true),
-      stale: bool(merged.rules.stale, false)
+      stale: bool(merged.rules.stale, false),
+      dhwLow: bool(merged.rules.dhwLow, true),
+      indoorLow: bool(merged.rules.indoorLow, true),
+      dhwTarget: bool(merged.rules.dhwTarget, true),
+      humidity: bool(merged.rules.humidity, true),
+      ventStopped: bool(merged.rules.ventStopped, true)
+    },
+    thresholds: {
+      dhwLow: decimal(merged.thresholds.dhwLow, DEFAULT_NOTIFICATIONS.thresholds.dhwLow, 0, 80),
+      dhwLowMinutes: integer(merged.thresholds.dhwLowMinutes, DEFAULT_NOTIFICATIONS.thresholds.dhwLowMinutes, 5, 1440),
+      indoorLow: decimal(merged.thresholds.indoorLow, DEFAULT_NOTIFICATIONS.thresholds.indoorLow, -20, 40),
+      indoorLowMinutes: integer(merged.thresholds.indoorLowMinutes, DEFAULT_NOTIFICATIONS.thresholds.indoorLowMinutes, 5, 1440),
+      indoorSeasonOutdoor: decimal(merged.thresholds.indoorSeasonOutdoor, DEFAULT_NOTIFICATIONS.thresholds.indoorSeasonOutdoor, -30, 30),
+      dhwGap: decimal(merged.thresholds.dhwGap, DEFAULT_NOTIFICATIONS.thresholds.dhwGap, 0, 30),
+      dhwGapMinutes: integer(merged.thresholds.dhwGapMinutes, DEFAULT_NOTIFICATIONS.thresholds.dhwGapMinutes, 5, 1440),
+      humidity: decimal(merged.thresholds.humidity, DEFAULT_NOTIFICATIONS.thresholds.humidity, 0, 100),
+      humidityMinutes: integer(merged.thresholds.humidityMinutes, DEFAULT_NOTIFICATIONS.thresholds.humidityMinutes, 5, 1440),
+      ventStoppedMinutes: integer(merged.thresholds.ventStoppedMinutes, DEFAULT_NOTIFICATIONS.thresholds.ventStoppedMinutes, 5, 1440),
+      ventStoppedCo2: integer(merged.thresholds.ventStoppedCo2, DEFAULT_NOTIFICATIONS.thresholds.ventStoppedCo2, 400, 5000)
     },
     quietFrom: integer(merged.quietFrom, DEFAULT_NOTIFICATIONS.quietFrom, 0, 23),
     quietTo: integer(merged.quietTo, DEFAULT_NOTIFICATIONS.quietTo, 0, 23),
@@ -108,18 +148,48 @@ export function notificationAlerts(state = {}) {
   return alerts;
 }
 
+// Ajapõhised reeglid: tingimus peab püsima N minutit. `since` on serveri mälus hoitav
+// algusaegade kaart; kui tingimus kaob, algus kustutatakse.
+export function durationAlerts(state = {}, settings, since = {}, now = Date.now()) {
+  const config = parseNotifications(settings), t = config.thresholds;
+  const alerts = [];
+  const num = value => value == null || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+  const fmt = value => Math.round(Number(value) * 10) / 10;
+  const evaluate = (rule, active, minutes, text, key = rule) => {
+    if (!config.rules[rule] || !active) { delete since[rule]; return; }
+    if (!Number.isFinite(since[rule])) since[rule] = now;
+    if (now - since[rule] >= minutes * 60000) alerts.push({ rule, key, text });
+  };
+  const dhw = num(state.dhw), dhwTarget = num(state.dhwTarget);
+  const indoor = num(state.indoor), outdoor = num(state.outdoor);
+  const humidity = num(state.humidity), co2 = num(state.ventCo2);
+  evaluate('dhwLow', dhw != null && dhw < t.dhwLow, t.dhwLowMinutes,
+    `Tarbevesi on liiga madal: ${fmt(dhw)} °C (alla ${fmt(t.dhwLow)} °C ${t.dhwLowMinutes} min).`, 'dhw:low');
+  evaluate('indoorLow', indoor != null && outdoor != null && indoor < t.indoorLow && outdoor < t.indoorSeasonOutdoor, t.indoorLowMinutes,
+    `Sisetemperatuur on liiga madal: ${fmt(indoor)} °C (alla ${fmt(t.indoorLow)} °C ${t.indoorLowMinutes} min, väljas ${fmt(outdoor)} °C).`, 'indoor:low');
+  evaluate('dhwTarget', dhw != null && dhwTarget != null && state.compressor === true && dhw < dhwTarget - t.dhwGap, t.dhwGapMinutes,
+    `Tarbevesi ei jõua sihini: ${fmt(dhw)} °C, siht ${fmt(dhwTarget)} °C (üle ${t.dhwGapMinutes} min).`, 'dhw:target');
+  evaluate('humidity', humidity != null && humidity > t.humidity, t.humidityMinutes,
+    `Niiskus on liiga kõrge: ${Math.round(humidity)}% (üle ${fmt(t.humidity)}% ${t.humidityMinutes} min).`, 'humidity:high');
+  evaluate('ventStopped', state.ventRunning === false && co2 != null && co2 > t.ventStoppedCo2, t.ventStoppedMinutes,
+    `Ventilatsioon ei tööta: CO₂ ${Math.round(co2)} ppm (üle ${t.ventStoppedMinutes} min).`, 'vent:stopped');
+  return alerts;
+}
+
 const recentSent = (log, now) => (log?.sent || []).filter(entry => entry.ok && now - Date.parse(entry.time) < 86400000);
 
 // Kanalist sõltumatu hindamine: reeglid, vaikne aeg, cooldown ja päevapiir.
 // SMS ja push saavad sama nimekirja, et mõlemad kanalid järgiksid samu seadeid.
-export function dueAlerts({ settings, state, log, now = Date.now() }) {
+export function dueAlerts({ settings, state = {}, log, now = Date.now(), since = null }) {
   const config = parseNotifications(settings);
   const date = new Date(now);
   if (inQuietHours(date, config.quietFrom, config.quietTo)) return [];
   const sent = recentSent(log, now);
   if (sent.length >= config.dailyLimit) return [];
+  const candidates = notificationAlerts(state);
+  if (since) candidates.push(...durationAlerts(state, config, since, now));
   const due = [];
-  for (const alert of notificationAlerts(state)) {
+  for (const alert of candidates) {
     if (!config.rules[alert.rule]) continue;
     const previous = log?.lastSent?.[alert.key];
     if (previous && now - Date.parse(previous) < config.cooldownMinutes * 60000) continue;
@@ -133,10 +203,10 @@ export const notificationChannelReady = config => config.provider === 'telegram'
   ? Boolean(config.telegramToken && config.telegramChat)
   : Boolean(config.phone);
 
-export function dueNotifications({ settings, state, log, now = Date.now() }) {
+export function dueNotifications({ settings, state, log, now = Date.now(), since = null }) {
   const config = parseNotifications(settings);
   if (!config.smsEnabled || !notificationChannelReady(config)) return [];
-  return dueAlerts({ settings: config, state, log, now });
+  return dueAlerts({ settings: config, state, log, now, since });
 }
 
 // KDE Connecti paardunud seadmed (telefonid). Kasutab kasutaja D-Busi (systemd user-teenusel on see olemas).

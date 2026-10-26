@@ -746,20 +746,29 @@ app.post('/api/legionella/run', async (req, res) => {
 
 // ---- Nutikad SMS-teavitused -------------------------------------------------
 function notificationState() {
-  const lux = luxView(), newest = lux.errors?.[0];
+  const lux = luxView(), newest = lux.errors?.[0], direct = lux.data, vent = airobotState.data;
   const acked = newest && lux.errorsAck && Date.parse(newest.time) <= Date.parse(lux.errorsAck);
   const pumpError = newest && !acked && Date.now() - Date.parse(newest.time) < 24 * 3600000 ? newest : null;
   const leg = legionellaConfig();
   const lastSample = db.prepare('SELECT MAX(time) AS time FROM samples').get()?.time;
   return {
     pumpError,
-    ventFilter: Boolean(airobotState.data?.switches?.filterAlert),
-    co2: airobotState.data?.co2 ?? null,
+    ventFilter: Boolean(vent?.switches?.filterAlert),
+    co2: vent?.co2 ?? null,
     legionella: leg?.lastError ? { error: leg.lastError, time: leg.lastRun || null } : null,
-    staleSince: lastSample && Date.now() - Date.parse(lastSample) > 30 * 60000 ? lastSample : null
+    staleSince: lastSample && Date.now() - Date.parse(lastSample) > 30 * 60000 ? lastSample : null,
+    dhw: direct?.temperatures?.hotWater ?? null,
+    dhwTarget: direct?.temperatures?.hotWaterSet ?? null,
+    indoor: vent?.temperatures?.extract ?? null,
+    outdoor: direct?.temperatures?.outdoor ?? vent?.temperatures?.outside ?? null,
+    humidity: vent?.humidity?.extract ?? null,
+    ventRunning: vent?.fans ? ((Number(vent.fans.supplyRpm) || 0) > 0 || (Number(vent.fans.extractRpm) || 0) > 0) : null,
+    ventCo2: vent?.co2 ?? null,
+    compressor: Boolean(direct?.outputs?.compressor)
   };
 }
 let notifyBusy = false;
+const notifySince = {};
 async function notificationTick() {
   if (notifyBusy) return;
   const config = getSetting(NOTIFY_KEY);
@@ -767,7 +776,7 @@ async function notificationTick() {
   const push = Boolean(config?.pushEnabled && pushStore.count() > 0);
   if (!sms && !push) return;
   const log = getSetting(NOTIFY_LOG_KEY) || { lastSent: {}, sent: [] };
-  const due = dueAlerts({ settings: config, state: notificationState(), log, now: Date.now() });
+  const due = dueAlerts({ settings: config, state: notificationState(), log, now: Date.now(), since: notifySince });
   if (!due.length) return;
   notifyBusy = true;
   try {
@@ -809,12 +818,12 @@ app.post('/api/notifications/test', async (req, res) => {
   if (config.provider !== 'telegram' && !config.phone) throw new AppError('Sisesta telefoninumber.', 400);
   const time = new Date().toISOString(), log = getSetting(NOTIFY_LOG_KEY) || { lastSent: {}, sent: [] };
   try {
-    await sendSms(config, 'Soojus: testteavitus. SMS-teavitused töötavad.');
-    log.sent.unshift({ time, key: 'test', text: 'Test-SMS', ok: true });
+    await sendSms(config, 'Soojus: testteavitus. Teavitused töötavad.');
+    log.sent.unshift({ time, key: 'test', text: 'Testteavitus', ok: true });
     setSetting(NOTIFY_LOG_KEY, { ...log, sent: log.sent.slice(0, 100) });
     res.json({ ok: true });
   } catch (e) {
-    log.sent.unshift({ time, key: 'test', text: 'Test-SMS', ok: false, error: e.message });
+    log.sent.unshift({ time, key: 'test', text: 'Testteavitus', ok: false, error: e.message });
     setSetting(NOTIFY_LOG_KEY, { ...log, sent: log.sent.slice(0, 100) });
     throw new AppError(e.message, 502);
   }

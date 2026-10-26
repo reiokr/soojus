@@ -4,7 +4,7 @@ import { t } from './i18n/index.js';
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const hourLabel = hour => `${String(hour).padStart(2, '0')}:00`;
-const ruleKeys = ['pumpError', 'ventFilter', 'co2', 'legionella', 'stale'];
+const ruleKeys = ['pumpError', 'ventFilter', 'co2', 'legionella', 'stale', 'dhwLow', 'indoorLow', 'dhwTarget', 'humidity', 'ventStopped'];
 const pushCapable = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
 const firefoxBased = () => typeof navigator !== 'undefined' && /firefox|floorp/i.test(navigator.userAgent);
 const urlBase64ToUint8Array = base64 => {
@@ -56,6 +56,7 @@ export default function NotificationSettings({ notify }) {
 
   const update = patch => setForm(previous => ({ ...previous, ...patch, rules: { ...previous.rules, ...(patch.rules || {}) } }));
   const setRule = (key, value) => update({ rules: { [key]: value } });
+  const setThreshold = (key, value) => setForm(previous => ({ ...previous, thresholds: { ...previous.thresholds, [key]: value } }));
 
   async function save(e) {
     e.preventDefault(); setBusy(true); setError(null);
@@ -184,6 +185,22 @@ export default function NotificationSettings({ notify }) {
       <div className="notify-checks">
         {ruleKeys.map(key => <label className="check-filter" key={key}><input type="checkbox" checked={Boolean(form.rules?.[key])} onChange={e => setRule(key, e.target.checked)}/>{t(`notify.rule_${key}`)}</label>)}
       </div>
+
+      <h4 className="notify-subhead">{t('notify.thresholds')}</h4>
+      <div className="notify-grid">
+        <label className="field"><span>{t('notify.dhwLow')}</span><input type="number" min="0" max="80" step="0.5" value={form.thresholds?.dhwLow ?? ''} onChange={e => setThreshold('dhwLow', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.dhwLowMinutes')}</span><input type="number" min="5" max="1440" step="5" value={form.thresholds?.dhwLowMinutes ?? ''} onChange={e => setThreshold('dhwLowMinutes', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.indoorLow')}</span><input type="number" min="-20" max="40" step="0.5" value={form.thresholds?.indoorLow ?? ''} onChange={e => setThreshold('indoorLow', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.indoorLowMinutes')}</span><input type="number" min="5" max="1440" step="5" value={form.thresholds?.indoorLowMinutes ?? ''} onChange={e => setThreshold('indoorLowMinutes', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.indoorSeasonOutdoor')}</span><input type="number" min="-30" max="30" step="0.5" value={form.thresholds?.indoorSeasonOutdoor ?? ''} onChange={e => setThreshold('indoorSeasonOutdoor', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.dhwGap')}</span><input type="number" min="0" max="30" step="0.5" value={form.thresholds?.dhwGap ?? ''} onChange={e => setThreshold('dhwGap', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.dhwGapMinutes')}</span><input type="number" min="5" max="1440" step="5" value={form.thresholds?.dhwGapMinutes ?? ''} onChange={e => setThreshold('dhwGapMinutes', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.humidity')}</span><input type="number" min="0" max="100" step="1" value={form.thresholds?.humidity ?? ''} onChange={e => setThreshold('humidity', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.humidityMinutes')}</span><input type="number" min="5" max="1440" step="5" value={form.thresholds?.humidityMinutes ?? ''} onChange={e => setThreshold('humidityMinutes', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.ventStoppedMinutes')}</span><input type="number" min="5" max="1440" step="5" value={form.thresholds?.ventStoppedMinutes ?? ''} onChange={e => setThreshold('ventStoppedMinutes', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.ventStoppedCo2')}</span><input type="number" min="400" max="5000" step="50" value={form.thresholds?.ventStoppedCo2 ?? ''} onChange={e => setThreshold('ventStoppedCo2', e.target.value)}/></label>
+      </div>
+      <p className="muted notify-hint">{t('notify.thresholdHint')}</p>
 
       <div className="notify-grid">
         <label className="field"><span>{t('notify.quietFrom')}</span><select value={form.quietFrom} onChange={e => update({ quietFrom: Number(e.target.value) })}>{HOURS.map(hour => <option key={hour} value={hour}>{hourLabel(hour)}</option>)}</select></label>

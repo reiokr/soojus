@@ -45,7 +45,9 @@ test('notification settings panel renders in both interfaces', async ({ page }) 
   await expect(page.locator('.notify-panel input[type="tel"]')).toBeVisible();
   await page.goto('/?ui=next&page=settings');
   await expect(page.getByRole('heading', { name: 'Nutikad teavitused' })).toBeVisible();
-  await expect(page.locator('.notify-panel .notify-checks input')).toHaveCount(5);
+  await expect(page.locator('.notify-panel .notify-checks input')).toHaveCount(10);
+  await expect(page.getByLabel('Tarbevesi alla, °C')).toBeVisible();
+  await expect(page.getByLabel('Sisetemperatuur alla, °C')).toBeVisible();
 });
 
 test('push API issues a VAPID key and stores subscriptions', async ({ request }) => {

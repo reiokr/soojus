@@ -130,3 +130,41 @@ test('Telegram notifications do not require a phone number', () => {
   assert.equal(dueNotifications({ settings: { ...settings, telegramToken: '' }, state: { ventFilter: true }, log, now }).length, 0);
   assert.equal(dueNotifications({ settings: { ...settings, telegramChat: '' }, state: { ventFilter: true }, log, now }).length, 0);
 });
+
+test('duration rules wait for the configured time and reset when the condition clears', () => {
+  const settings = {
+    smsEnabled: true, provider: 'telegram', phone: '', telegramToken: '123:abc', telegramChat: '42',
+    quietFrom: 0, quietTo: 0, cooldownMinutes: 60, dailyLimit: 10,
+    rules: { dhwLow: true, indoorLow: true, dhwTarget: true, humidity: true, ventStopped: true }
+  };
+  const now = new Date(2026, 0, 1, 12, 0).getTime();
+  const state = {
+    dhw: 30, dhwTarget: 48, compressor: true,
+    indoor: 18, outdoor: 10,
+    humidity: 75, ventRunning: false, ventCo2: 1200
+  };
+  const since = {};
+  assert.deepEqual(dueAlerts({ settings, state, log: { lastSent: {} }, now, since }), []);
+  const later = dueAlerts({ settings, state, log: { lastSent: {} }, now: now + 31 * 60000, since });
+  const rules = later.map(alert => alert.rule);
+  assert.ok(rules.includes('dhwLow'));
+  assert.ok(rules.includes('ventStopped'));
+  assert.ok(!rules.includes('indoorLow'));
+  assert.ok(!rules.includes('dhwTarget'));
+  assert.ok(!rules.includes('humidity'));
+
+  dueAlerts({ settings, state: { ...state, dhw: 40 }, log: { lastSent: {} }, now: now + 32 * 60000, since });
+  assert.equal(since.dhwLow, undefined);
+
+  const warm = dueAlerts({ settings, state: { ...state, outdoor: 20 }, log: { lastSent: {} }, now: now + 61 * 60000, since: {} });
+  assert.ok(!warm.some(alert => alert.rule === 'indoorLow'));
+});
+
+test('notification thresholds fall back to safe defaults when out of range', () => {
+  const config = parseNotifications({ thresholds: { dhwLow: 100, dhwLowMinutes: 1, humidity: 150, ventStoppedCo2: 100, indoorLow: -50 } });
+  assert.equal(config.thresholds.dhwLow, 35);
+  assert.equal(config.thresholds.dhwLowMinutes, 30);
+  assert.equal(config.thresholds.humidity, 70);
+  assert.equal(config.thresholds.ventStoppedCo2, 1000);
+  assert.equal(config.thresholds.indoorLow, 19);
+});
