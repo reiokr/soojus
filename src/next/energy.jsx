@@ -4,7 +4,7 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 import { api, number } from '../lib.js';
 import { t, getLocale } from '../i18n/index.js';
 import { DEFAULT_TARIFF, parseTariff, dayCost, totalCost, monthlyCost, effectiveRates, splitElectric, nightHours } from './tariff.js';
-import { spotMap, variableCost, exchangeCost, periodSplit } from './prices.js';
+import { spotMap, variableCost, exchangeCost, periodSplit, networkRates, packageCosts } from './prices.js';
 import { forecastMonth } from './forecast.js';
 
 const TARIFF_KEY = 'soojus.energy.tariff';
@@ -121,10 +121,11 @@ export default function EnergyPage({ ctx }) {
         // Kui hinnad olid automaatselt praegusest paketist, jäädvusta need enne käsitsi muutmist,
         // et teine väli ei hüppaks tagasi vana vaikeväärtuse peale.
         const currentRates = effectiveRates(tariff);
+        const autoEnergy = tariff.type === 'detail' ? tariff.energyPrice * (1 + tariff.vat / 100) : null;
         next = { ...compare, ...{
-          fixed: tariff.type === 'single' ? tariff.price : compare.fixed,
-          day: splitMode ? currentRates.day : compare.day,
-          night: splitMode ? currentRates.night : compare.night
+          fixed: tariff.type === 'detail' ? autoEnergy : tariff.type === 'single' ? tariff.price : compare.fixed,
+          day: tariff.type === 'detail' ? autoEnergy : splitMode ? currentRates.day : compare.day,
+          night: tariff.type === 'detail' ? autoEnergy : splitMode ? currentRates.night : compare.night
         }, ...patch, auto: false };
       } else next.auto = false;
     }
@@ -186,15 +187,20 @@ export default function EnergyPage({ ctx }) {
     coverage: totals.coverage,
     nightShare: nightShare == null ? null : nightShare / 100
   }), [data, tariff, totals.coverage, nightShare]);
-  const compareDay = compare.auto && splitMode ? rates.day : Number(compare.day);
-  const compareNight = compare.auto && splitMode ? rates.night : Number(compare.night);
-  const compareFixed = compare.auto && tariff.type === 'single' ? tariff.price : Number(compare.fixed);
+  const detailCompare = tariff.type === 'detail';
+  const autoEnergy = detailCompare ? tariff.energyPrice * (1 + tariff.vat / 100) : null;
+  const compareDay = compare.auto && splitMode ? (detailCompare ? autoEnergy : rates.day) : Number(compare.day);
+  const compareNight = compare.auto && splitMode ? (detailCompare ? autoEnergy : rates.night) : Number(compare.night);
+  const compareFixed = compare.auto ? (detailCompare ? autoEnergy : tariff.type === 'single' ? tariff.price : Number(compare.fixed)) : Number(compare.fixed);
   const currentVariable = data ? variableCost(data.days, tariff) + comparison.missingKwh * comparison.averageRate : null;
-  const fixedTotal = comparison.estimatedKwh > 0 ? comparison.estimatedKwh * compareFixed : null;
-  const dualResult = data ? { cost: comparison.dayKwh * compareDay + comparison.nightKwh * compareNight, kwh: comparison.estimatedKwh } : null;
+  const packageTotals = data ? packageCosts(comparison, tariff, { fixed: compareFixed, day: compareDay, night: compareNight }) : null;
+  const net = networkRates(tariff);
+  const fixedTotal = packageTotals?.fixed ?? null;
+  const dualResult = packageTotals ? { cost: packageTotals.dual, kwh: comparison.estimatedKwh } : null;
   const spot = useMemo(() => spotMap(prices?.prices), [prices]);
   const exchange = data && prices?.prices?.length ? exchangeCost(data.days, spot, tariff, Number(compare.margin)) : null;
-  const exchangeTotal = exchange?.average != null ? exchange.average * comparison.estimatedKwh : null;
+  const exchangeTotal = exchange?.average != null ? (exchange.average + (detailCompare ? net.balancing : 0)) * comparison.estimatedKwh : null;
+  const priceInput = value => String(Number(Number(value).toFixed(5)));
   const avgPrice = value => value != null && comparison.estimatedKwh > 0 ? value / comparison.estimatedKwh : null;
   const diffCell = value => value == null || currentVariable == null ? '—' : <span className={value < currentVariable ? 'cheaper' : value > currentVariable ? 'dearer' : ''}>{value > currentVariable ? '+' : ''}{number(value - currentVariable, 2)} €</span>;
   const split = useMemo(() => (data?.days ?? []).reduce((sum, day) => {
@@ -362,15 +368,16 @@ export default function EnergyPage({ ctx }) {
 
     {hasData && <section className="nx-panel">
       <div className="nx-panel-head"><h2>{t('compare.title')}</h2><span className="nx-muted">{t('compare.subtitle')}</span></div>
+      {detailCompare && <p className="en-compare-basis muted">{t('compare.energyOnly')}</p>}
       <div className="en-compare-inputs">
-        <label className="en-price"><span>{t('compare.fixedPrice')}</span><input type="number" min="0" step="0.01" value={compare.auto && tariff.type === 'single' ? tariff.price : compare.fixed} onChange={e => updateCompare({ fixed: e.target.value })} aria-label={t('compare.fixedPrice')}/></label>
-        <label className="en-price"><span>{t('compare.dayPrice')}</span><input type="number" min="0" step="0.01" value={compare.auto && splitMode ? String(Number(rates.day.toFixed(5))) : compare.day} onChange={e => updateCompare({ day: e.target.value })} aria-label={t('compare.dayPrice')}/></label>
-        <label className="en-price"><span>{t('compare.nightPrice')}</span><input type="number" min="0" step="0.01" value={compare.auto && splitMode ? String(Number(rates.night.toFixed(5))) : compare.night} onChange={e => updateCompare({ night: e.target.value })} aria-label={t('compare.nightPrice')}/></label>
+        <label className="en-price"><span>{t(detailCompare ? 'compare.fixedEnergy' : 'compare.fixedPrice')}</span><input type="number" min="0" step="0.01" value={compare.auto ? (detailCompare ? priceInput(autoEnergy) : tariff.type === 'single' ? tariff.price : compare.fixed) : compare.fixed} onChange={e => updateCompare({ fixed: e.target.value })} aria-label={t(detailCompare ? 'compare.fixedEnergy' : 'compare.fixedPrice')}/></label>
+        <label className="en-price"><span>{t(detailCompare ? 'compare.dayEnergy' : 'compare.dayPrice')}</span><input type="number" min="0" step="0.01" value={compare.auto && splitMode ? priceInput(detailCompare ? autoEnergy : rates.day) : compare.day} onChange={e => updateCompare({ day: e.target.value })} aria-label={t(detailCompare ? 'compare.dayEnergy' : 'compare.dayPrice')}/></label>
+        <label className="en-price"><span>{t(detailCompare ? 'compare.nightEnergy' : 'compare.nightPrice')}</span><input type="number" min="0" step="0.01" value={compare.auto && splitMode ? priceInput(detailCompare ? autoEnergy : rates.night) : compare.night} onChange={e => updateCompare({ night: e.target.value })} aria-label={t(detailCompare ? 'compare.nightEnergy' : 'compare.nightPrice')}/></label>
         <label className="en-price"><span>{t('compare.margin')}</span><input type="number" min="0" step="0.001" value={compare.margin} onChange={e => updateCompare({ margin: e.target.value })} aria-label={t('compare.margin')}/></label>
       </div>
       <p className="en-compare-auto muted">
         {compare.auto
-          ? t(tariff.type === 'single' ? 'compare.autoFixed' : 'compare.autoPrices', { value: number(tariff.price, 2), day: number(rates.day, 4), night: number(rates.night, 4) })
+          ? t(detailCompare ? 'compare.autoEnergy' : tariff.type === 'single' ? 'compare.autoFixed' : 'compare.autoPrices', { value: number(tariff.price, 2), day: number(rates.day, 4), night: number(rates.night, 4) })
           : <button type="button" className="text-button" onClick={useCurrentPackagePrices}>{t('compare.useCurrent')}</button>}
       </p>
       {pricesError && <p className="nx-warn"><AlertCircle size={15}/>{t('compare.noPrices')}</p>}
@@ -382,11 +389,11 @@ export default function EnergyPage({ ctx }) {
             <tr className="current"><td>{t('compare.current')}</td><td>{currentVariable != null ? `${number(currentVariable, 2)} €` : '—'}</td><td>{avgPrice(currentVariable) != null ? `${number(avgPrice(currentVariable), 3)} €/kWh` : '—'}</td><td>—</td></tr>
             <tr><td>{t('compare.fixed')}</td><td>{fixedTotal != null ? `${number(fixedTotal, 2)} €` : '—'}</td><td>{avgPrice(fixedTotal) != null ? `${number(avgPrice(fixedTotal), 3)} €/kWh` : '—'}</td><td>{diffCell(fixedTotal)}</td></tr>
             <tr><td>{t('compare.dual')}</td><td>{dualResult != null ? `${number(dualResult.cost, 2)} €` : '—'}</td><td>{avgPrice(dualResult?.cost) != null ? `${number(avgPrice(dualResult.cost), 3)} €/kWh` : '—'}</td><td>{diffCell(dualResult?.cost)}</td></tr>
-            <tr><td>{t('compare.exchange')}{exchange && exchange.coverage < 0.95 ? <small>{t('compare.coverage', { percent: Math.round(exchange.coverage * 100) })}</small> : null}</td><td>{pricesBusy ? '…' : exchangeTotal != null ? `${number(exchangeTotal, 2)} €` : '—'}</td><td>{exchange?.average != null ? `${number(exchange.average, 3)} €/kWh` : '—'}</td><td>{exchangeTotal != null ? diffCell(exchangeTotal) : '—'}</td></tr>
+            <tr><td>{t('compare.exchange')}{exchange && exchange.coverage < 0.95 ? <small>{t('compare.coverage', { percent: Math.round(exchange.coverage * 100) })}</small> : null}</td><td>{pricesBusy ? '…' : exchangeTotal != null ? `${number(exchangeTotal, 2)} €` : '—'}</td><td>{avgPrice(exchangeTotal) != null ? `${number(avgPrice(exchangeTotal), 3)} €/kWh` : '—'}</td><td>{exchangeTotal != null ? diffCell(exchangeTotal) : '—'}</td></tr>
           </tbody>
         </table>
       </div>
-      <p className="en-note">{t('compare.note')}</p>
+      <p className="en-note">{t(detailCompare ? 'compare.noteDetail' : 'compare.note')}</p>
     </section>}
 
     {hasData && <section className="nx-panel">

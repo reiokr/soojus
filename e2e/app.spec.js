@@ -145,6 +145,10 @@ test('energy page shows daily heat, electricity, COP, cost and exports CSV', asy
   await expect(page.locator('.en-card').filter({ hasText: 'Kulu (kompressor)' })).not.toContainText('—');
   await page.getByRole('button', { name: 'Arve järgi', exact: true }).click();
   await expect(page.locator('.en-tariff-foot')).toContainText('0,2266');
+  await expect(page.getByLabel('Fikseeritud energia, €/kWh')).toHaveValue('0.12431');
+  await expect(page.getByLabel('Päevane energia, €/kWh')).toHaveValue('0.12431');
+  const fixedRow = page.locator('.en-compare tbody tr').filter({ hasText: 'Fikseeritud hind' });
+  await expect(fixedRow.locator('.dearer')).toBeVisible();
   await expect(dualCost).toHaveText(await currentCost.innerText());
   await page.locator('.en-check input').check();
   await expect(page.locator('.en-card').filter({ hasText: 'Kulu (kompressor)' })).toContainText('kuutasu');

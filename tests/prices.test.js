@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_TARIFF } from '../src/next/tariff.js';
-import { spotMap, dualCost, exchangeCost, periodSplit, variableCost } from '../src/next/prices.js';
+import { spotMap, dualCost, exchangeCost, periodSplit, variableCost, packageCosts } from '../src/next/prices.js';
 
 const close = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 
@@ -85,4 +85,37 @@ test('a dual current package equals the same dual comparison prices after normal
   const current = variableCost(days, tariff) + split.missingKwh * split.averageRate;
   const dual = split.dayKwh * 0.22 + split.nightKwh * 0.12;
   close(current, dual);
+});
+
+
+test('detail package comparison adds grid and fees to energy-only prices', () => {
+  const byHour = Array(24).fill(0); byHour[12] = 8; byHour[2] = 2;
+  const days = [
+    { day: '2026-10-01', electricKwh: 10, electricByHour: byHour, coverage: 1 },
+    { day: '2026-10-02', electricKwh: 5, electricByHour: byHour.map(value => value / 2), coverage: 0.5 }
+  ];
+  const tariff = detail;
+  const split = periodSplit(days, tariff, { coverage: 0.75, nightShare: 0.4 });
+  const energy = tariff.energyPrice * (1 + tariff.vat / 100);
+  const totals = packageCosts(split, tariff, { fixed: energy, day: energy, night: energy });
+  const current = variableCost(days, tariff) + split.missingKwh * split.averageRate;
+  close(totals.dual, current);
+  // Fikseeritud pakett maksab kogu kWh eest päevast võrguhinda, seega on öise osakaalu korral kallim.
+  const net = totals.network;
+  close(totals.fixed, split.estimatedKwh * (energy + net.balancing + net.day));
+  assert.ok(totals.fixed > totals.dual);
+  close(net.balancing, tariff.balancing * 1.24);
+});
+
+test('a cheaper dual night energy price beats a fixed energy price', () => {
+  const split = { estimatedKwh: 100, dayKwh: 60, nightKwh: 40 };
+  const totals = packageCosts(split, detail, { fixed: 0.12431, day: 0.14, night: 0.08 });
+  assert.ok(totals.dual < totals.fixed);
+});
+
+test('non-detail package comparison keeps all-in prices', () => {
+  const split = { estimatedKwh: 10, dayKwh: 6, nightKwh: 4 };
+  const totals = packageCosts(split, { type: 'dual' }, { fixed: 0.2, day: 0.3, night: 0.1 });
+  close(totals.fixed, 2);
+  close(totals.dual, 2.2);
 });

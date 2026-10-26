@@ -52,6 +52,42 @@ export function dualCost(days, dayPrice, nightPrice, nightStart, nightEnd) {
   return { cost, kwh };
 }
 
+// Võrgu ja tasude lõpphinnad (koos KM-ga) pakettide võrdluseks.
+// Detailtariifist võetakse müüja bilansihaldus eraldi; muul juhul kasutatakse vaikimisi V2 komponente.
+export function networkRates(tariff) {
+  const config = parseTariff(tariff);
+  const base = config.type === 'detail' ? config : DEFAULT_TARIFF;
+  const factor = 1 + base.vat / 100;
+  const fees = (base.security + base.excise + base.renewable) * factor;
+  return {
+    factor,
+    day: base.networkDay * factor + fees,
+    night: base.networkNight * factor + fees,
+    balancing: config.type === 'detail' ? config.balancing * factor : 0
+  };
+}
+
+// Pakettide kulu samast normaliseeritud jaotusest.
+// Detailtariifis on sisendiks müüja energia hind (koos KM-ga); võrk, tasud ja bilansihaldus lisatakse.
+// Teiste tariifitüüpide puhul on sisend juba lõpphind, nagu varem.
+export function packageCosts(split, tariff, { fixed = 0, day = 0, night = 0 } = {}) {
+  if (tariff?.type !== 'detail') {
+    return {
+      fixed: split.estimatedKwh * Number(fixed),
+      dual: split.dayKwh * Number(day) + split.nightKwh * Number(night),
+      network: null
+    };
+  }
+  const net = networkRates(tariff);
+  return {
+    // Fikseeritud pakett = ühetariifne võrk: kogu tarbimine päevase võrguhinnaga.
+    fixed: split.estimatedKwh * (Number(fixed) + net.balancing + net.day),
+    // Kahetariifne pakett saab öise võrguhinna vastavalt tegelikule öisele osakaalule.
+    dual: split.dayKwh * (Number(day) + net.balancing + net.day) + split.nightKwh * (Number(night) + net.balancing + net.night),
+    network: net
+  };
+}
+
 // Börsipakett: spot (EUR/kWh ilma KM-ta) + marginaal + võrgutasud ja tasud + KM.
 // Võrgukomponendid tulevad detailtariifist; kui praegune pakett ei ole detailne, kasutatakse vaikimisi V2 komponente.
 export function exchangeCost(days, spot, tariff, margin = 0) {

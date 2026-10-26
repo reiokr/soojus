@@ -534,6 +534,9 @@ export default {
     title: 'Pakettide võrdlus', subtitle: 'Muutuv kulu kogu valitud perioodil, ilma kuutasuta.',
     package: 'Pakett', current: 'Praegune pakett', fixed: 'Fikseeritud hind', dual: 'Kahetariifne', exchange: 'Börsihind',
     fixedPrice: 'Fikseeritud, €/kWh', dayPrice: 'Päev, €/kWh', nightPrice: 'Öö, €/kWh', margin: 'Marginaal, €/kWh',
+    fixedEnergy: 'Fikseeritud energia, €/kWh', dayEnergy: 'Päevane energia, €/kWh', nightEnergy: 'Öine energia, €/kWh',
+    energyOnly: 'Arve järgi puhul on need müüja energia hinnad (koos KM-ga). Võrk, varustuskindlus, aktsiis, taastuvenergia ja bilansihaldus lisatakse praeguse arve komponentidest.',
+    autoEnergy: 'Müüja energia hind on võetud praegusest paketist; võrk, tasud ja bilansihaldus lisatakse automaatselt. Muutmine lülitab käsitsi režiimi.',
     cost: 'Kulu', average: 'Keskmine', difference: 'Vahe',
     autoPrices: 'Päeva ja öö hind on võetud praegusest paketist; muutmine lülitab käsitsi režiimi.',
     autoFixed: 'Hind on võetud praegusest paketist; muutmine lülitab käsitsi režiimi.',
@@ -541,7 +544,8 @@ export default {
     estimate: 'Võrdlus on normaliseeritud kogu perioodile: mõõdetud {measured} kWh + hinnanguliselt puuduv {missing} kWh = {estimated} kWh (katvus {percent}%).',
     estimateNight: 'Puuduv osa jaotatakse öise osakaaluga {percent}%.',
     coverage: 'Börsihind kaetud {percent}% ulatuses', noPrices: 'Börsihindu ei saanud laadida. Proovi hiljem uuesti.',
-    note: 'Võrdlus kasutab sama hinnangulist kompressori tarbimist ja samu võrgukomponente. Fikseeritud ja kahetariifse paketi hinnad peavad olema lõpphinnad, mis sisaldavad lisaks energiale ka võrguteenust, tasusid ja käibemaksu. Kui sul on ainult müüja energia hind (nt 12,431 s/kWh), lisa enne sisestamist võrk ja tasud või kasuta „Arve järgi” vaadet. Börsipakett lisab spot-hinna (ilma KM-ta) ja marginaali. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
+    note: 'Võrdlus kasutab sama hinnangulist kompressori tarbimist ja samu võrgukomponente. Fikseeritud ja kahetariifse paketi hinnad peavad olema lõpphinnad, mis sisaldavad lisaks energiale ka võrguteenust, tasusid ja käibemaksu. Börsipakett lisab spot-hinna (ilma KM-ta) ja marginaali. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.',
+    noteDetail: 'Võrdlus kasutab sama normaliseeritud kompressori tarbimist. Sisesta müüja energia hind koos KM-ga; võrk, varustuskindlus, aktsiis, taastuvenergia ja bilansihaldus lisatakse praeguse arve komponentidest. Fikseeritud pakett arvestab kogu tarbimise päevase võrguhinnaga (ühetariifne võrk); kahetariifne pakett kasutab öist võrguhinda. Kuutasu ei ole arvestatud. Börsihind: Nord Pool / Elering.'
   },
   notify: {
     title: 'Nutikad teavitused', hint: 'Saada SMS või push-teavitus, kui tekib viga, filter vajab vahetust, CO₂ on kõrge või legionella ebaõnnestub. Kõige lihtsam on KDE Connect telefoni kaudu; push on tasuta, aga nõuab HTTPS-i või localhosti.',
