@@ -131,7 +131,7 @@ test('heating curve page shows the fitted curve, current point and offset contro
 test('energy page shows daily heat, electricity, COP, cost and exports CSV', async ({ page }) => {
   await page.goto('/?ui=next&page=energy');
   await expect(page.getByRole('heading', { name: 'Energia ja kulu', exact: true })).toBeVisible();
-  await expect(page.locator('.en-card')).toHaveCount(6);
+  await expect(page.locator('.en-cards:not(.en-forecast-cards) .en-card')).toHaveCount(6);
   await expect(page.locator('.en-card').filter({ hasText: 'Toodetud soojus' })).toContainText(/kWh/);
   await expect(page.locator('.en-card').filter({ hasText: 'COP' })).toContainText(/\d/);
   await expect(page.locator('.en-cop-note')).toContainText('1 kWh elektri eest saadi 3,5 kWh soojust');

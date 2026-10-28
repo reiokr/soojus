@@ -21,7 +21,7 @@ export function pumpState({ workMode, heatingState, hwState, compressor }) {
 // Tarbevee temperatuur seatud sihi suhtes: mida kaugemal allpool, seda tugevam hoiatus.
 // (Kütte puhul ei sobi pealevoolu ja tagasivoolu absoluutväärtusi hinnata, sest tarbevee
 // kütmise ajal tõusevad need ajutiselt – seepärast on norm ainult akupaagil ja toatemperatuuril.)
-export function dhwQuality(temp, target, { heating = false, cooling = false } = {}) {
+export function dhwQuality(temp, target, { heating = false, cooling = false, rising = false } = {}) {
   const cur = temp == null || temp === '' ? NaN : Number(temp), g = target == null || target === '' ? NaN : Number(target);
   if (!Number.isFinite(cur) || !Number.isFinite(g) || g <= 0) return null;
   const below = g - cur;
@@ -31,7 +31,7 @@ export function dhwQuality(temp, target, { heating = false, cooling = false } = 
   // kui kompressor seisab, võib vesi lihtsalt seista või jahtuda.
   // Tegelik langus on olulisem kui pumba kütmistaotlus: kui vesi jahtub, näita "jaheneb".
   if (cooling) return { key: below <= 5 ? 'high' : 'bad', label: t('quality.coolingDown') };
-  if (heating) return { key: below <= 5 ? 'high' : 'bad', label: t('quality.heatingUp') };
+  if (heating || rising) return { key: below <= 5 ? 'high' : 'bad', label: t('quality.heatingUp') };
   if (below <= 5) return { key: 'high', label: t('quality.slightlyBelow') };
   return { key: 'bad', label: t('quality.belowTarget') };
 }
@@ -50,8 +50,16 @@ export function temperatureTrend(rows, now = Date.now(), { minutes = 30, thresho
   const delta = Math.round((last.value - first.value) * 100) / 100;
   const peakDrop = Math.round((peak - last.value) * 100) / 100;
   const rise = Math.round((last.value - trough) * 100) / 100;
-  const direction = delta <= -threshold || peakDrop >= threshold ? 'falling' : delta >= threshold ? 'rising' : 'stable';
-  return { direction, delta, peakDrop, rise, minutes, count: values.length, from: first.time, to: last.time };
+  // Viimase kolme punkti liikumine on olulisem kui akna varasem tipp: pärast suurt tarbimist
+  // võib vesi olla tipust allpool, aga praegu siiski tõusta. Vana loogika näitas siis
+  // ekslikult "jaheneb", kuigi temperatuur oli juba tõusmas.
+  const recent = values.slice(-3);
+  const recentDelta = recent.length >= 2 ? Math.round((recent.at(-1).value - recent[0].value) * 100) / 100 : 0;
+  const direction = recentDelta >= threshold ? 'rising'
+    : recentDelta <= -threshold ? 'falling'
+    : delta <= -threshold || peakDrop >= threshold ? 'falling'
+    : delta >= threshold ? 'rising' : 'stable';
+  return { direction, delta, recentDelta, peakDrop, rise, minutes, count: values.length, from: first.time, to: last.time };
 }
 
 // Akupaagi temperatuur kütte tagasivoolu sihi suhtes: paak peaks hoidma vähemalt sihttaset.

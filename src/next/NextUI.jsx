@@ -383,7 +383,7 @@ function Control({ ctx, water }) {
   const qById = {};
   if (water) {
     // Legionella ajal on siht teadlikult kõrge (63 °C) – tavaline "alla sihi" punane oleks eksitav.
-    if (m.water) qById[m.water.parameterId] = legRunning ? { key: 'key', label: t('control.heatingUp') } : dhwQuality(m.water.value, m.waterTarget, { heating: state.hwOn, cooling: waterTrend?.direction === 'falling' });
+    if (m.water) qById[m.water.parameterId] = legRunning ? { key: 'key', label: t('control.heatingUp') } : dhwQuality(m.water.value, m.waterTarget, { heating: state.hwOn, cooling: waterTrend?.direction === 'falling', rising: waterTrend?.direction === 'rising' });
     if (waterTargetPoint) qById[waterTargetPoint.parameterId] = { key: 'key', label: legRunning ? t('control.legionellaTarget') : t('control.setpoint') };
   } else {
     if (m.buffer) qById[m.buffer.parameterId] = bufferQuality(m.buffer.value, m.returnTarget?.value);
