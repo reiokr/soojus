@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChartLine, Globe, LayoutTemplate, Monitor, Moon, Music2, Palette, Settings2, Sun, X } from 'lucide-react';
+import { ChartLine, Globe, LayoutTemplate, Monitor, Moon, Music2, Palette, RefreshCw, Settings2, Sun, X } from 'lucide-react';
 import { t, LOCALES, setLocale } from './i18n/index.js';
 import { useLocale } from './i18n/react.js';
 
@@ -12,7 +12,7 @@ const THEMES = [
 // Üldseaded: teema, keel, liides ja muusikamängija ühes väikeses hüpikmenüüs.
 // Sama komponent on mõlemas liideses (klassikaline ülariba ja Kodu-plaan), seega
 // valikud on alati samad ja salvestuvad brauserisse.
-export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi, ovHours, pickOvHours, musicHidden, setMusicHidden }) {
+export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi, ovHours, pickOvHours, refreshSec, setRefreshSec, musicHidden, setMusicHidden }) {
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -67,6 +67,15 @@ export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi
           {[[24, 'prefs.periodDay'], [168, 'prefs.periodWeek'], [720, 'prefs.periodMonth']].map(([hours, label]) => <button key={hours} type="button" className={ovHours === hours ? 'selected' : ''} aria-pressed={ovHours === hours}
             onClick={() => pickOvHours(hours)}>{t(label)}</button>)}
         </div>
+      </div>}
+
+      {refreshSec != null && <div className="prefs-group">
+        <span className="prefs-label"><RefreshCw size={15}/>{t('prefs.refresh')}</span>
+        <div className="segmented prefs-seg" role="group" aria-label={t('prefs.refresh')}>
+          {[[30, 'prefs.refresh30'], [60, 'prefs.refresh60'], [300, 'prefs.refresh300'], [0, 'prefs.refreshOff']].map(([seconds, label]) => <button key={seconds} type="button" className={refreshSec === seconds ? 'selected' : ''} aria-pressed={refreshSec === seconds}
+            onClick={() => setRefreshSec(seconds)}>{t(label)}</button>)}
+        </div>
+        <small className="prefs-note">{t('prefs.refreshHint')}</small>
       </div>}
 
       <label className="prefs-switch">

@@ -50,6 +50,7 @@ Mõlema liidese ülariba hammasratta nupp (**Üldseaded**) avab väikese menüü
 - **Keel:** *Eesti* või *English* (sama, mis seadete lehel).
 - **Liides:** *Klassikaline* või *Uus · Kodu-plaan*.
 - **Kodu graafik:** *24 tundi*, *Nädal* või *Kuu* – ülevaate graafiku periood (sama valik, mis graafiku kohal, ja jääb meelde).
+- **Värskendus:** *30 s*, *1 min*, *5 min* või *Käsitsi* – kui sageli rakendus ise andmeid küsib (vaikimisi 1 min). *Käsitsi* korral uuendab andmeid ainult **Värskenda** nupp. Kui pumba kohalik liides on ühendatud, käivad otseandmed automaatrežiimis siiski 10 sekundi järel.
 - **Muusikamängija:** kui lüliti välja võtta, kaob muusikanupp Elava kodu lehelt (ja Kodu lehe sisse ehitatud vaatest) ning pooleli olev muusika peatub. Uuesti sisse lülitades tuleb nupp tagasi ja muusika algab algusest.
 
 ### Elav kodu
@@ -124,7 +125,7 @@ Ajaloo lehel on ventilatsiooni näidud soojuspumba omadega samas valijas: sama �
 - Püsivara versioonid ja fail, tellimused, seadme võimekused, abirežiimi olek.
 - Serveripoolne sisendite ja skaleerimise kontroll; muudatuste audit; osaliste vigade käsitlus.
 - Mobiilivaade, klaviatuuriga kasutatavad dialoogid, reduced-motion tugi, kohalikud fondid.
-- Hele, tume või süsteemiteema; keel, liides ja muusikamängija nähtavus on ühes **Üldseaded** menüüs, valikud salvestuvad brauserisse.
+- Hele, tume või süsteemiteema; keel, liides, kodu graafiku periood, värskenduse intervall ja muusikamängija nähtavus on ühes **Üldseaded** menüüs, valikud salvestuvad brauserisse.
 
 ## Varukoopia ja taastamine
 

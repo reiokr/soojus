@@ -126,6 +126,10 @@ test('general settings switch the theme, language and the music player', async (
   await menu.getByRole('button', { name: 'Nädal', exact: true }).click();
   expect(await page.evaluate(() => localStorage.getItem('soojus.ovHours'))).toBe('168');
 
+  // Automaatse värskenduse intervall salvestub (300 s = 5 min).
+  await menu.getByRole('button', { name: '5 min', exact: true }).click();
+  expect(await page.evaluate(() => localStorage.getItem('soojus.refresh'))).toBe('300');
+
   // Keel ja liides vahetuvad kohe ning menüü sulgub.
   await menu.getByRole('button', { name: 'English' }).click();
   await expect(page.getByRole('button', { name: 'General settings' })).toBeVisible();

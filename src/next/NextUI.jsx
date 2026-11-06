@@ -476,7 +476,7 @@ function LegionellaPanel({ notify }) {
 }
 
 export default function NextUI({ ctx }) {
-  const { page, navigate, status, systems, selection, setSelection, device, model, system, activeNotices, errors, loading, refreshing, lastFetch, online, stale, theme, themeChoice, setThemeChoice, musicHidden, setMusicHidden, setUi, shared, rawCount } = ctx;
+  const { page, navigate, status, systems, selection, setSelection, device, model, system, activeNotices, errors, loading, refreshing, lastFetch, online, stale, theme, themeChoice, setThemeChoice, ovHours, pickOvHours, refreshSec, setRefreshSec, musicHidden, setMusicHidden, setUi, shared, rawCount } = ctx;
   const [more, setMore] = useState(false);
   const moreRef = useRef(null);
   useEffect(() => {
@@ -505,7 +505,7 @@ export default function NextUI({ ctx }) {
     {page === 'alarms' && <><AlarmsPage systemId={system?.systemId} tick={ctx.tick}/><PlanNotes ctx={ctx}/></>}
     {page === 'analysis' && <ErrorAnalysis ctx={ctx}/>}
     {page === 'device' && <DevicePage {...shared} firmware={ctx.firmware} aid={ctx.aid} subscriptions={ctx.subscriptions}/>}
-    {page === 'settings' && <SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} themeChoice={themeChoice} setThemeChoice={setThemeChoice} ovHours={ctx.ovHours} pickOvHours={ctx.pickOvHours} musicHidden={musicHidden} setMusicHidden={setMusicHidden} weather={ctx.weather} lux={ctx.lux}/>}
+    {page === 'settings' && <SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} themeChoice={themeChoice} setThemeChoice={setThemeChoice} ovHours={ovHours} pickOvHours={pickOvHours} refreshSec={refreshSec} setRefreshSec={setRefreshSec} musicHidden={musicHidden} setMusicHidden={setMusicHidden} weather={ctx.weather} lux={ctx.lux}/>}
   </>;
   return <div className="nx" data-page={page}>
     <header className="nx-top">
@@ -521,7 +521,7 @@ export default function NextUI({ ctx }) {
         {systems.length > 1 && <select aria-label={t('shell.selectPump')} value={selection} onChange={e => setSelection(e.target.value)}>{systems.flatMap(s => (s.devices || []).map(d => <option key={d.id} value={d.id}>{s.name} · {d.product?.name}</option>))}</select>}
         <span className={`nx-status ${online && !stale ? 'ok' : 'warn'}`}><i/>{online ? stale ? t('shell.stale') : t('shell.online') : t('shell.offline')}</span>
         <button type="button" className="nx-icon" aria-label={t('shell.refresh')} onClick={() => selection ? ctx.refresh() : ctx.bootstrap()}><RefreshCw size={17} className={refreshing ? 'spin' : ''}/></button>
-        <GeneralSettings themeChoice={themeChoice} setThemeChoice={setThemeChoice} ui="next" setUi={setUi} ovHours={ctx.ovHours} pickOvHours={ctx.pickOvHours} musicHidden={musicHidden} setMusicHidden={setMusicHidden}/>
+        <GeneralSettings themeChoice={themeChoice} setThemeChoice={setThemeChoice} ui="next" setUi={setUi} ovHours={ovHours} pickOvHours={pickOvHours} refreshSec={refreshSec} setRefreshSec={setRefreshSec} musicHidden={musicHidden} setMusicHidden={setMusicHidden}/>
         <button type="button" className="nx-icon bell" aria-label={t('shell.notifications')} onClick={() => go('alarms')}><Bell size={17}/>{activeNotices.length > 0 && <i/>}</button>
       </div>
     </header>
@@ -531,7 +531,7 @@ export default function NextUI({ ctx }) {
       {(errors.global || errors.points) && <div role="alert" className="nx-banner error"><AlertCircle size={18}/><span>{errors.global || errors.points} {rawCount > 0 && t('shell.latestShown')}</span><Button onClick={ctx.bootstrap}>{t('shell.retry')}</Button></div>}
       {stale && page !== 'overview' && <div className="nx-banner"><Clock3 size={18}/><span>{t('shell.staleBanner')}</span></div>}
       {body}
-      <footer className="nx-foot"><span><Waves size={13}/> soojus · {model}</span><span>{t('shell.footerData')}: {ctx.lux?.view?.primary ? `${t('shell.footerDirect')}${ctx.lux.view.upstreamProblem ? t('shell.footerDown') : ''}` : t('shell.footerApi')} · {lastFetch ? `${t('shell.footerLast')} ${time(lastFetch)}` : t('shell.footerServer')}</span></footer>
+      <footer className="nx-foot"><span><Waves size={13}/> soojus · {model}</span><span>{t('shell.footerData')}: {ctx.lux?.view?.primary ? `${t('shell.footerDirect')}${ctx.lux.view.upstreamProblem ? t('shell.footerDown') : ''}` : t('shell.footerApi')} · {lastFetch ? `${t('shell.footerLast')} ${time(lastFetch)}` : t('shell.footerServer')} · {refreshSec ? t('ov.autoEvery', { value: t(`prefs.refresh${refreshSec}`) }) : t('ov.manualOnly')}</span></footer>
     </main>
     <nav className="nx-dock" aria-label={t('shell.quickNav')}>
       {NAV.map(([id, label, Icon, short]) => <button key={id} type="button" className={page === id ? 'active' : ''} onClick={() => go(id)}><Icon size={21}/><span>{t(short || label)}</span></button>)}

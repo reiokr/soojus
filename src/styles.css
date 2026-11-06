@@ -348,6 +348,7 @@ html[data-theme="dark"] .vent-tip::after{border-top-color:#e9eef3}
 .prefs-head b{font-size:14.4px;font-weight:700}
 .prefs-group{display:grid;gap:8px}
 .prefs-label{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--muted)}
+.prefs-note{font-size:11.2px;line-height:1.6;color:var(--muted)}
 .prefs-seg{display:flex;width:100%}
 .prefs-seg>button{flex:1;justify-content:center;padding:8px 6px;font-size:11.8px;gap:5px;display:inline-flex;align-items:center}
 .prefs-switch{display:flex;align-items:flex-start;gap:10px;border-top:1px solid var(--line);padding-top:14px;cursor:pointer;color:var(--t34)}

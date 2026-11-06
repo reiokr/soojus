@@ -67,6 +67,8 @@ export default {
     theme: 'Teema', themeAuto: 'Süsteem', themeLight: 'Hele', themeDark: 'Tume',
     language: 'Keel', interface: 'Liides',
     chartPeriod: 'Kodu graafik', periodDay: '24 h', periodWeek: 'Nädal', periodMonth: 'Kuu',
+    refresh: 'Värskendus', refresh30: '30 s', refresh60: '1 min', refresh300: '5 min', refreshOff: 'Käsitsi',
+    refreshHint: 'Kui sageli rakendus ise andmeid küsib. „Käsitsi” korral uuendab andmeid ainult Värskenda nupp.',
     music: 'Muusikamängija', musicShow: 'Näita muusikamängijat',
     musicHint: 'Kui väljas, on muusikanupp Elava kodu lehelt peidetud ja muusika peatub.'
   },
@@ -469,7 +471,7 @@ export default {
     south: 'lõunatuul', southwest: 'edelatuul', west: 'läänetuul', northwest: 'loodetuul'
   },
   ov: {
-    outdoorAvg: 'Keskmine {value} °C', requestFailed: 'Värskendus ebaõnnestus', requestTime: 'Päring {time}', every60: 'iga 60 sek',
+    outdoorAvg: 'Keskmine {value} °C', requestFailed: 'Värskendus ebaõnnestus', requestTime: 'Päring {time}', every60: 'iga 60 sek', autoEvery: 'iga {value}', manualOnly: 'käsitsi',
     returnDetail: 'Tagasivool {value} °C', waterTarget: 'Sihttemperatuur {value} °C', compressor: 'Kompressor {value}', reportedPower: 'Seadme raporteeritud soojusvõimsus',
     hintHeat: 'KÜTTERING', hintWater: 'TARBEVESI', hintPower: 'SOOJUSVÕIMSUS', hintClimate: 'VÄLISKLIIMA',
     flowTitle: 'Kodu soojusring', flowSubtitle: 'Soojus liigub sinna, kus seda vajad.', deviceReadings: 'Seadme näidud',
@@ -661,7 +663,7 @@ export default {
   },
 
   settings: {
-    ui: { title: 'Liides', subtitle: 'Vali, kuidas rakendus välja näeb. Andmed ja seadistused on mõlemas samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },
+    ui: { title: 'Üldseaded', subtitle: 'Teema, liides, kodu graafik, värskendus ja muusikamängija. Andmed ja seadistused on mõlemas liideses samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },
     conn: {
       title: 'myUplinki ühendus', subtitle: 'Rakenduse võtmed jäävad kohalikku serverisse.', connected: 'Ühendatud', disconnected: 'Ühendamata',
       authError: 'Sisselogimist ei õnnestunud lõpetada. Alusta ühendamist uuesti.',

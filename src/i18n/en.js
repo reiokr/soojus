@@ -67,6 +67,8 @@ export default {
     theme: 'Theme', themeAuto: 'System', themeLight: 'Light', themeDark: 'Dark',
     language: 'Language', interface: 'Interface',
     chartPeriod: 'Home chart', periodDay: '24 h', periodWeek: 'Week', periodMonth: 'Month',
+    refresh: 'Refresh', refresh30: '30 s', refresh60: '1 min', refresh300: '5 min', refreshOff: 'Manual',
+    refreshHint: 'How often the app fetches data by itself. With “Manual”, only the Refresh button updates the data.',
     music: 'Music player', musicShow: 'Show music player',
     musicHint: 'When off, the music button is hidden on the Live home page and music stops.'
   },
@@ -469,7 +471,7 @@ export default {
     south: 'south wind', southwest: 'southwest wind', west: 'west wind', northwest: 'northwest wind'
   },
   ov: {
-    outdoorAvg: 'Average {value} °C', requestFailed: 'Refresh failed', requestTime: 'Request {time}', every60: 'every 60 s',
+    outdoorAvg: 'Average {value} °C', requestFailed: 'Refresh failed', requestTime: 'Request {time}', every60: 'every 60 s', autoEvery: 'every {value}', manualOnly: 'manually',
     returnDetail: 'Return {value} °C', waterTarget: 'Target temperature {value} °C', compressor: 'Compressor {value}', reportedPower: 'Heat output reported by the device',
     hintHeat: 'HEATING CIRCUIT', hintWater: 'HOT WATER', hintPower: 'HEAT OUTPUT', hintClimate: 'OUTDOOR CLIMATE',
     flowTitle: 'Home heating loop', flowSubtitle: 'Heat flows where it is needed.', deviceReadings: 'Device readings',
@@ -661,7 +663,7 @@ export default {
   },
 
   settings: {
-    ui: { title: 'Interface', subtitle: 'Choose how the app looks. Data and settings are the same in both.', aria: 'Interface', classic: 'Classic', next: 'New · Home plan' },
+    ui: { title: 'General settings', subtitle: 'Theme, interface, home chart, refresh and music player. Data and settings are the same in both interfaces.', aria: 'Interface', classic: 'Classic', next: 'New · Home plan' },
     conn: {
       title: 'myUplink connection', subtitle: 'App keys stay on the local server.', connected: 'Connected', disconnected: 'Not connected',
       authError: 'Could not finish signing in. Start the connection again.',
