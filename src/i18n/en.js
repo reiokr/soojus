@@ -66,6 +66,7 @@ export default {
     button: 'General settings', title: 'General settings', close: 'Close general settings',
     theme: 'Theme', themeAuto: 'System', themeLight: 'Light', themeDark: 'Dark',
     language: 'Language', interface: 'Interface',
+    chartPeriod: 'Home chart', periodDay: '24 h', periodWeek: 'Week', periodMonth: 'Month',
     music: 'Music player', musicShow: 'Show music player',
     musicHint: 'When off, the music button is hidden on the Live home page and music stops.'
   },

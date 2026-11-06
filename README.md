@@ -49,6 +49,7 @@ Mõlema liidese ülariba hammasratta nupp (**Üldseaded**) avab väikese menüü
 - **Teema:** *Hele*, *Tume* või *Süsteem*. Süsteemi valik järgib arvuti või telefoni heledat/tumedat režiimi ka siis, kui see muutub; see on ka vaikimisi valik.
 - **Keel:** *Eesti* või *English* (sama, mis seadete lehel).
 - **Liides:** *Klassikaline* või *Uus · Kodu-plaan*.
+- **Kodu graafik:** *24 tundi*, *Nädal* või *Kuu* – ülevaate graafiku periood (sama valik, mis graafiku kohal, ja jääb meelde).
 - **Muusikamängija:** kui lüliti välja võtta, kaob muusikanupp Elava kodu lehelt (ja Kodu lehe sisse ehitatud vaatest) ning pooleli olev muusika peatub. Uuesti sisse lülitades tuleb nupp tagasi ja muusika algab algusest.
 
 ### Elav kodu

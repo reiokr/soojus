@@ -66,6 +66,7 @@ export default {
     button: 'Üldseaded', title: 'Üldseaded', close: 'Sulge üldseaded',
     theme: 'Teema', themeAuto: 'Süsteem', themeLight: 'Hele', themeDark: 'Tume',
     language: 'Keel', interface: 'Liides',
+    chartPeriod: 'Kodu graafik', periodDay: '24 h', periodWeek: 'Nädal', periodMonth: 'Kuu',
     music: 'Muusikamängija', musicShow: 'Näita muusikamängijat',
     musicHint: 'Kui väljas, on muusikanupp Elava kodu lehelt peidetud ja muusika peatub.'
   },

@@ -122,6 +122,10 @@ test('general settings switch the theme, language and the music player', async (
   await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
   expect(await page.evaluate(() => localStorage.getItem('soojus.theme'))).toBe('dark');
 
+  // Kodu graafiku periood salvestub samasse võtmesse, mida ülevaate graafik kasutab.
+  await menu.getByRole('button', { name: 'Nädal', exact: true }).click();
+  expect(await page.evaluate(() => localStorage.getItem('soojus.ovHours'))).toBe('168');
+
   // Keel ja liides vahetuvad kohe ning menüü sulgub.
   await menu.getByRole('button', { name: 'English' }).click();
   await expect(page.getByRole('button', { name: 'General settings' })).toBeVisible();

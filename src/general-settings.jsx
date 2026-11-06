@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Globe, LayoutTemplate, Monitor, Moon, Music2, Palette, Settings2, Sun, X } from 'lucide-react';
+import { ChartLine, Globe, LayoutTemplate, Monitor, Moon, Music2, Palette, Settings2, Sun, X } from 'lucide-react';
 import { t, LOCALES, setLocale } from './i18n/index.js';
 import { useLocale } from './i18n/react.js';
 
@@ -12,7 +12,7 @@ const THEMES = [
 // Üldseaded: teema, keel, liides ja muusikamängija ühes väikeses hüpikmenüüs.
 // Sama komponent on mõlemas liideses (klassikaline ülariba ja Kodu-plaan), seega
 // valikud on alati samad ja salvestuvad brauserisse.
-export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi, musicHidden, setMusicHidden }) {
+export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi, ovHours, pickOvHours, musicHidden, setMusicHidden }) {
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -60,6 +60,14 @@ export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi
             onClick={() => pick(setUi, value)}>{t(label)}</button>)}
         </div>
       </div>
+
+      {ovHours != null && <div className="prefs-group">
+        <span className="prefs-label"><ChartLine size={15}/>{t('prefs.chartPeriod')}</span>
+        <div className="segmented prefs-seg" role="group" aria-label={t('prefs.chartPeriod')}>
+          {[[24, 'prefs.periodDay'], [168, 'prefs.periodWeek'], [720, 'prefs.periodMonth']].map(([hours, label]) => <button key={hours} type="button" className={ovHours === hours ? 'selected' : ''} aria-pressed={ovHours === hours}
+            onClick={() => pickOvHours(hours)}>{t(label)}</button>)}
+        </div>
+      </div>}
 
       <label className="prefs-switch">
         <Music2 size={15}/>

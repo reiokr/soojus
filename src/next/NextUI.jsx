@@ -505,7 +505,7 @@ export default function NextUI({ ctx }) {
     {page === 'alarms' && <><AlarmsPage systemId={system?.systemId} tick={ctx.tick}/><PlanNotes ctx={ctx}/></>}
     {page === 'analysis' && <ErrorAnalysis ctx={ctx}/>}
     {page === 'device' && <DevicePage {...shared} firmware={ctx.firmware} aid={ctx.aid} subscriptions={ctx.subscriptions}/>}
-    {page === 'settings' && <SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} themeChoice={themeChoice} setThemeChoice={setThemeChoice} musicHidden={musicHidden} setMusicHidden={setMusicHidden} weather={ctx.weather} lux={ctx.lux}/>}
+    {page === 'settings' && <SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} themeChoice={themeChoice} setThemeChoice={setThemeChoice} ovHours={ctx.ovHours} pickOvHours={ctx.pickOvHours} musicHidden={musicHidden} setMusicHidden={setMusicHidden} weather={ctx.weather} lux={ctx.lux}/>}
   </>;
   return <div className="nx" data-page={page}>
     <header className="nx-top">
@@ -521,7 +521,7 @@ export default function NextUI({ ctx }) {
         {systems.length > 1 && <select aria-label={t('shell.selectPump')} value={selection} onChange={e => setSelection(e.target.value)}>{systems.flatMap(s => (s.devices || []).map(d => <option key={d.id} value={d.id}>{s.name} · {d.product?.name}</option>))}</select>}
         <span className={`nx-status ${online && !stale ? 'ok' : 'warn'}`}><i/>{online ? stale ? t('shell.stale') : t('shell.online') : t('shell.offline')}</span>
         <button type="button" className="nx-icon" aria-label={t('shell.refresh')} onClick={() => selection ? ctx.refresh() : ctx.bootstrap()}><RefreshCw size={17} className={refreshing ? 'spin' : ''}/></button>
-        <GeneralSettings themeChoice={themeChoice} setThemeChoice={setThemeChoice} ui="next" setUi={setUi} musicHidden={musicHidden} setMusicHidden={setMusicHidden}/>
+        <GeneralSettings themeChoice={themeChoice} setThemeChoice={setThemeChoice} ui="next" setUi={setUi} ovHours={ctx.ovHours} pickOvHours={ctx.pickOvHours} musicHidden={musicHidden} setMusicHidden={setMusicHidden}/>
         <button type="button" className="nx-icon bell" aria-label={t('shell.notifications')} onClick={() => go('alarms')}><Bell size={17}/>{activeNotices.length > 0 && <i/>}</button>
       </div>
     </header>
