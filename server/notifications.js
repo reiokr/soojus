@@ -23,14 +23,16 @@ export const DEFAULT_NOTIFICATIONS = Object.freeze({
   kdeconnectDevice: '',
   rules: {
     pumpError: true, ventFilter: true, co2: true, legionella: true, stale: false,
-    dhwLow: true, indoorLow: true, dhwTarget: true, humidity: true, ventStopped: true
+    dhwLow: true, indoorLow: true, dhwTarget: true, humidity: true, ventStopped: true,
+    ventManualHigh: true
   },
   thresholds: {
     dhwLow: 35, dhwLowMinutes: 30,
     indoorLow: 19, indoorLowMinutes: 60, indoorSeasonOutdoor: 15,
     dhwGap: 5, dhwGapMinutes: 60,
     humidity: 70, humidityMinutes: 120,
-    ventStoppedMinutes: 30, ventStoppedCo2: 1000
+    ventStoppedMinutes: 30, ventStoppedCo2: 1000,
+    ventManualSpeed: 3, ventManualMinutes: 60
   },
   quietFrom: 22,
   quietTo: 7,
@@ -91,7 +93,8 @@ export function parseNotifications(input = {}, previous = null) {
       indoorLow: bool(merged.rules.indoorLow, true),
       dhwTarget: bool(merged.rules.dhwTarget, true),
       humidity: bool(merged.rules.humidity, true),
-      ventStopped: bool(merged.rules.ventStopped, true)
+      ventStopped: bool(merged.rules.ventStopped, true),
+      ventManualHigh: bool(merged.rules.ventManualHigh, true)
     },
     thresholds: {
       dhwLow: decimal(merged.thresholds.dhwLow, DEFAULT_NOTIFICATIONS.thresholds.dhwLow, 0, 80),
@@ -104,7 +107,9 @@ export function parseNotifications(input = {}, previous = null) {
       humidity: decimal(merged.thresholds.humidity, DEFAULT_NOTIFICATIONS.thresholds.humidity, 0, 100),
       humidityMinutes: integer(merged.thresholds.humidityMinutes, DEFAULT_NOTIFICATIONS.thresholds.humidityMinutes, 5, 1440),
       ventStoppedMinutes: integer(merged.thresholds.ventStoppedMinutes, DEFAULT_NOTIFICATIONS.thresholds.ventStoppedMinutes, 5, 1440),
-      ventStoppedCo2: integer(merged.thresholds.ventStoppedCo2, DEFAULT_NOTIFICATIONS.thresholds.ventStoppedCo2, 400, 5000)
+      ventStoppedCo2: integer(merged.thresholds.ventStoppedCo2, DEFAULT_NOTIFICATIONS.thresholds.ventStoppedCo2, 400, 5000),
+      ventManualSpeed: integer(merged.thresholds.ventManualSpeed, DEFAULT_NOTIFICATIONS.thresholds.ventManualSpeed, 1, 10),
+      ventManualMinutes: integer(merged.thresholds.ventManualMinutes, DEFAULT_NOTIFICATIONS.thresholds.ventManualMinutes, 5, 1440)
     },
     quietFrom: integer(merged.quietFrom, DEFAULT_NOTIFICATIONS.quietFrom, 0, 23),
     quietTo: integer(merged.quietTo, DEFAULT_NOTIFICATIONS.quietTo, 0, 23),
@@ -155,10 +160,12 @@ export function durationAlerts(state = {}, settings, since = {}, now = Date.now(
   const alerts = [];
   const num = value => value == null || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
   const fmt = value => Math.round(Number(value) * 10) / 10;
-  const evaluate = (rule, active, minutes, text, key = rule) => {
+  const evaluate = (rule, active, minutes, text, key = rule, repeatMinutes = null) => {
     if (!config.rules[rule] || !active) { delete since[rule]; return; }
     if (!Number.isFinite(since[rule])) since[rule] = now;
-    if (now - since[rule] >= minutes * 60000) alerts.push({ rule, key, text });
+    if (now - since[rule] >= minutes * 60000) {
+      alerts.push({ rule, key, text, ...(repeatMinutes ? { repeatMinutes } : {}) });
+    }
   };
   const dhw = num(state.dhw), dhwTarget = num(state.dhwTarget);
   const indoor = num(state.indoor), outdoor = num(state.outdoor);
@@ -173,6 +180,10 @@ export function durationAlerts(state = {}, settings, since = {}, now = Date.now(
     `Niiskus on liiga kõrge: ${Math.round(humidity)}% (üle ${fmt(t.humidity)}% ${t.humidityMinutes} min).`, 'humidity:high');
   evaluate('ventStopped', state.ventRunning === false && co2 != null && co2 > t.ventStoppedCo2, t.ventStoppedMinutes,
     `Ventilatsioon ei tööta: CO₂ ${Math.round(co2)} ppm (üle ${t.ventStoppedMinutes} min).`, 'vent:stopped');
+  const ventLevel = num(state.ventLevel);
+  evaluate('ventManualHigh', state.ventMode === 'manual' && ventLevel != null && ventLevel > t.ventManualSpeed, t.ventManualMinutes,
+    `Ventilaator on manuaalselt kiirusel ${fmt(ventLevel)}/10 (üle ${t.ventManualSpeed}). Kontrolli, kas see on endiselt soovitud.`,
+    'vent:manual', t.ventManualMinutes);
   return alerts;
 }
 
@@ -192,7 +203,8 @@ export function dueAlerts({ settings, state = {}, log, now = Date.now(), since =
   for (const alert of candidates) {
     if (!config.rules[alert.rule]) continue;
     const previous = log?.lastSent?.[alert.key];
-    if (previous && now - Date.parse(previous) < config.cooldownMinutes * 60000) continue;
+    const wait = Number.isFinite(alert.repeatMinutes) ? alert.repeatMinutes : config.cooldownMinutes;
+    if (previous && now - Date.parse(previous) < wait * 60000) continue;
     if (due.length + sent.length >= config.dailyLimit) break;
     due.push(alert);
   }

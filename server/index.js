@@ -764,6 +764,8 @@ function notificationState() {
     humidity: vent?.humidity?.extract ?? null,
     ventRunning: vent?.fans ? ((Number(vent.fans.supplyRpm) || 0) > 0 || (Number(vent.fans.extractRpm) || 0) > 0) : null,
     ventCo2: vent?.co2 ?? null,
+    ventMode: vent?.settings ? effectiveMode(vent) : null,
+    ventLevel: vent?.fans?.supplyLevel ?? vent?.settings?.manualFanLevel ?? null,
     compressor: Boolean(direct?.outputs?.compressor)
   };
 }

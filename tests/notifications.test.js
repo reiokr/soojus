@@ -160,11 +160,40 @@ test('duration rules wait for the configured time and reset when the condition c
   assert.ok(!warm.some(alert => alert.rule === 'indoorLow'));
 });
 
+test('manual fan speed above the threshold is reminded at the configured interval', () => {
+  const settings = {
+    smsEnabled: true, provider: 'telegram', phone: '', telegramToken: '123:abc', telegramChat: '42',
+    quietFrom: 0, quietTo: 0, cooldownMinutes: 360, dailyLimit: 24,
+    rules: { ventManualHigh: true }, thresholds: { ventManualSpeed: 3, ventManualMinutes: 60 }
+  };
+  const now = new Date(2026, 0, 1, 12, 0).getTime();
+  const state = { ventMode: 'manual', ventLevel: 5 };
+  const since = {};
+  assert.deepEqual(dueAlerts({ settings, state, log: { lastSent: {} }, now, since }), []);
+  const first = dueAlerts({ settings, state, log: { lastSent: {} }, now: now + 60 * 60000, since });
+  assert.equal(first.length, 1);
+  assert.equal(first[0].rule, 'ventManualHigh');
+  assert.match(first[0].text, /5\/10/);
+
+  // Kordus sõltub reegli enda intervallist, mitte üldisest 360 min cooldownist.
+  const sentAt = now + 60 * 60000;
+  const log = { lastSent: { 'vent:manual': new Date(sentAt).toISOString() } };
+  assert.deepEqual(dueAlerts({ settings, state, log, now: sentAt + 30 * 60000, since }), []);
+  assert.equal(dueAlerts({ settings, state, log, now: sentAt + 60 * 60000, since }).length, 1);
+
+  // Automaatrežiim või madalam kiirus katkestab meeldetuletuse.
+  dueAlerts({ settings, state: { ventMode: 'auto', ventLevel: 8 }, log: { lastSent: {} }, now: now + 121 * 60000, since });
+  assert.equal(since.ventManualHigh, undefined);
+  assert.deepEqual(dueAlerts({ settings, state: { ventMode: 'manual', ventLevel: 3 }, log: { lastSent: {} }, now: now + 130 * 60000, since: {} }), []);
+});
+
 test('notification thresholds fall back to safe defaults when out of range', () => {
-  const config = parseNotifications({ thresholds: { dhwLow: 100, dhwLowMinutes: 1, humidity: 150, ventStoppedCo2: 100, indoorLow: -50 } });
+  const config = parseNotifications({ thresholds: { dhwLow: 100, dhwLowMinutes: 1, humidity: 150, ventStoppedCo2: 100, indoorLow: -50, ventManualSpeed: 0, ventManualMinutes: 1 } });
   assert.equal(config.thresholds.dhwLow, 35);
   assert.equal(config.thresholds.dhwLowMinutes, 30);
   assert.equal(config.thresholds.humidity, 70);
   assert.equal(config.thresholds.ventStoppedCo2, 1000);
   assert.equal(config.thresholds.indoorLow, 19);
+  assert.equal(config.thresholds.ventManualSpeed, 3);
+  assert.equal(config.thresholds.ventManualMinutes, 60);
 });

@@ -4,7 +4,7 @@ import { t } from './i18n/index.js';
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const hourLabel = hour => `${String(hour).padStart(2, '0')}:00`;
-const ruleKeys = ['pumpError', 'ventFilter', 'co2', 'legionella', 'stale', 'dhwLow', 'indoorLow', 'dhwTarget', 'humidity', 'ventStopped'];
+const ruleKeys = ['pumpError', 'ventFilter', 'co2', 'legionella', 'stale', 'dhwLow', 'indoorLow', 'dhwTarget', 'humidity', 'ventStopped', 'ventManualHigh'];
 const pushCapable = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
 const firefoxBased = () => typeof navigator !== 'undefined' && /firefox|floorp/i.test(navigator.userAgent);
 const urlBase64ToUint8Array = base64 => {
@@ -199,7 +199,10 @@ export default function NotificationSettings({ notify }) {
         <label className="field"><span>{t('notify.humidityMinutes')}</span><input type="number" min="5" max="1440" step="5" value={form.thresholds?.humidityMinutes ?? ''} onChange={e => setThreshold('humidityMinutes', e.target.value)}/></label>
         <label className="field"><span>{t('notify.ventStoppedMinutes')}</span><input type="number" min="5" max="1440" step="5" value={form.thresholds?.ventStoppedMinutes ?? ''} onChange={e => setThreshold('ventStoppedMinutes', e.target.value)}/></label>
         <label className="field"><span>{t('notify.ventStoppedCo2')}</span><input type="number" min="400" max="5000" step="50" value={form.thresholds?.ventStoppedCo2 ?? ''} onChange={e => setThreshold('ventStoppedCo2', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.ventManualSpeed')}</span><input type="number" min="1" max="10" step="1" value={form.thresholds?.ventManualSpeed ?? ''} onChange={e => setThreshold('ventManualSpeed', e.target.value)}/></label>
+        <label className="field"><span>{t('notify.ventManualMinutes')}</span><input type="number" min="5" max="1440" step="5" value={form.thresholds?.ventManualMinutes ?? ''} onChange={e => setThreshold('ventManualMinutes', e.target.value)}/></label>
       </div>
+      <p className="muted notify-hint">{t('notify.ventManualHint')}</p>
       <p className="muted notify-hint">{t('notify.thresholdHint')}</p>
 
       <div className="notify-grid">
