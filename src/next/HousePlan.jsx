@@ -1,5 +1,5 @@
 import React from 'react';
-import { number } from '../lib.js';
+import { number, tempUnit, tempValue } from '../lib.js';
 import { tempColor, scalePosition } from './logic.js';
 import { t } from '../i18n/index.js';
 
@@ -17,7 +17,7 @@ function Pill({ view, x, y, title, value, unit, note, tone, below, onClick, labe
   </Tag>;
 }
 
-const fmt = p => p?.value == null ? '—' : number(p.value, 1);
+const fmt = p => p?.value == null ? '—' : number(tempValue(p.value), 1);
 
 // Maja lõige: tehnoruum, elutuba ja vannituba. Andmed on pillidena, seisund animatsioonina.
 export default function HousePlan({ view = 'full', supply, returnT, returnTarget, buffer, water, waterTarget, power, outdoor, state, vent, climate, onOpen }) {
@@ -145,12 +145,12 @@ export default function HousePlan({ view = 'full', supply, returnT, returnTarget
     </svg>
 
     {view === 'full' && vent && <Pill view={view} x={541} y={143} title={t('plan.ventilation')} value={vd ? ventMode(vd.modeText) : '—'} tone={vd && vd.co2 >= 1000 ? 'heat' : 'cold'} note={vd ? t('plan.ventSpeed', { level: vd.fans.supplyLevel, co2: vd.co2 }) : t('plan.noConnection')} onClick={open('ventilation')} label={t('plan.openVent')}/>}
-    {view === 'full' && climate?.indoor != null && <Pill view={view} x={712} y={153} below title={t('plan.indoor')} value={number(climate.indoor, 1)} unit="°C"/>}
-    <Pill view={view} x={95} y={118} below title={t('plan.outdoor')} value={climate?.outdoor != null ? number(climate.outdoor, 1) : fmt(outdoor)} unit="°C"/>
+    {view === 'full' && climate?.indoor != null && <Pill view={view} x={712} y={153} below title={t('plan.indoor')} value={number(tempValue(climate.indoor), 1)} unit={tempUnit()}/>}
+    <Pill view={view} x={95} y={118} below title={t('plan.outdoor')} value={climate?.outdoor != null ? number(tempValue(climate.outdoor), 1) : fmt(outdoor)} unit={tempUnit()}/>
     <Pill view={view} x={262} y={236} title={t('plan.power')} value={number(powerKw, 1)} unit="kW" tone={powerKw > 0 ? 'active' : ''} onClick={open('device')} label={t('plan.openDevice')}/>
-    <Pill view={view} x={377} y={250} title={t('plan.buffer')} value={fmt(buffer)} unit="°C" onClick={open('heating')} label={t('plan.openHeat')}/>
-    <Pill view={view} x={480} y={270} title={t('plan.supply')} value={fmt(supply)} unit="°C" tone="heat" onClick={open('heating')} label={t('plan.openHeat')}/>
-    <Pill view={view} x={430} y={428} below title={t('plan.return')} value={fmt(returnT)} unit="°C" tone="cold" note={returnTarget?.value != null ? t('plan.target', { value: number(returnTarget.value, 1) }) : undefined} onClick={open('heating')} label={t('plan.openHeat')}/>
-    <Pill view={view} x={825} y={236} title={t('plan.water')} value={fmt(water)} unit="°C" tone="cold" note={Number.isFinite(target) ? t('plan.target', { value: number(target, 0) }) : undefined} onClick={open('water')} label={t('plan.openWater')}/>
+    <Pill view={view} x={377} y={250} title={t('plan.buffer')} value={fmt(buffer)} unit={tempUnit()} onClick={open('heating')} label={t('plan.openHeat')}/>
+    <Pill view={view} x={480} y={270} title={t('plan.supply')} value={fmt(supply)} unit={tempUnit()} tone="heat" onClick={open('heating')} label={t('plan.openHeat')}/>
+    <Pill view={view} x={430} y={428} below title={t('plan.return')} value={fmt(returnT)} unit={tempUnit()} tone="cold" note={returnTarget?.value != null ? t('plan.target', { value: number(tempValue(returnTarget.value), 1), unit: tempUnit() }) : undefined} onClick={open('heating')} label={t('plan.openHeat')}/>
+    <Pill view={view} x={825} y={236} title={t('plan.water')} value={fmt(water)} unit={tempUnit()} tone="cold" note={Number.isFinite(target) ? t('plan.target', { value: number(tempValue(target), 0), unit: tempUnit() }) : undefined} onClick={open('water')} label={t('plan.openWater')}/>
   </div>;
 }

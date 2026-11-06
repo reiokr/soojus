@@ -2,7 +2,7 @@ import { sunPosition, moonPosition, moonPhase, skyColors, darkness, groundColors
 import { tempColor } from '../logic.js';
 import { CatBrain, restPose } from './cat.js';
 import { t as tr } from '../../i18n/index.js';
-import { number } from '../../lib.js';
+import { number, tempText } from '../../lib.js';
 
 // "Elav kodu": canvas-stseen. Maailm on 1600×900 ühikut, sobitatakse ekraanile; taevas ja maa jätkuvad üle serva.
 // Maailm on 1600 ühikut lai; nähtav on y = VIEW.y … VIEW.y + VIEW.h, nii et maapinna lõige (maakontuur) jääb pildile.
@@ -1003,7 +1003,7 @@ export class LiveScene {
         ctx.save(); const w = 150;
         ctx.fillStyle = 'rgba(8,14,26,0.78)'; rr(ctx, x, y, w, 46, 9); ctx.fill(); ctx.strokeStyle = rgba(col, 0.9); ctx.lineWidth = 1.6; ctx.stroke();
         ctx.fillStyle = rgba('#ffffff', 0.7); ctx.font = '700 10.5px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(title, x + 12, y + 14);
-        ctx.fillStyle = '#fff'; ctx.font = '700 19px Manrope, sans-serif'; ctx.fillText(`${number(value, 1)} °C`, x + 12, y + 33); ctx.restore();
+        ctx.fillStyle = '#fff'; ctx.font = '700 19px Manrope, sans-serif'; ctx.fillText(tempText(value, 1), x + 12, y + 33); ctx.restore();
       };
       tag(930, 944, tr('live.canvasBrineToGround'), br.out, brineHex(br.out));
       tag(1100, 944, tr('live.canvasBrineFromGround'), br.in, brineHex(br.in));

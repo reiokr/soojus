@@ -1,4 +1,5 @@
 import { getLocale, t } from './i18n/index.js';
+import { displayUnit, fromDisplayTemp, getFormats, hour12, tempUnit, toDisplayStep, toDisplayTemp } from './formats.js';
 
 export async function api(url, options = {}) {
   const response = await fetch(`/api${url}`, { ...options, headers: { 'Content-Type': 'application/json', 'X-Soojus-Request': '1', ...options.headers }, signal: options.signal || AbortSignal.timeout(40000) });
@@ -7,12 +8,25 @@ export async function api(url, options = {}) {
   return data;
 }
 export const number = (n, decimals = 1) => n == null || n === '' || !Number.isFinite(Number(n)) ? '—' : new Intl.NumberFormat(getLocale(), { maximumFractionDigits: decimals }).format(Number(n));
+// Temperatuur on andmetes alati °C; kuvamisel teisendatakse valitud ühikusse.
+export const tempValue = value => toDisplayTemp(value);
+export const tempText = (value, decimals = 1) => value == null || value === '' || !Number.isFinite(Number(value)) ? '—' : `${number(toDisplayTemp(value), decimals)} ${tempUnit()}`;
+export const tempStep = toDisplayStep;
+export { displayUnit, fromDisplayTemp, tempUnit };
 export function date(value, options = {}) {
   if (!value) return '—';
   const d = new Date(typeof value === 'number' ? value : String(value).replace(/\+0$/, '+00:00'));
-  return Number.isNaN(d.valueOf()) ? String(value) : new Intl.DateTimeFormat(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', ...options }).format(d);
+  if (Number.isNaN(d.valueOf())) return String(value);
+  const { weekday, ...rest } = options;
+  const base = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', ...(weekday ? { weekday } : {}), ...rest };
+  if (getFormats().date === 'iso') {
+    const day = new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const clock = new Intl.DateTimeFormat(getLocale(), { hour: '2-digit', minute: '2-digit', hour12: hour12() }).format(d);
+    return `${day} ${clock}`;
+  }
+  return new Intl.DateTimeFormat(getLocale(), { ...base, hour12: hour12() }).format(d);
 }
-export const time = value => value ? new Intl.DateTimeFormat(getLocale(), { hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : '—';
+export const time = value => value ? new Intl.DateTimeFormat(getLocale(), { hour: '2-digit', minute: '2-digit', hour12: hour12() }).format(new Date(value)) : '—';
 const ENUM_ALIASES = {
   'Automaatika': 'enum.auto', 'Manuaalne': 'enum.manual', 'Küte': 'enum.heat', 'Kütmine': 'enum.heat', 'Jahutamine': 'enum.cool', 'Jahutus': 'enum.cooling',
   'Väljas': 'enum.off', 'Sees': 'enum.on', 'Puudub vajadus': 'enum.noDemand', 'Vajadus': 'enum.demand',
@@ -63,7 +77,11 @@ export function enhance(points, model) {
     else if (p.parameterUnit === '°C') group = 'Temperatuurid';
     else if (p.parameterUnit === 'kW' || p.parameterUnit === 'kWh') group = 'Energia';
     else if (/olek|olukord|veateade/i.test(p.parameterName)) group = 'Olek';
-    return { ...p, label: wzsv && aliases[id] ? t(aliases[id]) : pointNameText(p.parameterName), group, min: scaled(p.minValue), max: scaled(p.maxValue), step: scaled(p.stepValue), display: p.enumValues?.length ? enumText(p.enumValues.find(e => String(e.value) === String(p.value))?.text || p.strVal) : p.strVal ?? String(p.value ?? '—') };
+    const isTemp = p.parameterUnit === '°C';
+    // 5001 on kütte temperatuurinihe (vahe, mitte absoluutne temperatuur) – seda ei nihutata 32° võrra.
+    const isDelta = id === '5001';
+    // dv/du on kuvamiseks (valitud ühik), value/parameterUnit jäävad API jaoks °C-sse.
+    return { ...p, label: wzsv && aliases[id] ? t(aliases[id]) : pointNameText(p.parameterName), group, min: scaled(p.minValue), max: scaled(p.maxValue), step: scaled(p.stepValue), dv: isTemp && !isDelta ? toDisplayTemp(p.value) : p.value, du: isTemp && !isDelta ? tempUnit() : p.parameterUnit, display: p.enumValues?.length ? enumText(p.enumValues.find(e => String(e.value) === String(p.value))?.text || p.strVal) : isTemp && !isDelta ? `${number(toDisplayTemp(p.value), 1)} ${tempUnit()}` : p.strVal ?? String(p.value ?? '—') };
   });
 }
 export function metric(points, model, id, category, pattern) {
@@ -175,7 +193,7 @@ export function targetLines(points, model, selectedIds) {
   if (model !== 'WZSV 92H3M') return [];
   return Object.entries(wzsvTargets).flatMap(([forId, id]) => {
     const p = points.find(x => x.parameterId === id);
-    return p && selectedIds.includes(forId) && !selectedIds.includes(id) ? [{ forId, id, label: p.label, unit: p.parameterUnit }] : [];
+    return p && selectedIds.includes(forId) && !selectedIds.includes(id) ? [{ forId, id, label: p.label, unit: p.du ?? p.parameterUnit, temp: p.parameterUnit === '°C' }] : [];
   });
 }
 // Sihtväärtus kehtib kuni järgmise muutuseni, seega hoiame viimast teadaolevat väärtust.

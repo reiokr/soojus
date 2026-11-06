@@ -33,7 +33,7 @@ export default {
     myHome: 'Minu kodu', system: 'SÜSTEEM', homeHub: 'Kodu juhtimiskeskus', heatPump: 'Soojuspump', estonia: 'Eesti',
     closeNav: 'Sulge navigeerimismenüü', openMenu: 'Ava menüü', connectMyUplink: 'Ühenda myUplink',
     connectedSecurely: 'Turvaliselt ühendatud', notConfigured: 'Ühendus seadistamata', nextUi: 'Lülita uus liides (Kodu-plaan)',
-    weatherOut: '°C väljas', weatherIn: '°C toas', refreshAction: 'Värskenda', loadingUi: 'Laadin uut liidest',
+    weatherOut: '{unit} väljas', weatherIn: '{unit} toas', refreshAction: 'Värskenda', loadingUi: 'Laadin uut liidest',
     mainNav: 'Põhinavigatsioon',
     quickNav: 'Kiirnavigatsioon',
     more: 'Veel',
@@ -67,6 +67,9 @@ export default {
     theme: 'Teema', themeAuto: 'Süsteem', themeLight: 'Hele', themeDark: 'Tume',
     language: 'Keel', interface: 'Liides',
     chartPeriod: 'Kodu graafik', periodDay: '24 h', periodWeek: 'Nädal', periodMonth: 'Kuu',
+    clock: 'Kellaaeg', clock24: '24 h', clock12: '12 h',
+    temp: 'Temperatuur', tempC: '°C', tempF: '°F',
+    date: 'Kuupäev', dateLocale: 'PP.KK.AAAA', dateIso: 'AAAA-KK-PP',
     refresh: 'Värskendus', refresh30: '30 s', refresh60: '1 min', refresh300: '5 min', refreshOff: 'Käsitsi',
     refreshHint: 'Kui sageli rakendus ise andmeid küsib. „Käsitsi” korral uuendab andmeid ainult Värskenda nupp.',
     music: 'Muusikamängija', musicShow: 'Näita muusikamängijat',
@@ -113,9 +116,9 @@ export default {
     demoOff: 'Päris andmed', demoHeat: 'Kütmine', demoWater: 'Tarbevee laadimine', demoVent: 'Ventilatsioon', demoAll: 'Kõik korraga',
     pumpBoth: 'Kütab maja ja tarbevett · {kw}', pumpWater: 'Soojendab tarbevett · {kw}', pumpHeat: 'Kütab maja · {kw}',
     pumpCompressor: 'Kompressor töötab · {kw}', pumpWaiting: 'Ootab käivitamist', pumpResting: 'Puhkab',
-    groundPresent: 'Soojakandja maast {in} °C, maasse {out} °C', groundGave: ' · maa andis {delta} K soojust', groundIdle: ' · kompressor seisab',
+    groundPresent: 'Soojakandja maast {in} {unit}, maasse {out} {unit}', groundGave: ' · maa andis {delta} K soojust', groundIdle: ' · kompressor seisab',
     ventStatus: '{mode} · kiirus {level}/10 · CO₂ {co2} ppm', ventStopped: 'Seisab',
-    boiler: '{water} °C (siht {target} °C)', boilerHeating: ' · soojeneb',
+    boiler: '{water} {unit} (siht {target} {unit})', boilerHeating: ' · soojeneb',
     aria: 'Elav kodu: {summary}. Toas {indoor}, väljas {outdoor}, tarbevesi {water}.',
     temperatures: 'Temperatuurid',
     openPage: 'Ava leht: {page}', openPageAria: 'Ava leht {page}', fullscreenNav: 'Kiirlingid lehtedele',
@@ -252,7 +255,7 @@ export default {
     techRoom: 'TEHNORUUM', livingRoom: 'ELUTUBA', bathroom: 'VANNITUBA', footer: 'KODU-PLAAN · 1:50',
     ventilation: 'Ventilatsioon', ventSpeed: 'kiirus {level}/10 · CO₂ {co2}', noConnection: 'ühendus puudub',
     indoor: 'Toas', outdoor: 'Väljas', power: 'Soojusvõimsus', buffer: 'Akupaak', supply: 'Pealevool', return: 'Tagasivool', water: 'Tarbevesi',
-    target: 'siht {value} °C', openVent: 'Ava ventilatsiooni leht', openDevice: 'Ava seadme leht', openHeat: 'Ava kütte leht', openWater: 'Ava tarbevee leht'
+    target: 'siht {value} {unit}', openVent: 'Ava ventilatsiooni leht', openDevice: 'Ava seadme leht', openHeat: 'Ava kütte leht', openWater: 'Ava tarbevee leht'
   },
   control: {
     brineIn: 'Soojakandja maast', brineOut: 'Soojakandja maasse', hotGas: 'Kuumgaas', indoorTemp: 'Sisetemperatuur (ventilatsioon)', outdoorTemp: 'Välisõhk ({source})', sourcePump: 'soojuspump', sourceVent: 'ventilatsioon', heatingUp: 'kuumeneb', legionellaTarget: 'legionella siht', setpoint: 'sihtväärtus',
@@ -288,7 +291,7 @@ export default {
     interval: 'Legionella intervall', off: 'Väljas', weekday: 'Nädalapäev', time: 'Kellaaeg', target: 'Siht', duration: 'Kestus',
     save: 'Salvesta', runNow: 'Tee kohe', saved: 'Legionella programm salvestatud.',
     running: 'Käib · lõpeb {time}', next: 'Järgmine {time}', currentlyOff: 'Praegu väljas',
-    last: 'viimane {time}', max: ', max {value} °C', now: ' · praegu {value} °C', failed: 'Viimane katse ebaõnnestus: {error}',
+    last: 'viimane {time}', max: ', max {value} {unit}', now: ' · praegu {value} {unit}', failed: 'Viimane katse ebaõnnestus: {error}',
     confirm: 'Kuumutada tarbevesi kohe {target} °C-ni? See on ühekordne kuumutus; graafik jääb kehtima ja lükkub ühe intervalli võrra edasi.',
     started: 'Kõrgendatud tarbevesi käivitatud ({target} °C).'
   },
@@ -457,7 +460,7 @@ export default {
     mismatch: 'Soojuspumba välisandur näitab {sensor} (ilmateenus {temp}).',
     detailsAria: 'Ilma üksikasjad', wind: 'Tuul', humidity: 'Niiskus', pressure: 'Õhurõhk', cloud: 'Pilvisus',
     precip: 'Sademed', sun: 'Päike', uv: 'UV-indeks (max)', snow: 'Lumikate',
-    gust: ' · puhangud {value} m/s', windDirAria: 'Tuul puhub suunas {deg}°', dewPoint: 'kastepunkt {value} °C',
+    gust: ' · puhangud {value} m/s', windDirAria: 'Tuul puhub suunas {deg}°', dewPoint: 'kastepunkt {value} {unit}',
     visibility: 'nähtavus {km} km ({label})', todayPrecip: 'täna {mm} mm · tõenäosus {p} %', nowLower: 'praegu',
     daylight: 'päev {duration}',
     outlookMin: 'Järgmise 24 h külmim', outlookAt: 'kell {time}, soojim', outlookEnd: 'kell {time}.',
@@ -471,13 +474,13 @@ export default {
     south: 'lõunatuul', southwest: 'edelatuul', west: 'läänetuul', northwest: 'loodetuul'
   },
   ov: {
-    outdoorAvg: 'Keskmine {value} °C', requestFailed: 'Värskendus ebaõnnestus', requestTime: 'Päring {time}', every60: 'iga 60 sek', autoEvery: 'iga {value}', manualOnly: 'käsitsi',
-    returnDetail: 'Tagasivool {value} °C', waterTarget: 'Sihttemperatuur {value} °C', compressor: 'Kompressor {value}', reportedPower: 'Seadme raporteeritud soojusvõimsus',
+    outdoorAvg: 'Keskmine {value} {unit}', requestFailed: 'Värskendus ebaõnnestus', requestTime: 'Päring {time}', every60: 'iga 60 sek', autoEvery: 'iga {value}', manualOnly: 'käsitsi',
+    returnDetail: 'Tagasivool {value} {unit}', waterTarget: 'Sihttemperatuur {value} {unit}', compressor: 'Kompressor {value}', reportedPower: 'Seadme raporteeritud soojusvõimsus',
     hintHeat: 'KÜTTERING', hintWater: 'TARBEVESI', hintPower: 'SOOJUSVÕIMSUS', hintClimate: 'VÄLISKLIIMA',
     flowTitle: 'Kodu soojusring', flowSubtitle: 'Soojus liigub sinna, kus seda vajad.', deviceReadings: 'Seadme näidud',
     noticesUnavailable: 'Häirete olek pole saadaval', alarmActive: 'Süsteemis on aktiivne häire', noAlarms: 'Aktiivseid häireid pole', deviceDetails: 'Seadme üksikasjad',
     quickTitle: 'Kiirjuhtimine', quickSubtitle: 'Kõige vajalikum käeulatuses.', seeSettings: 'Vaata seadistusi', openHeat: 'Ava kütte seaded',
-    openWater: 'Ava tarbevee seaded', target: 'Siht {value} °C', quickCharge: 'Tarbevee kiirlaadimine',
+    openWater: 'Ava tarbevee seaded', target: 'Siht {value} {unit}', quickCharge: 'Tarbevee kiirlaadimine',
     quickChargeHint: 'Kui tavapärasest sooja vee kogusest ei piisa.', manageCharge: 'Halda kiirlaadimist', setCharge: 'Seadista kiirlaadimine',
     allControls: 'Kõik juhtimisvõimalused', chartTitle: 'Temperatuuride ajalugu', chartSubtitle: 'Kohalikult kogutud mõõtmised',
     viewHistory: 'Vaata ajalugu', healthTitle: 'Süsteemi seisund', stateUnknown: 'Olek teadmata', needsAttention: 'Vajab tähelepanu',
@@ -541,7 +544,7 @@ export default {
     forecastLoading: 'Laadin kuu prognoosi…',
     forecastFixed: 'Sisaldab kuutasu {value} €.',
     forecastCaveat: 'Hinnang, mitte garantii: ilmaennustus, tariifimuutused ja tarbimisharjumused võivad tulemust muuta.',
-    tableDay: 'Päev', tableHeat: 'Soojus, kWh', tableElectric: 'Elekter, kWh', tableCop: 'COP', tableCost: 'Kulu, €', tableHours: 'Tööaeg, h', tableOutdoor: 'Välisõhk, °C',
+    tableDay: 'Päev', tableHeat: 'Soojus, kWh', tableElectric: 'Elekter, kWh', tableCop: 'COP', tableCost: 'Kulu, €', tableHours: 'Tööaeg, h', tableOutdoor: 'Välisõhk, {unit}',
     export: 'Ekspordi CSV', loading: 'Laadin energiaandmeid…', error: 'Energiaandmeid ei saanud laadida.',
     empty: 'Valitud perioodil pole piisavalt andmeid.',
     noElectric: 'Elektriandmed pärinevad pumba kohalikust liidesest. Ühenda see seadetes, et näha tarbitud elektrit, COP-i ja kulu.',
@@ -663,7 +666,7 @@ export default {
   },
 
   settings: {
-    ui: { title: 'Üldseaded', subtitle: 'Teema, liides, kodu graafik, värskendus ja muusikamängija. Andmed ja seadistused on mõlemas liideses samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },
+    ui: { title: 'Üldseaded', subtitle: 'Teema, keel, kellaaeg, temperatuur, kuupäev, liides, kodu graafik, värskendus ja muusikamängija. Andmed ja seadistused on mõlemas liideses samad.', aria: 'Liides', classic: 'Klassikaline', next: 'Uus · Kodu-plaan' },
     conn: {
       title: 'myUplinki ühendus', subtitle: 'Rakenduse võtmed jäävad kohalikku serverisse.', connected: 'Ühendatud', disconnected: 'Ühendamata',
       authError: 'Sisselogimist ei õnnestunud lõpetada. Alusta ühendamist uuesti.',

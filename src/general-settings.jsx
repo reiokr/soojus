@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChartLine, Globe, LayoutTemplate, Monitor, Moon, Music2, Palette, RefreshCw, Settings2, Sun, X } from 'lucide-react';
+import { CalendarDays, ChartLine, Clock3, Globe, LayoutTemplate, Monitor, Moon, Music2, Palette, RefreshCw, Settings2, Sun, Thermometer, X } from 'lucide-react';
 import { t, LOCALES, setLocale } from './i18n/index.js';
 import { useLocale } from './i18n/react.js';
+import { setFormat } from './formats.js';
+import { useFormats } from './formats-react.js';
 
 const THEMES = [
   ['auto', 'prefs.themeAuto', Monitor],
@@ -14,6 +16,7 @@ const THEMES = [
 // valikud on alati samad ja salvestuvad brauserisse.
 export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi, ovHours, pickOvHours, refreshSec, setRefreshSec, musicHidden, setMusicHidden }) {
   const locale = useLocale();
+  const formats = useFormats();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -58,6 +61,30 @@ export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi
         <div className="segmented prefs-seg" role="group" aria-label={t('prefs.interface')}>
           {[['classic', 'settings.ui.classic'], ['next', 'settings.ui.next']].map(([value, label]) => <button key={value} type="button" className={ui === value ? 'selected' : ''} aria-pressed={ui === value}
             onClick={() => pick(setUi, value)}>{t(label)}</button>)}
+        </div>
+      </div>
+
+      <div className="prefs-group">
+        <span className="prefs-label"><Clock3 size={15}/>{t('prefs.clock')}</span>
+        <div className="segmented prefs-seg" role="group" aria-label={t('prefs.clock')}>
+          {[['24', 'prefs.clock24'], ['12', 'prefs.clock12']].map(([value, label]) => <button key={value} type="button" className={formats.clock === value ? 'selected' : ''} aria-pressed={formats.clock === value}
+            onClick={() => setFormat('clock', value)}>{t(label)}</button>)}
+        </div>
+      </div>
+
+      <div className="prefs-group">
+        <span className="prefs-label"><Thermometer size={15}/>{t('prefs.temp')}</span>
+        <div className="segmented prefs-seg" role="group" aria-label={t('prefs.temp')}>
+          {[['c', 'prefs.tempC'], ['f', 'prefs.tempF']].map(([value, label]) => <button key={value} type="button" className={formats.temp === value ? 'selected' : ''} aria-pressed={formats.temp === value}
+            onClick={() => setFormat('temp', value)}>{t(label)}</button>)}
+        </div>
+      </div>
+
+      <div className="prefs-group">
+        <span className="prefs-label"><CalendarDays size={15}/>{t('prefs.date')}</span>
+        <div className="segmented prefs-seg" role="group" aria-label={t('prefs.date')}>
+          {[['locale', 'prefs.dateLocale'], ['iso', 'prefs.dateIso']].map(([value, label]) => <button key={value} type="button" className={formats.date === value ? 'selected' : ''} aria-pressed={formats.date === value}
+            onClick={() => setFormat('date', value)}>{t(label)}</button>)}
         </div>
       </div>
 

@@ -147,5 +147,13 @@ test('general settings switch the theme, language and the music player', async (
   // Sama nupp on ka klassikalises liideses.
   await page.goto('/?ui=classic&page=overview');
   await page.getByRole('button', { name: 'General settings' }).click();
-  await expect(page.getByRole('dialog', { name: 'General settings' })).toBeVisible();
+  const classic = page.getByRole('dialog', { name: 'General settings' });
+  await expect(classic).toBeVisible();
+
+  // Vormingud: temperatuur °F, kell 12 h ja ISO-kuupäev salvestuvad kohe.
+  await classic.getByRole('button', { name: '°F', exact: true }).click();
+  await classic.getByRole('button', { name: '12 h', exact: true }).click();
+  await classic.getByRole('button', { name: 'YYYY-MM-DD', exact: true }).click();
+  expect(await page.evaluate(() => [localStorage.getItem('soojus.temp'), localStorage.getItem('soojus.clock'), localStorage.getItem('soojus.date')])).toEqual(['f', '12', 'iso']);
+  await expect(classic.getByRole('button', { name: '°F', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });

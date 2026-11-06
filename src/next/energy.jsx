@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Download, Info } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { api, number } from '../lib.js';
+import { api, number, tempUnit, tempValue } from '../lib.js';
 import { t, getLocale } from '../i18n/index.js';
 import { DEFAULT_TARIFF, parseTariff, dayCost, totalCost, monthlyCost, effectiveRates, splitElectric, nightHours } from './tariff.js';
 import { spotMap, variableCost, exchangeCost, periodSplit, networkRates, packageCosts } from './prices.js';
@@ -279,7 +279,7 @@ export default function EnergyPage({ ctx }) {
 
   const exportCsv = () => {
     if (!data) return;
-    const head = [t('energy.tableDay'), t('energy.tableHeat'), ...(splitMode ? [t('energy.tableDayKwh'), t('energy.tableNightKwh')] : [t('energy.tableElectric')]), t('energy.tableCop'), t('energy.tableCost'), t('energy.tableHours'), t('energy.tableOutdoor')];
+    const head = [t('energy.tableDay'), t('energy.tableHeat'), ...(splitMode ? [t('energy.tableDayKwh'), t('energy.tableNightKwh')] : [t('energy.tableElectric')]), t('energy.tableCop'), t('energy.tableCost'), t('energy.tableHours'), t('energy.tableOutdoor', { unit: tempUnit() })];
     const lines = rows.map(day => {
       const value = splitMode ? splitElectric(day, tariff.nightStart, tariff.nightEnd) : null;
       return [
@@ -289,7 +289,7 @@ export default function EnergyPage({ ctx }) {
         electricKnown && day.cop != null ? number(day.cop, 2) : '',
         electricKnown ? number(dayCost(day, tariff), 2) : '',
         electricKnown && day.hours != null ? number(day.hours, 1) : '',
-        day.outdoor == null ? '' : number(day.outdoor, 1)
+        day.outdoor == null ? '' : number(tempValue(day.outdoor), 1)
       ].join(';');
     });
     const blob = new Blob(['\uFEFF' + head.join(';') + '\n' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
@@ -475,7 +475,7 @@ export default function EnergyPage({ ctx }) {
       <div className="nx-panel-head"><h2>{t('energy.tableTitle')}</h2><span className="nx-muted">{t('energy.total')}: {number(totals.heatKwh, 1)} {t('energy.kwh')}{electricKnown ? ` · ${number(totals.electricKwh, 1)} ${t('energy.kwh')} · COP ${number(totals.cop, 2)}${cost != null ? ` · ${number(cost, 2)} €` : ''}` : ''}</span></div>
       <div className="en-table-wrap">
         <table className="en-table">
-          <thead><tr><th>{t('energy.tableDay')}</th><th>{t('energy.tableHeat')}</th>{splitMode ? <><th>{t('energy.tableDayKwh')}</th><th>{t('energy.tableNightKwh')}</th></> : <th>{t('energy.tableElectric')}</th>}<th>{t('energy.tableCop')}</th><th>{t('energy.tableCost')}</th><th>{t('energy.tableHours')}</th><th>{t('energy.tableOutdoor')}</th></tr></thead>
+          <thead><tr><th>{t('energy.tableDay')}</th><th>{t('energy.tableHeat')}</th>{splitMode ? <><th>{t('energy.tableDayKwh')}</th><th>{t('energy.tableNightKwh')}</th></> : <th>{t('energy.tableElectric')}</th>}<th>{t('energy.tableCop')}</th><th>{t('energy.tableCost')}</th><th>{t('energy.tableHours')}</th><th>{t('energy.tableOutdoor', { unit: tempUnit() })}</th></tr></thead>
           <tbody>{rows.map(day => {
             const splitDay = splitMode ? splitElectric(day, tariff.nightStart, tariff.nightEnd) : null;
             return <tr key={day.day}>
@@ -485,7 +485,7 @@ export default function EnergyPage({ ctx }) {
               <td>{electricKnown && day.cop != null ? number(day.cop, 2) : '—'}</td>
               <td>{electricKnown ? number(dayCost(day, tariff), 2) : '—'}</td>
               <td>{electricKnown && day.hours != null ? number(day.hours, 1) : '—'}</td>
-              <td>{day.outdoor == null ? '—' : number(day.outdoor, 1)}</td>
+              <td>{day.outdoor == null ? '—' : number(tempValue(day.outdoor), 1)}</td>
             </tr>;
           })}</tbody>
         </table>

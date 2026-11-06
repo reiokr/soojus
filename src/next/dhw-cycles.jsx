@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Clock3 } from 'lucide-react';
-import { api, date, number } from '../lib.js';
+import { api, date, number, tempValue } from '../lib.js';
 import { formatDuration } from './logic.js';
 import { t } from '../i18n/index.js';
 
@@ -52,10 +52,10 @@ export default function DhwCycles({ ctx }) {
               <span className={`dhw-badge ${status}`}>{t(`dhw.${status}`)}</span>
             </div>
             <div className="dhw-cycle-temps">
-              <span>{t('dhw.start')} <b>{number(cycle.startTemp)}°</b></span>
-              <span>{t('dhw.min')} <b>{number(cycle.minTemp)}°</b></span>
-              <span>{t('dhw.max')} <b>{number(cycle.maxTemp)}°</b></span>
-              <span>{t('dhw.target')} <b>{target == null ? '—' : `${number(target)}°`}</b></span>
+              <span>{t('dhw.start')} <b>{number(tempValue(cycle.startTemp))}°</b></span>
+              <span>{t('dhw.min')} <b>{number(tempValue(cycle.minTemp))}°</b></span>
+              <span>{t('dhw.max')} <b>{number(tempValue(cycle.maxTemp))}°</b></span>
+              <span>{t('dhw.target')} <b>{target == null ? '—' : `${number(tempValue(target))}°`}</b></span>
               <span>{t('dhw.duration')} <b>{formatDuration(cycle.durationMinutes * 60000)}</b></span>
             </div>
             <div className="dhw-cycle-bar" role="img" aria-label={t('dhw.barAria', { heat: formatDuration(cycle.heatingMinutes * 60000), pause: formatDuration(cycle.pauseMinutes * 60000) })}>

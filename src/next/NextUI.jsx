@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, Clock3, Droplets, History, Link2, MoreHorizontal, Monitor, Pencil, RefreshCw, Settings2, SlidersHorizontal, Thermometer, LayoutDashboard, Waves, Flame, Timer, Repeat2, ArrowUpDown, Fan, Sparkles, ChartLine } from 'lucide-react';
-import { api, number, time, enumText, timeTicks } from '../lib.js';
+import { api, number, tempStep, tempText, tempUnit, tempValue, time, enumText, timeTicks } from '../lib.js';
 import { t, getLocale } from '../i18n/index.js';
 import HousePlan from './HousePlan.jsx';
 import HistoryChart from '../history-chart.jsx';
@@ -160,7 +160,7 @@ function Overview({ ctx }) {
           <Stat icon={Timer} label={t('overview.pumpWorked')} value={formatDuration(day.runMs)} note={day.coverage < .9 ? t('overview.atLeast') : undefined}/>
           <Stat icon={Repeat2} label={t('overview.hwCycles')} value={number(day.hwCycles, 0)} note={day.hwMs ? t('overview.total', { duration: formatDuration(day.hwMs) }) : undefined}/>
           <Stat icon={Flame} label={t('overview.heating')} value={formatDuration(day.heatMs)}/>
-          <Stat icon={ArrowUpDown} label={t('overview.delta')} value={dT == null ? '—' : `${number(dT, 1)} °C`} note={t('overview.now')}/>
+          <Stat icon={ArrowUpDown} label={t('overview.delta')} value={dT == null ? '—' : `${number(dT, 1)} K`} note={t('overview.now')}/>
         </div>
         <DayStrip day={day}/>
       </> : <p className="nx-muted">Laadin ööpäeva kokkuvõtet…</p> : <p className="nx-muted">Ööpäeva kokkuvõte on praegu saadaval ainult mudelile WZSV 92H3M.</p>}
@@ -275,19 +275,19 @@ function ErrorAnalysis({ ctx }) {
 }
 
 function Tile({ point, quality }) {
-  const text = point.enumValues?.length || (typeof point.value === 'string' && !Number.isFinite(Number(point.value))) ? point.display : `${number(point.value, 2)} ${point.parameterUnit || ''}`;
+  const text = point.enumValues?.length || (typeof point.value === 'string' && !Number.isFinite(Number(point.value))) ? point.display : `${number(point.dv, 2)} ${point.du || ''}`;
   return <div className={`nx-tile ${quality?.key || ''}`}><small>{point.label}</small><b>{text}</b>{quality && <span className="nx-tile-state">{quality.label}</span>}<em>{time(point.timestamp)}</em></div>;
 }
 
 function valueText(p) {
   if (p.enumValues?.length) return p.display;
   if (p.parameterId === '6147') return secondsAsText(p.value);
-  return `${number(p.value)} ${p.parameterUnit || ''}`.trim();
+  return `${number(p.dv)} ${p.du || ''}`.trim();
 }
 function hintText(p) {
   if (p.enumValues?.length) return t('hint.choices', { count: p.enumValues.length });
   if (p.parameterId === '6147') return t('hint.step30');
-  return t('hint.range', { min: number(p.min), max: number(p.max), unit: p.parameterUnit || '', step: number(p.step, 3) }).replace(/\s+/g, ' ');
+  return t('hint.range', { min: number(p.du === tempUnit() ? tempValue(p.min) : p.min), max: number(p.du === tempUnit() ? tempValue(p.max) : p.max), unit: p.du || '', step: number(p.du === tempUnit() ? tempStep(p.step) : p.step, 3) }).replace(/\s+/g, ' ');
 }
 
 const zoneLabel = name => /tarbeveetootmine/i.test(name) ? t('zone.hwProduction') : /kõrgendatud/i.test(name) ? t('zone.hwBoost') : name;
@@ -331,12 +331,12 @@ function SystemDiagnostics({ ctx, m, state }) {
       <div><dt>{t('diag.compressor')}</dt><dd>{onOff(compressor)}</dd></div>
       <div><dt>{t('diag.hup')}</dt><dd>{onOff(heatingPump)}</dd></div>
       <div><dt>{t('diag.hwPump')}</dt><dd>{onOff(hotWaterPump)}</dd></div>
-      <div><dt>{t('diag.supply')}</dt><dd>{number(supply, 1)} °C</dd></div>
-      <div><dt>{t('diag.return')}</dt><dd>{number(returnT, 1)} °C</dd></div>
-      <div><dt>{t('diag.target')}</dt><dd>{number(returnTarget, 1)} °C</dd></div>
-      <div><dt>{t('diag.buffer')}</dt><dd>{number(buffer, 1)} °C</dd></div>
-      <div><dt>{t('diag.water')}</dt><dd>{number(water, 1)} °C</dd></div>
-      <div><dt>{t('diag.waterTarget')}</dt><dd>{number(waterTarget, 1)} °C</dd></div>
+      <div><dt>{t('diag.supply')}</dt><dd>{tempText(supply, 1)}</dd></div>
+      <div><dt>{t('diag.return')}</dt><dd>{tempText(returnT, 1)}</dd></div>
+      <div><dt>{t('diag.target')}</dt><dd>{tempText(returnTarget, 1)}</dd></div>
+      <div><dt>{t('diag.buffer')}</dt><dd>{tempText(buffer, 1)}</dd></div>
+      <div><dt>{t('diag.water')}</dt><dd>{tempText(water, 1)}</dd></div>
+      <div><dt>{t('diag.waterTarget')}</dt><dd>{tempText(waterTarget, 1)}</dd></div>
       <div><dt>{t('diag.power')}</dt><dd>{number(power, 2)} kW</dd></div>
     </dl>
     <ul className="nx-diag-list">{items.map((item, index) => <li key={`${item.key}-${index}`} className={item.tone}>{t(item.key, item.params)}</li>)}</ul>
@@ -371,10 +371,10 @@ function Control({ ctx, water }) {
   const extra = water
     ? [(boostOn || legRunning) && {
         label: legRunning ? t('legionella.runningTitle') : t('point.boost'),
-        value: legRunning ? `siht ${number(leg.running.target ?? m.waterTarget, 0)} °C · lõpeb ${time(leg.running.endsAt)}` : `${enumText(boost.mode)}${boost.setpointHeat != null ? ` · siht ${number(boost.setpointHeat)} °C` : ''}`,
+        value: legRunning ? `siht ${tempText(leg.running.target ?? m.waterTarget, 0)} · lõpeb ${time(leg.running.endsAt)}` : `${enumText(boost.mode)}${boost.setpointHeat != null ? ` · siht ${tempText(boost.setpointHeat)}` : ''}`,
         quality: { key: 'key', label: legRunning ? 'legionella' : 'aktiivne' }
       }].filter(Boolean)
-    : [lt?.brineIn != null && { label: t('control.brineIn'), value: `${number(lt.brineIn, 1)} °C` }, lt?.brineOut != null && { label: t('control.brineOut'), value: `${number(lt.brineOut, 1)} °C` }, lt?.hotGas != null && { label: t('control.hotGas'), value: `${number(lt.hotGas, 1)} °C` }, cl.indoor != null && { label: t('control.indoorTemp'), value: `${number(cl.indoor, 1)} °C`, quality: readingQuality('temp', cl.indoor) }, cl.outdoor != null && { label: t('control.outdoorTemp', { source: cl.outdoorSource === 'soojuspump' ? t('control.sourcePump') : t('control.sourceVent') }), value: `${number(cl.outdoor, 1)} °C` }].filter(Boolean);
+    : [lt?.brineIn != null && { label: t('control.brineIn'), value: tempText(lt.brineIn, 1) }, lt?.brineOut != null && { label: t('control.brineOut'), value: tempText(lt.brineOut, 1) }, lt?.hotGas != null && { label: t('control.hotGas'), value: tempText(lt.hotGas, 1) }, cl.indoor != null && { label: t('control.indoorTemp'), value: tempText(cl.indoor, 1), quality: readingQuality('temp', cl.indoor) }, cl.outdoor != null && { label: t('control.outdoorTemp', { source: cl.outdoorSource === 'soojuspump' ? t('control.sourcePump') : t('control.sourceVent') }), value: tempText(cl.outdoor, 1) }].filter(Boolean);
   const waterZones = water ? zones : [];
   const state = pumpState(m);
   // Värv ainult seal, kus on võrreldav norm. Pealevool ja tagasivool jäävad teadlikult neutraalseks,
@@ -464,12 +464,12 @@ function LegionellaPanel({ notify }) {
       </div>
       <label className="lg-field"><span>{t('legionella.weekday')}</span><select value={draft.weekday} disabled={!draft.enabled} onChange={e => set({ weekday: Number(e.target.value) })}>{days.map((d, i) => <option key={d} value={i}>{d}</option>)}</select></label>
       <label className="lg-field"><span>{t('legionella.time')}</span><input type="time" value={draft.time} disabled={!draft.enabled} onChange={e => set({ time: e.target.value })}/></label>
-      <label className="lg-field"><span>{t('legionella.target')}</span><select value={draft.target} onChange={e => set({ target: Number(e.target.value) })}>{LG_TARGETS.map(t => <option key={t} value={t}>{number(t, 1)} °C</option>)}</select></label>
+      <label className="lg-field"><span>{t('legionella.target')}</span><select value={draft.target} onChange={e => set({ target: Number(e.target.value) })}>{LG_TARGETS.map(t => <option key={t} value={t}>{tempText(t, 1)}</option>)}</select></label>
       <label className="lg-field"><span>{t('legionella.duration')}</span><select value={draft.durationMin} onChange={e => set({ durationMin: Number(e.target.value) })}>{LG_DURATIONS.map(m => <option key={m} value={m}>{t('common.minutesShort', { count: m })}</option>)}</select></label>
       <button type="button" className="nx-edit" disabled={busy || !changed} onClick={save}>{t('legionella.save')}</button>
       <button type="button" className="nx-edit lg-now" disabled={busy || Boolean(running)} onClick={runNow}><Flame size={14}/>{t('legionella.runNow')}</button>
     </div>
-    <p className="lg-status"><b>{status}</b>{cfg.lastRun && <> · {t('legionella.last', { time: lgWhen(cfg.lastRun) })}{cfg.lastMaxTemp != null ? t('legionella.max', { value: number(cfg.lastMaxTemp, 1) }) : ''}</>}{running?.maxTemp != null && t('legionella.now', { value: number(running.maxTemp, 1) })}</p>
+    <p className="lg-status"><b>{status}</b>{cfg.lastRun && <> · {t('legionella.last', { time: lgWhen(cfg.lastRun) })}{cfg.lastMaxTemp != null ? t('legionella.max', { value: number(tempValue(cfg.lastMaxTemp), 1), unit: tempUnit() }) : ''}</>}{running?.maxTemp != null && t('legionella.now', { value: number(tempValue(running.maxTemp), 1), unit: tempUnit() })}</p>
     {cfg.lastError && <p className="nx-warn"><AlertCircle size={15}/>{t('legionella.failed', { error: cfg.lastError })}</p>}
     {error && <p className="nx-warn"><AlertCircle size={15}/>{error}</p>}
   </section>;

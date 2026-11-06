@@ -44,10 +44,13 @@ Rakendusel on kaks liidest, mille vahel saab valida: **Klassikaline** (külgriba
 
 ### Üldseaded
 
-Mõlema liidese ülariba hammasratta nupp (**Üldseaded**) avab väikese menüü, kus saab valida teema, keele, liidese ja muusikamängija nähtavuse. Kõik valikud salvestuvad brauserisse ja kehtivad kohe:
+Mõlema liidese ülariba hammasratta nupp (**Üldseaded**) avab väikese menüü, kus saab valida teema, keele, kellaaja ja temperatuuri formaadi, kuupäeva järjekorra, liidese, kodu graafiku perioodi, värskenduse intervalli ja muusikamängija nähtavuse. Kõik valikud salvestuvad brauserisse ja kehtivad kohe:
 
 - **Teema:** *Hele*, *Tume* või *Süsteem*. Süsteemi valik järgib arvuti või telefoni heledat/tumedat režiimi ka siis, kui see muutub; see on ka vaikimisi valik.
 - **Keel:** *Eesti* või *English* (sama, mis seadete lehel).
+- **Kellaaeg:** *24 h* või *12 h* (AM/PM). Kehtib kõikjal, kus kellaaega näidatakse, sh graafikute telgedel ja tööriistavihjetes.
+- **Temperatuur:** *°C* või *°F*. Näidud, graafikud ja seadistuste sisestusväli teisendatakse; andmed, ajalugu ja seadmele saadetavad väärtused jäävad Celsiuse kraadidesse. Temperatuurierinevused (kütte temperatuuri nihe, ΔT, küttekõvera nihe) jäävad kelviniteks/Celsiuse vaheks, sest 32° nihe ei kehti vahedele. CSV-eksport ja teavituste lävendite väljad on endiselt °C-s.
+- **Kuupäev:** *PP.KK.AAAA* (keele oma järjekord) või *AAAA-KK-PP* (ISO).
 - **Liides:** *Klassikaline* või *Uus · Kodu-plaan*.
 - **Kodu graafik:** *24 tundi*, *Nädal* või *Kuu* – ülevaate graafiku periood (sama valik, mis graafiku kohal, ja jääb meelde).
 - **Värskendus:** *30 s*, *1 min*, *5 min* või *Käsitsi* – kui sageli rakendus ise andmeid küsib (vaikimisi 1 min). *Käsitsi* korral uuendab andmeid ainult **Värskenda** nupp. Kui pumba kohalik liides on ühendatud, käivad otseandmed automaatrežiimis siiski 10 sekundi järel.
@@ -125,7 +128,7 @@ Ajaloo lehel on ventilatsiooni näidud soojuspumba omadega samas valijas: sama �
 - Püsivara versioonid ja fail, tellimused, seadme võimekused, abirežiimi olek.
 - Serveripoolne sisendite ja skaleerimise kontroll; muudatuste audit; osaliste vigade käsitlus.
 - Mobiilivaade, klaviatuuriga kasutatavad dialoogid, reduced-motion tugi, kohalikud fondid.
-- Hele, tume või süsteemiteema; keel, liides, kodu graafiku periood, värskenduse intervall ja muusikamängija nähtavus on ühes **Üldseaded** menüüs, valikud salvestuvad brauserisse.
+- Hele, tume või süsteemiteema; keel, kellaaeg (24/12 h), temperatuuriühik (°C/°F), kuupäev, liides, kodu graafiku periood, värskenduse intervall ja muusikamängija nähtavus on ühes **Üldseaded** menüüs, valikud salvestuvad brauserisse.
 
 ## Varukoopia ja taastamine
 

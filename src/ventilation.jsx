@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
 import { AlertCircle, ChevronDown, Fan, Flame, Gauge, Info, Link2, LoaderCircle, RefreshCw, Trash2, Wind } from 'lucide-react';
-import { api, number, time } from './lib.js';
+import { api, number, tempUnit, tempValue, time } from './lib.js';
 import { bypassOpen, climate, climatePoints, climateQuery, co2Quality, daysWithMonths, filterInfo, MODE_INFO, readingQuality, ventilationSentence, ventModeText } from './ventilation-logic.js';
 import { t } from './i18n/index.js';
 import { pointNameText } from './lib.js';
@@ -140,7 +140,7 @@ export function VentilationPage({ tick, theme, HistoryChart, notify, airobot, ou
   const current = tabs.find(x => x[0] === tab) || tabs[0], pts = current[0] === 'climate' ? climatePoints() : current[2].map(id => byId[id]).filter(Boolean).map(p => ({ ...p, label: pointNameText(p.label) }));
   const air = d ? co2Quality(d.co2) : null, filter = d ? filterInfo(d.settings.filterElapsed, d.settings.filterInterval) : null;
   const bypass = d ? bypassOpen(d) : null;
-  const clim = climate(outdoor, view), fmt = v => v == null ? '—' : number(v, 1);
+  const clim = climate(outdoor, view), fmt = v => v == null ? '—' : number(tempValue(v), 1);
   // Kaartide värv: kui palju on näit normist kõrgem (roheline → kollane → punane).
   const q = d ? {
     temp: readingQuality('temp', clim.indoor),
@@ -164,10 +164,10 @@ export function VentilationPage({ tick, theme, HistoryChart, notify, airobot, ou
         </div>
       </section>
       <div className="vent-grid">
-        <Tile label={t('vent.tileIndoor')} info={t('vent.tileIndoorInfo')} value={fmt(clim.indoor)} unit="°C" note={t('vent.tileIndoorNote')} quality={q.temp}/>
-        <Tile label={t('vent.tileOutdoor')} info={t('vent.tileOutdoorInfo')} value={fmt(clim.outdoor)} unit="°C" note={clim.outdoorSource === 'soojuspump' ? t('vent.sensorPump') : t('vent.sensorVent')}/>
+        <Tile label={t('vent.tileIndoor')} info={t('vent.tileIndoorInfo')} value={fmt(clim.indoor)} unit={tempUnit()} note={t('vent.tileIndoorNote')} quality={q.temp}/>
+        <Tile label={t('vent.tileOutdoor')} info={t('vent.tileOutdoorInfo')} value={fmt(clim.outdoor)} unit={tempUnit()} note={clim.outdoorSource === 'soojuspump' ? t('vent.sensorPump') : t('vent.sensorVent')}/>
         <Tile label={t('vent.tileCo2')} info={t('vent.tileCo2Info')} value={d.co2} unit="ppm" note={t('vent.threshold', { value: d.settings.co2Setpoint })} quality={q.co2}/>
-        <Tile label={t('vent.tileSupplyTemp')} info={t('vent.tileSupplyTempInfo')} value={fmt(d.temperatures.supply)} unit="°C" note={t('vent.intoRoom')}/>
+        <Tile label={t('vent.tileSupplyTemp')} info={t('vent.tileSupplyTempInfo')} value={fmt(d.temperatures.supply)} unit={tempUnit()} note={t('vent.intoRoom')}/>
         <Tile label={t('vent.tileHum')} info={t('vent.tileHumInfo')} value={fmt(d.humidity.extract)} unit="%" note={t('vent.setpoint', { value: number(d.settings.humiditySetpoint, 0) })} quality={q.hum}/>
         <Tile label={t('vent.tileRecovery')} info={t('vent.tileRecoveryInfo')} value={number(d.heatRecovery, 0)} unit="%"/>
         <Tile label={t('vent.tileBypass')} info={t('vent.tileBypassInfo')} value={!d.switches.bypass ? t('vent.bypassOff') : bypass == null ? t('vent.bypassAuto') : bypass ? t('vent.bypassOpenState') : t('vent.bypassClosedState')} note={d.switches.bypass ? t('vent.bypassAutoMode') : undefined}/>

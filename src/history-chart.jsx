@@ -1,12 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertCircle, Clock3, History, LoaderCircle } from 'lucide-react';
-import { api, axisNumber, clipSpans, date, estKey, holdValues, mergeSeries, niceScale, number, plotKey, seriesStats, stateSpans, targetKey, time, timeTickLabel, timeTicks, wzsvWorkState } from './lib.js';
+import { api, axisNumber, clipSpans, date, estKey, holdValues, mergeSeries, niceScale, number, plotKey, seriesStats, stateSpans, targetKey, tempUnit, tempValue, time, timeTickLabel, timeTicks, wzsvWorkState } from './lib.js';
 import { t } from './i18n/index.js';
 import { Empty } from './ui.jsx';
 
 const chartPalette = { light: ['#d55e00', '#0072b2', '#009e73', '#b0468a', '#6c757d'], dark: ['#ff8a3d', '#56b4e9', '#2fd0a0', '#e58fc0', '#b6bec4'] };
 const PREV = 'p:';
+// Kuvatav ühik: temperatuurid teisendatakse valitud ühikusse, muud jäävad API omaks.
+const unitOf = p => p.du || (p.parameterUnit === '°C' ? tempUnit() : p.parameterUnit);
+const convertRows = (list, points) => tempUnit() === '°C' ? list : list.map(r => {
+  const raw = String(r.point).replace(/^p:/, ''), p = points.find(x => x.parameterId === raw);
+  return p?.du === tempUnit() && r.value != null ? { ...r, value: Number(tempValue(r.value)) } : r;
+});
 const stateStyle = { heat: { labelKey: 'chart.stateHeat', color: '#e6a800' }, hw: { labelKey: 'chart.stateHw', color: '#8b6fd0' } };
 
 function ChartTip({ active, payload, label, points, colors, spans, stateKnown, targets = [], gaps = [], prevShift = 0 }) {
@@ -18,10 +24,10 @@ function ChartTip({ active, payload, label, points, colors, spans, stateKnown, t
   const span = spans.find(s => label >= s.from && label < s.to), state = span ? stateStyle[span.kind] : null;
   return <div className="chart-tip">
     <b>{date(label, { weekday: 'short' })}</b>
-    {items.map(e => { const i = points.findIndex(p => plotKey(p.parameterId) === e.dataKey), p = points[i]; return <div key={e.dataKey}><i style={{ background: colors[i % colors.length] }}/><span>{p.label}</span><strong>{number(e.value, 2)} {p.parameterUnit}</strong></div>; })}
+    {items.map(e => { const i = points.findIndex(p => plotKey(p.parameterId) === e.dataKey), p = points[i]; return <div key={e.dataKey}><i style={{ background: colors[i % colors.length] }}/><span>{p.label}</span><strong>{number(e.value, 2)} {unitOf(p)}</strong></div>; })}
     {prevItems.length > 0 && <div className="chart-tip-note">{t('chart.previousLabel', { date: date(label - prevShift, { weekday: 'short' }) })}</div>}
-    {prevItems.map(e => { const i = points.findIndex(p => plotKey(PREV + p.parameterId) === e.dataKey), p = points[i]; return <div key={e.dataKey} className="chart-tip-prev"><i style={{ background: colors[i % colors.length] }}/><span>{p.label}</span><strong>{number(e.value, 2)} {p.parameterUnit}</strong></div>; })}
-    {estimates.map(e => { const i = points.findIndex(p => estKey(p.parameterId) === e.dataKey), p = points[i]; return <div key={e.dataKey}><i style={{ background: 'transparent', borderColor: colors[i % colors.length] }}/><span>{t('chart.estimate', { label: p.label })}</span><strong>≈ {number(e.value, 1)} {p.parameterUnit}</strong></div>; })}
+    {prevItems.map(e => { const i = points.findIndex(p => plotKey(PREV + p.parameterId) === e.dataKey), p = points[i]; return <div key={e.dataKey} className="chart-tip-prev"><i style={{ background: colors[i % colors.length] }}/><span>{p.label}</span><strong>{number(e.value, 2)} {unitOf(p)}</strong></div>; })}
+    {estimates.map(e => { const i = points.findIndex(p => estKey(p.parameterId) === e.dataKey), p = points[i]; return <div key={e.dataKey}><i style={{ background: 'transparent', borderColor: colors[i % colors.length] }}/><span>{t('chart.estimate', { label: p.label })}</span><strong>≈ {number(e.value, 1)} {unitOf(p)}</strong></div>; })}
     {inGap && <div className="chart-tip-note">{t('chart.noData')}</div>}
     {targets.map(tg => { const v = payload.find(e => e.dataKey === targetKey(tg.id))?.value; return v == null ? null : <div key={tg.id}><i style={{ background: 'transparent', borderColor: tg.color }}/><span>{tg.label}</span><strong>{number(v, 2)} {tg.unit}</strong></div>; })}
     {stateKnown && !inGap && <div className="chart-tip-state"><i style={{ background: state ? state.color : 'transparent', borderColor: state ? state.color : 'currentColor' }}/><span>{t('chart.deviceState')}</span><strong>{state ? t(state.labelKey) : t('chart.idle')}</strong></div>}
@@ -66,20 +72,24 @@ function HistoryChart({ deviceId, points, hours, tick, compact = false, theme, s
   const lastAny = rows.reduce((m, r) => Math.max(m, Date.parse(r.time) || 0), 0);
   const fillFrom = range ? range.from : sinceMs, fillTo = range ? range.to : lastAny;
   const fillTimes = Number.isFinite(fillFrom) && fillTo > fillFrom ? Array.from({ length: 241 }, (_, i) => fillFrom + i * (fillTo - fillFrom) / 240) : [];
-  const data = mergeSeries(compareOn ? [...rows, ...prevRows] : rows, compareOn ? [...ids, ...ids.map(id => PREV + id)] : ids, bucket, fillTimes);
+  const pointsKeyForConvert = points.map(p => `${p.parameterId}:${p.parameterUnit}`).join(',');
+  const tempPref = tempUnit();
+  const shownRows = useMemo(() => convertRows(rows, points), [rows, pointsKeyForConvert, tempPref]);
+  const shownPrev = useMemo(() => convertRows(prevRows, points), [prevRows, pointsKeyForConvert, tempPref]);
+  const data = mergeSeries(compareOn ? [...shownRows, ...shownPrev] : shownRows, compareOn ? [...ids, ...ids.map(id => PREV + id)] : ids, bucket, fillTimes);
   const targetLinesShown = targets.filter(tg => targetRows[tg.id]?.length && !hidden.includes(tg.forId)).map(tg => ({ ...tg, index: points.findIndex(p => p.parameterId === tg.forId), color: colors[2] })).filter(tg => tg.index >= 0);
-  for (const tg of targetLinesShown) holdValues(targetRows[tg.id], data.map(r => r.time)).forEach((v, i) => { if (v != null) data[i][targetKey(tg.id)] = v; });
+  for (const tg of targetLinesShown) holdValues(targetRows[tg.id], data.map(r => r.time)).forEach((v, i) => { if (v != null) data[i][targetKey(tg.id)] = tg.temp ? tempValue(v) : v; });
   const realCount = data.filter(r => ids.some(id => r[id] != null)).length;
   const stride = Math.max(1, Math.ceil(data.length / 700));
   const chartData = data.filter((r, i) => i % stride === 0 || i === data.length - 1 || r.gap);
   const shown = points.filter(p => !hidden.includes(p.parameterId));
   // Esimese nähtava seeria ühik on vasak telg, teine ühik (nt kW) läheb paremale teljele.
-  const units = [...new Set(shown.map(p => p.parameterUnit))];
-  const sideOf = p => p.parameterUnit === units[0] ? 'left' : 'right';
+  const units = [...new Set(shown.map(unitOf))];
+  const sideOf = p => unitOf(p) === units[0] ? 'left' : 'right';
   const axisOf = p => sideOf(p) === 'right' ? 'right' : 0;
   const scaleFor = side => {
     const v = data.flatMap(r => [...shown.filter(p => sideOf(p) === side).flatMap(p => compareOn ? [r[p.parameterId], r[PREV + p.parameterId]] : [r[p.parameterId]]), ...targetLinesShown.filter(tg => sideOf(points[tg.index]) === side).map(tg => r[targetKey(tg.id)])]).filter(x => x != null);
-    return v.length ? niceScale(Math.min(...v), Math.max(...v), compact ? 4 : 5, side === 'left' && units[0] === '°C' ? 2 : 0) : null;
+    return v.length ? niceScale(Math.min(...v), Math.max(...v), compact ? 4 : 5, side === 'left' && units[0] === tempUnit() ? 2 : 0) : null;
   };
   const yScale = scaleFor('left') || niceScale(0, 1), yRight = units.length > 1 ? scaleFor('right') : null;
   // Kõigil graafikutel sama ajatelg: algus on perioodi algus, lõpp viimane mõõtmine mis tahes näidul.
@@ -113,7 +123,7 @@ function HistoryChart({ deviceId, points, hours, tick, compact = false, theme, s
   if (busy && !data.length) return <div className="chart-loading"><LoaderCircle className="spin" size={22}/> {t('chart.loading')}</div>;
   return <div className={compact ? 'chart-wrap compact' : 'chart-wrap'}>{realCount < 2 ? range ? <Empty icon={History} title={t('chart.noRange')}>{t('chart.noRangeHint')}</Empty> : <Empty icon={History} title={t('chart.collecting')}>{t('chart.collectingHint')}</Empty> : <>
     <div className="chart-legend">
-      {points.map((p, i) => { const last = seriesStats(data, p.parameterId)?.last, off = hidden.includes(p.parameterId); return <button type="button" key={p.parameterId} className={off ? 'off' : ''} aria-pressed={!off} title={off ? t('chart.showOnChart') : t('chart.hideFromChart')} onClick={() => toggle(p.parameterId)}><span className="swatch" style={{ background: colors[i % colors.length] }}/>{p.label}{last != null && <b>{number(last, 1)} {p.parameterUnit}</b>}</button>; })}
+      {points.map((p, i) => { const last = seriesStats(data, p.parameterId)?.last, off = hidden.includes(p.parameterId); return <button type="button" key={p.parameterId} className={off ? 'off' : ''} aria-pressed={!off} title={off ? t('chart.showOnChart') : t('chart.hideFromChart')} onClick={() => toggle(p.parameterId)}><span className="swatch" style={{ background: colors[i % colors.length] }}/>{p.label}{last != null && <b>{number(last, 1)} {unitOf(p)}</b>}</button>; })}
       {unit && <span className="chart-unit">{unit}</span>}
     </div>
     <div className={onZoom && !compact ? 'chart-canvas zoomable' : 'chart-canvas'} onDoubleClick={() => range && onZoom?.(null)} role="img" aria-label={t('chart.aria', { series: shown.map(p => p.label).join(', '), from: date(from), to: date(to) })}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }} {...zoomHandlers}>
@@ -132,7 +142,7 @@ function HistoryChart({ deviceId, points, hours, tick, compact = false, theme, s
       {shown.map(p => { const i = points.indexOf(p), color = colors[i % colors.length]; return <Area key={p.parameterId} yAxisId={axisOf(p)} type="monotone" dataKey={plotKey(p.parameterId)} stroke={color} fill={single ? `url(#fill-${chartId}-${p.parameterId})` : 'none'} strokeWidth={2} connectNulls={false} isAnimationActive={false} dot={dotFor(p.parameterId, color, realCount < 12)} activeDot={{ r: 5, fill: color, stroke: surface, strokeWidth: 2 }}/>; })}
     </AreaChart></ResponsiveContainer></div>
     {(spans.length > 0 || targetLinesShown.length > 0 || gaps.length > 0 || compareOn) && <div className="chart-bands">{compareOn && <span><i className="ghost"/>{t('chart.previous', { from: date(from - winMs), to: date(from) })}{prevRows.length === 0 ? t('chart.previousEmpty') : ''}</span>}{gaps.length > 0 && <span><i className="hatch"/>{t('chart.noDataEstimate')}</span>}{targetLinesShown.map(tg => <span key={tg.id}><i className="dash" style={{ borderColor: tg.color }}/>{tg.label} ({number(data.at(-1)[targetKey(tg.id)], 1)} {tg.unit})</span>)}{Object.entries(stateStyle).filter(([k]) => spans.some(s => s.kind === k)).map(([k, v]) => <span key={k}><i style={{ background: v.color }}/>{t(v.labelKey)}</span>)}</div>}
-    {stats.length > 0 && <div className="table-scroll"><table className="chart-stats"><caption>{t('chart.summary')}{bucket > 60 ? t('chart.summaryBuckets') : ''}</caption><thead><tr><th scope="col">{t('chart.metric')}</th><th scope="col">{t('chart.min')}</th><th scope="col">{t('chart.avg')}</th><th scope="col">{t('chart.max')}</th><th scope="col">{t('chart.last')}</th>{compareOn && <><th scope="col">{t('chart.prevAvg')}</th><th scope="col">{t('chart.change')}</th></>}</tr></thead><tbody>{stats.map(({ p, s, prev, i }) => <tr key={p.parameterId}><th scope="row"><span className="swatch" style={{ background: colors[i % colors.length] }}/>{p.label}</th>{[s.min, s.avg, s.max, s.last].map((v, k) => <td key={k}>{number(v, 1)} {p.parameterUnit}</td>)}{compareOn && (prev ? <><td>{number(prev.avg, 1)} {p.parameterUnit}</td><td>{s.avg - prev.avg > 0 ? '+' : ''}{number(s.avg - prev.avg, 1)} {p.parameterUnit}</td></> : <><td>—</td><td>—</td></>)}</tr>)}</tbody></table></div>}
+    {stats.length > 0 && <div className="table-scroll"><table className="chart-stats"><caption>{t('chart.summary')}{bucket > 60 ? t('chart.summaryBuckets') : ''}</caption><thead><tr><th scope="col">{t('chart.metric')}</th><th scope="col">{t('chart.min')}</th><th scope="col">{t('chart.avg')}</th><th scope="col">{t('chart.max')}</th><th scope="col">{t('chart.last')}</th>{compareOn && <><th scope="col">{t('chart.prevAvg')}</th><th scope="col">{t('chart.change')}</th></>}</tr></thead><tbody>{stats.map(({ p, s, prev, i }) => <tr key={p.parameterId}><th scope="row"><span className="swatch" style={{ background: colors[i % colors.length] }}/>{p.label}</th>{[s.min, s.avg, s.max, s.last].map((v, k) => <td key={k}>{number(v, 1)} {unitOf(p)}</td>)}{compareOn && (prev ? <><td>{number(prev.avg, 1)} {unitOf(p)}</td><td>{s.avg - prev.avg > 0 ? '+' : ''}{number(s.avg - prev.avg, 1)} {unitOf(p)}</td></> : <><td>—</td><td>—</td></>)}</tr>)}</tbody></table></div>}
     {footnote && <div className="chart-footnote"><Clock3 size={12}/>{date(from)} – {spanH > 24 ? date(to) : time(to)} <span>{t('chart.buckets', { count: realCount, bucket: bucket <= 60 ? '1 min' : bucket <= 600 ? '10 min' : bucket <= 3600 ? '1 h' : '1 d' })}{data.some(r => r.gap) ? t('chart.gapsConnected') : ''}{limited ? t('chart.limited') : ''}</span></div>}
   </>}</div>;
 }

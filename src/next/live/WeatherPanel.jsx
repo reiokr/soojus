@@ -1,6 +1,6 @@
 import React from 'react';
 import { Cloud, Droplets, Eye, Gauge, MapPin, Navigation, Snowflake, Sun, Sunrise, Thermometer, Umbrella, Wind } from 'lucide-react';
-import { number } from '../../lib.js';
+import { number, tempText, tempUnit, tempValue } from '../../lib.js';
 import { compassName, daylight, dewPoint, outlook, pressureLabel, uvLabel, visibilityLabel, weatherKind, weatherLabel, windLabel } from '../../weather-logic.js';
 import { t, getLocale } from '../../i18n/index.js';
 
@@ -91,7 +91,7 @@ export default function WeatherPanel({ scene: w, forecast, place, sensor }) {
   if (!w) return null;
   const f = forecast ?? {}, today = f.days?.[0], hourly = f.hourly ?? [], night = f.isDay === false, kind = w.kind;
   const dew = dewPoint(f.temperature, f.humidity), out = outlook(hourly), light = daylight(today?.sunrise, today?.sunset);
-  const fmt = v => v == null ? '—' : `${number(v, 1)} °C`;
+  const fmt = v => v == null ? '—' : tempText(v, 1);
   const mismatch = !w.demo && sensor != null && f.temperature != null && Math.abs(sensor - f.temperature) >= 3;
   return <div className="live-forecast wx" aria-label={t('wx.detailsAria')}>
     <section className={`wx-hero ${kind} ${night ? 'night' : 'day'}`}>
@@ -109,7 +109,7 @@ export default function WeatherPanel({ scene: w, forecast, place, sensor }) {
       <Tile icon={Wind} label={t('wx.wind')} value={`${number(w.windMs, 1)} m/s`} sub={`${windLabel(w.windMs)}${f.gust != null ? t('wx.gust', { value: number(f.gust, 0) }) : ''}${f.windDirection != null ? ` · ${compassName(f.windDirection)}` : ''}`}>
         {f.windDirection != null && <Navigation className="wx-compass" size={18} style={{ transform: `rotate(${Math.round(f.windDirection + 180 - 45)}deg)`, '--wind': `${Math.min(2.4, 0.4 + (w.windMs ?? 0) / 6)}s` }} aria-label={t('wx.windDirAria', { deg: Math.round((f.windDirection + 180) % 360) })}/>}
       </Tile>
-      <Tile icon={Droplets} label={t('wx.humidity')} value={f.humidity == null ? '—' : `${Math.round(f.humidity)} %`} sub={dew == null ? undefined : t('wx.dewPoint', { value: number(dew, 1) })} bar={f.humidity}/>
+      <Tile icon={Droplets} label={t('wx.humidity')} value={f.humidity == null ? '—' : `${Math.round(f.humidity)} %`} sub={dew == null ? undefined : t('wx.dewPoint', { value: number(tempValue(dew), 1), unit: tempUnit() })} bar={f.humidity}/>
       <Tile icon={Gauge} label={t('wx.pressure')} value={f.pressure == null ? '—' : `${Math.round(f.pressure)} hPa`} sub={pressureLabel(f.pressure)}/>
       <Tile icon={Cloud} label={t('wx.cloud')} value={w.cloud == null ? '—' : `${Math.round(w.cloud * 100)} %`} sub={f.visibility == null ? undefined : t('wx.visibility', { km: number(f.visibility / 1000, 0), label: visibilityLabel(f.visibility) })} bar={w.cloud == null ? null : w.cloud * 100}/>
       <Tile icon={Umbrella} label={t('wx.precip')} value={`${number(f.precipitation ?? 0, 1)} mm`} sub={today ? t('wx.todayPrecip', { mm: number(today.precipitation ?? 0, 1), p: Math.round(today.rainChance ?? 0) }) : t('wx.nowLower')}/>
@@ -117,7 +117,7 @@ export default function WeatherPanel({ scene: w, forecast, place, sensor }) {
       {today?.uv != null && <Tile icon={Sun} label={t('wx.uv')} value={number(today.uv, 1)} sub={uvLabel(today.uv)} bar={(today.uv / 11) * 100}/>}
       {f.snowDepth > 0.005 && <Tile icon={Snowflake} label={t('wx.snow')} value={`${number(f.snowDepth * 100, 0)} cm`}/>}
     </ul>
-    {out && <p className="wx-outlook"><Eye size={14}/> {t('wx.outlookMin')} <b>{Math.round(out.min.temperature)} °C</b> {t('wx.outlookAt', { time: hhmm(out.min.time) })}, <b>{Math.round(out.max.temperature)} °C</b> {t('wx.outlookEnd', { time: hhmm(out.max.time) })} {out.rainStart ? t('wx.rainExpected', { time: hhmm(out.rainStart), total: number(out.rainTotal, 1) }) : t('wx.rainNone')}</p>}
+    {out && <p className="wx-outlook"><Eye size={14}/> {t('wx.outlookMin')} <b>{tempText(out.min.temperature, 0)}</b> {t('wx.outlookAt', { time: hhmm(out.min.time) })}, <b>{tempText(out.max.temperature, 0)}</b> {t('wx.outlookEnd', { time: hhmm(out.max.time) })} {out.rainStart ? t('wx.rainExpected', { time: hhmm(out.rainStart), total: number(out.rainTotal, 1) }) : t('wx.rainNone')}</p>}
     <HourStrip hourly={hourly}/>
     <DayList days={f.days ?? []}/>
   </div>;

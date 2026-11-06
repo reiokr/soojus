@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, CloudRain, Droplets, Fan, Flame, Home as HomeIcon, MapPin, Maximize2, Minimize2, Moon, Sparkles, Sunrise, Sunset, Thermometer } from 'lucide-react';
-import { number, time } from '../../lib.js';
+import { number, tempText, tempUnit, tempValue, time } from '../../lib.js';
 import { greeting, pumpState } from '../logic.js';
 import { LiveScene, season, HOTSPOTS, W, VIEW } from './scene.js';
 import { buildLiveState, liveSummary, DEMOS } from './state.js';
@@ -96,7 +96,7 @@ export default function LiveHome({ ctx, embedded = false }) {
   const dark = useMemo(() => darkness(sunPosition(live.time, live.place).elevation), [live.time, live.place.lat, live.place.lon]);
   const w = live.weather, days = forecast?.days ?? [];
   const summary = `${liveSummary(live)}${w ? `, ilm: ${w.label}` : ''}${live.demo ? ' (demo)' : ''}`;
-  const temp = v => v == null ? '—' : `${number(v, 1)} °C`;
+  const temp = v => v == null ? '—' : tempText(v, 1);
   // Asukoht protsentides: brauseri mõõtmised on CSS-i suurendusega (zoom) juba skaleeritud, pikslid läheksid topelt suureks.
   const zoomFactor = (typeof document !== 'undefined' && parseFloat(getComputedStyle(document.documentElement).zoom)) || 1;
   const fitScale = size.w ? Math.min(size.w / W, size.h / VIEW.h) : 0, offX = (size.w - W * fitScale) / 2, offY = (size.h - VIEW.h * fitScale) / 2 - VIEW.y * fitScale;
@@ -104,9 +104,9 @@ export default function LiveHome({ ctx, embedded = false }) {
   const ventMode = live.vent.modeText ? (VENT_MODES[live.vent.modeText] ? tr(VENT_MODES[live.vent.modeText]) : live.vent.modeText) : tr('live.ventLabel');
   const nowText = {
     pump: live.hwOn && live.heatOn ? tr('live.pumpBoth', { kw: kw(live.powerKw) }) : live.hwOn ? tr('live.pumpWater', { kw: kw(live.powerKw) }) : live.heatOn ? tr('live.pumpHeat', { kw: kw(live.powerKw) }) : live.running ? tr('live.pumpCompressor', { kw: kw(live.powerKw) }) : live.heatDemand || live.hwDemand ? tr('live.pumpWaiting') : tr('live.pumpResting'),
-    ground: live.brine.present ? tr('live.groundPresent', { in: number(live.brine.in, 1), out: number(live.brine.out, 1) }) + (live.running ? tr('live.groundGave', { delta: number(live.brine.in - live.brine.out, 1) }) : tr('live.groundIdle')) : live.running ? tr('live.groundRunning') : tr('live.groundStopped'),
+    ground: live.brine.present ? tr('live.groundPresent', { in: number(tempValue(live.brine.in), 1), out: number(tempValue(live.brine.out), 1), unit: tempUnit() }) + (live.running ? tr('live.groundGave', { delta: number(live.brine.in - live.brine.out, 1) }) : tr('live.groundIdle')) : live.running ? tr('live.groundRunning') : tr('live.groundStopped'),
     vent: live.vent.running ? tr('live.ventStatus', { mode: ventMode, level: live.vent.level, co2: live.vent.co2 }) : tr('live.ventStopped'),
-    boiler: live.water == null ? '' : tr('live.boiler', { water: number(live.water, 1), target: live.waterTarget == null ? '—' : number(live.waterTarget, 0) }) + (live.hwOn ? tr('live.boilerHeating') : '')
+    boiler: live.water == null ? '' : tr('live.boiler', { water: number(tempValue(live.water), 1), target: live.waterTarget == null ? '—' : number(tempValue(live.waterTarget), 0), unit: tempUnit() }) + (live.hwOn ? tr('live.boilerHeating') : '')
   };
   const targets = Object.entries(HOTSPOTS).filter(([id]) => id !== 'vent' || live.vent.present);
   const hoursValue = hour ?? live.time.getHours() + live.time.getMinutes() / 60;

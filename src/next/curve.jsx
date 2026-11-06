@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Minus, Plus } from 'lucide-react';
 import { ComposedChart, Line, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ReferenceDot, ResponsiveContainer } from 'recharts';
-import { api, number } from '../lib.js';
+import { api, number, tempText, tempUnit, tempValue } from '../lib.js';
 import { t } from '../i18n/index.js';
 import { fitCurve } from './curve-fit.js';
 
@@ -42,7 +42,12 @@ export default function HeatingCurvePage({ ctx }) {
     return line;
   }, [fit, min, fitMax]);
   const shift = Number(preview) - Number(latest.offset ?? 0);
+  // Graafik joonistatakse kuvatavas ühikus; arvutused (kõvera sobitus, piirid) jäävad °C-sse.
+  const shownScatter = useMemo(() => (data?.scatter ?? []).filter(point => limit == null || point.outdoor <= limit).map(point => ({ ...point, outdoor: tempValue(point.outdoor), return: tempValue(point.return) })), [data, limit]);
   const previewData = curveData.map(point => ({ outdoor: point.outdoor, preview: Math.round((point.target + shift) * 10) / 10 }));
+  const shownCurve = curveData.map(point => ({ outdoor: tempValue(point.outdoor), target: tempValue(point.target) }));
+  const shownPreview = previewData.map(point => ({ outdoor: tempValue(point.outdoor), preview: tempValue(point.preview) }));
+  const xMin = tempValue(min), xMax = tempValue(max);
   const compressorOn = Number(latest.compressor) > 0.5;
   const deviation = compressorOn && latest.return != null && latest.target != null ? Number(latest.return) - Number(latest.target) : null;
   const enough = (data?.points?.length ?? 0) >= 3;
@@ -66,11 +71,11 @@ export default function HeatingCurvePage({ ctx }) {
     <section className="nx-panel">
       <div className="nx-panel-head"><h2>{t('curve.summary')}</h2>{period}</div>
       <div className="en-cards">
-        <div className="en-card"><small>{t('curve.outdoor')}</small><b>{latest.outdoor == null ? '—' : number(latest.outdoor, 1)}<i>°C</i></b></div>
-        <div className="en-card"><small>{t('curve.target')}</small><b>{latest.target == null ? '—' : number(latest.target, 1)}<i>°C</i></b></div>
-        <div className="en-card"><small>{t('curve.returnNow')}</small><b>{latest.return == null ? '—' : number(latest.return, 1)}<i>°C</i></b>{deviation != null ? <em>{t('curve.deviation')}: {deviation > 0 ? '+' : ''}{number(deviation, 1)} K</em> : !compressorOn ? <em>{t('curve.compressorOff')}</em> : null}</div>
+        <div className="en-card"><small>{t('curve.outdoor')}</small><b>{latest.outdoor == null ? '—' : number(tempValue(latest.outdoor), 1)}<i>{tempUnit()}</i></b></div>
+        <div className="en-card"><small>{t('curve.target')}</small><b>{latest.target == null ? '—' : number(tempValue(latest.target), 1)}<i>{tempUnit()}</i></b></div>
+        <div className="en-card"><small>{t('curve.returnNow')}</small><b>{latest.return == null ? '—' : number(tempValue(latest.return), 1)}<i>{tempUnit()}</i></b>{deviation != null ? <em>{t('curve.deviation')}: {deviation > 0 ? '+' : ''}{number(deviation, 1)} K</em> : !compressorOn ? <em>{t('curve.compressorOff')}</em> : null}</div>
         <div className="en-card"><small>{t('curve.offset')}</small><b>{latest.offset == null ? '—' : number(latest.offset, 1)}<i>K</i></b></div>
-        <div className="en-card"><small>{t('curve.limit')}</small><b>{latest.limit == null ? '—' : number(latest.limit, 1)}<i>°C</i></b></div>
+        <div className="en-card"><small>{t('curve.limit')}</small><b>{latest.limit == null ? '—' : number(tempValue(latest.limit), 1)}<i>{tempUnit()}</i></b></div>
       </div>
       <p className="en-note">{t('curve.hint')}</p>
     </section>
@@ -81,15 +86,15 @@ export default function HeatingCurvePage({ ctx }) {
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid stroke={colors.grid} strokeDasharray="3 4"/>
-            <XAxis dataKey="outdoor" type="number" domain={[Math.floor(min), Math.ceil(max)]} tickLine={false} axisLine={{ stroke: colors.grid }} tick={{ fontSize: 12, fill: colors.tick }} tickFormatter={value => `${number(value, 0)}°`} label={{ value: t('curve.outdoor'), position: 'insideBottom', offset: -4, fill: colors.tick, fontSize: 11 }}/>
-            <YAxis domain={[15, 45]} tickLine={false} axisLine={false} width={38} tick={{ fontSize: 12, fill: colors.tick }} tickFormatter={value => `${number(value, 0)}°`}/>
-            <Tooltip formatter={(value, name) => [`${number(value, 1)} °C`, name]} labelFormatter={value => `${t('curve.outdoor')}: ${number(value, 1)} °C`}/>
+            <XAxis dataKey="outdoor" type="number" domain={[Math.floor(xMin), Math.ceil(xMax)]} tickLine={false} axisLine={{ stroke: colors.grid }} tick={{ fontSize: 12, fill: colors.tick }} tickFormatter={value => `${number(value, 0)}°`} label={{ value: t('curve.outdoor'), position: 'insideBottom', offset: -4, fill: colors.tick, fontSize: 11 }}/>
+            <YAxis domain={[tempValue(15), tempValue(45)]} tickLine={false} axisLine={false} width={38} tick={{ fontSize: 12, fill: colors.tick }} tickFormatter={value => `${number(value, 0)}°`}/>
+            <Tooltip formatter={(value, name) => [`${number(value, 1)} ${tempUnit()}`, name]} labelFormatter={value => `${t('curve.outdoor')}: ${number(value, 1)} ${tempUnit()}`}/>
             <Legend/>
-            <Scatter data={(data.scatter ?? []).filter(point => limit == null || point.outdoor <= limit)} dataKey="return" name={t('curve.scatter')} fill={colors.scatter} fillOpacity={0.45} isAnimationActive={false}/>
-            {curveData.length > 0 && <Line data={curveData} dataKey="target" name={t('curve.fit')} stroke={colors.curve} strokeWidth={2.5} dot={false} isAnimationActive={false}/>}
-            {Math.abs(shift) > 0.001 && <Line data={previewData} dataKey="preview" name={t('curve.preview')} stroke={colors.preview} strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive={false}/>}
-            {latest.limit != null && <ReferenceLine x={Number(latest.limit)} stroke={colors.tick} strokeDasharray="4 4" label={{ value: t('curve.limit'), fill: colors.tick, fontSize: 11 }}/>}
-            {latest.outdoor != null && latest.target != null && <ReferenceDot x={Number(latest.outdoor)} y={Number(latest.target)} r={5} fill={colors.curve} stroke={dark ? '#12171a' : '#fff'} strokeWidth={2}/>}
+            <Scatter data={shownScatter} dataKey="return" name={t('curve.scatter')} fill={colors.scatter} fillOpacity={0.45} isAnimationActive={false}/>
+            {shownCurve.length > 0 && <Line data={shownCurve} dataKey="target" name={t('curve.fit')} stroke={colors.curve} strokeWidth={2.5} dot={false} isAnimationActive={false}/>}
+            {Math.abs(shift) > 0.001 && <Line data={shownPreview} dataKey="preview" name={t('curve.preview')} stroke={colors.preview} strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive={false}/>}
+            {latest.limit != null && <ReferenceLine x={tempValue(Number(latest.limit))} stroke={colors.tick} strokeDasharray="4 4" label={{ value: t('curve.limit'), fill: colors.tick, fontSize: 11 }}/>}
+            {latest.outdoor != null && latest.target != null && <ReferenceDot x={tempValue(Number(latest.outdoor))} y={tempValue(Number(latest.target))} r={5} fill={colors.curve} stroke={dark ? '#12171a' : '#fff'} strokeWidth={2}/>}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

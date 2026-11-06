@@ -369,3 +369,5 @@ html[data-theme="dark"] .vent-tip::after{border-top-color:#e9eef3}
   .prefs-row .segmented{width:100%}
   .prefs-row .segmented>button{flex:1;justify-content:center}
 }
+.prefs-menu{max-height:calc(100dvh - 92px);overflow-y:auto}
+@media(max-width:700px){html[data-ui="classic"] .prefs-menu{max-height:88dvh}}
