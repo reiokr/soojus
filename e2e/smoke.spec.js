@@ -111,3 +111,33 @@ test('a failed lazy chunk shows the recoverable error boundary', async ({ page }
   await expect(page.getByRole('button', { name: 'Laadi leht uuesti' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Proovi uuesti' })).toBeVisible();
 });
+
+test('general settings switch the theme, language and the music player', async ({ page }) => {
+  await page.goto('/?ui=next&page=overview');
+  await page.getByRole('button', { name: 'Üldseaded' }).click();
+  const menu = page.getByRole('dialog', { name: 'Üldseaded' });
+  await expect(menu).toBeVisible();
+
+  await menu.getByRole('button', { name: 'Tume' }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
+  expect(await page.evaluate(() => localStorage.getItem('soojus.theme'))).toBe('dark');
+
+  // Keel ja liides vahetuvad kohe ning menüü sulgub.
+  await menu.getByRole('button', { name: 'English' }).click();
+  await expect(page.getByRole('button', { name: 'General settings' })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('soojus.lang'))).toBe('en');
+
+  // Muusikamängija peitmine jääb meelde ja kaob Elava kodu lehelt.
+  await page.getByRole('button', { name: 'General settings' }).click();
+  await page.getByRole('switch', { name: 'Show music player' }).uncheck();
+  expect(await page.evaluate(() => localStorage.getItem('soojus.music.hidden'))).toBe('1');
+  await page.keyboard.press('Escape');
+  await page.goto('/?ui=next&page=live');
+  await expect(page.locator('.live-controls')).toBeVisible();
+  await expect(page.locator('.live-sound')).toHaveCount(0);
+
+  // Sama nupp on ka klassikalises liideses.
+  await page.goto('/?ui=classic&page=overview');
+  await page.getByRole('button', { name: 'General settings' }).click();
+  await expect(page.getByRole('dialog', { name: 'General settings' })).toBeVisible();
+});

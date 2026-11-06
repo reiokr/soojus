@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
-import { LayoutTemplate, Activity, ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, Clock3, CloudSun, Download, Droplets, ExternalLink, Fan, Flame, Gauge, History, Home, LayoutDashboard, Link2, LoaderCircle, Menu, Minus, Moon, Plus, Power, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Snowflake, Star, Sun, Thermometer, Waves, Wifi, WifiOff, X, Zap, AlertCircle, Monitor, CircleDot, LogOut, Save, CalendarDays } from 'lucide-react';
+import { Activity, ArrowDownLeft, ArrowRight, ArrowUpRight, Bell, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, Clock3, CloudSun, Download, Droplets, ExternalLink, Fan, Flame, Gauge, History, Home, LayoutDashboard, Link2, LoaderCircle, Menu, Minus, Plus, Power, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Snowflake, Star, Thermometer, Waves, Wifi, WifiOff, X, Zap, AlertCircle, Monitor, CircleDot, LogOut, Save, CalendarDays } from 'lucide-react';
 import { useAirobot } from './ventilation.jsx';
 import { t, getLocale } from './i18n/index.js';
 import { useLocale } from './i18n/react.js';
@@ -10,6 +10,7 @@ import { pumpState } from './next/logic.js';
 import { api, number, date, time, enumText, enhance, metric, targetLines } from './lib.js';
 import { Badge, Button, Empty, PanelTitle, Reading } from './ui.jsx';
 import OfflineBanner, { useNetworkStatus } from './offline-banner.jsx';
+import GeneralSettings from './general-settings.jsx';
 
 const NextUI = lazy(() => import('./next/NextUI.jsx'));
 const HistoryChart = lazy(() => import('./history-chart.jsx'));
@@ -42,7 +43,13 @@ export default function App() {
   const [mobile, setMobile] = useState(false), [search, setSearch] = useState(''), [toast, setToast] = useState(null), [editing, setEditing] = useState(null);
   const [ovHours, setOvHours] = useState(() => { try { const v = Number(localStorage.getItem('soojus.ovHours')); return [24, 168, 720].includes(v) ? v : 24; } catch { return 24; } });
   const pickOvHours = h => { setOvHours(h); try { localStorage.setItem('soojus.ovHours', String(h)); } catch {} };
-  const [theme, setTheme] = useState(() => { try { return localStorage.getItem('soojus.theme') || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch { return 'light'; } });
+  // Teema valik on kas hele, tume või süsteemi oma; süsteemi valik järgib seadme seadet ka siis, kui see muutub.
+  const [themeChoice, setThemeChoice] = useState(() => { try { const v = localStorage.getItem('soojus.theme'); return v === 'light' || v === 'dark' ? v : 'auto'; } catch { return 'auto'; } });
+  const [prefersDark, setPrefersDark] = useState(() => Boolean(window.matchMedia?.('(prefers-color-scheme: dark)').matches));
+  const theme = themeChoice === 'auto' ? (prefersDark ? 'dark' : 'light') : themeChoice;
+  // Peidetud muusikamängija: nupp kaob Elava kodu lehelt ja muusika peatub.
+  const [musicHidden, setMusicHiddenState] = useState(() => { try { return localStorage.getItem('soojus.music.hidden') === '1'; } catch { return false; } });
+  const setMusicHidden = v => { setMusicHiddenState(v); try { localStorage.setItem('soojus.music.hidden', v ? '1' : '0'); } catch {} };
   const [favorites, setFavorites] = useState(() => { try { return JSON.parse(localStorage.getItem('soojus.favorites') || '[]'); } catch { return []; } });
   const [ui, setUiState] = useState(() => { try { const q = new URLSearchParams(location.search).get('ui'); if (q === 'next' || q === 'classic') localStorage.setItem('soojus.ui', q); return localStorage.getItem('soojus.ui') === 'next' ? 'next' : 'classic'; } catch { return 'classic'; } });
   const setUi = v => { setUiState(v); try { localStorage.setItem('soojus.ui', v); const u = new URL(location.href); u.searchParams.delete('ui'); history.replaceState({}, '', u); } catch {} };
@@ -131,7 +138,15 @@ export default function App() {
     return () => clearInterval(timer);
   }, [directPrimary, selection, systemId]);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(null), 6500); return () => clearTimeout(timer); }, [toast]);
-  useEffect(() => { document.documentElement.dataset.theme = theme; try { localStorage.setItem('soojus.theme', theme); } catch {} }, [theme]);
+  useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useEffect(() => { try { localStorage.setItem('soojus.theme', themeChoice); } catch {} }, [themeChoice]);
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq?.addEventListener) return;
+    const onChange = () => setPrefersDark(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
   function favorite(id) { const next = favorites.includes(id) ? favorites.filter(x => x !== id) : [...favorites,id]; setFavorites(next); localStorage.setItem('soojus.favorites', JSON.stringify(next)); }
   const shared = { points, device, model, system, detail, zones, categories, errors, notify, setEditing, refresh, selection, online };
   // Elav kodu ja maja skeem peavad näitama tegelikku sihti (7), mis tõuseb ka kõrgendatud tarbevee ajal;
@@ -142,7 +157,7 @@ export default function App() {
     {toast && <div className={`toast ${toast.error ? 'toast-error' : ''}`} role="status">{toast.error ? <AlertCircle size={20}/> : <CheckCheck size={20}/>}<span>{toast.text}</span><button className="icon-button" onClick={() => setToast(null)} aria-label="Sulge teade"><X size={16}/></button></div>}
   </>;
   if (ui === 'next') {
-    const ctx = { page, navigate, status, systems, selection, setSelection, points, device, model, system, detail, zones, categories, firmware, aid, mode, subscriptions, activeNotices, errors, loading, refreshing, lastFetch, tick, refresh, bootstrap, online, stale, theme, setTheme, favorites, favorite, search, setSearch, setEditing, notify, ovHours, pickOvHours, setUi, shared, targetLines, rawCount: rawPoints.length, airobot, weather, lux, climate: climate(outdoor?.value, airobot.view),
+    const ctx = { page, navigate, status, systems, selection, setSelection, points, device, model, system, detail, zones, categories, firmware, aid, mode, subscriptions, activeNotices, errors, loading, refreshing, lastFetch, tick, refresh, bootstrap, online, stale, theme, themeChoice, setThemeChoice, musicHidden, setMusicHidden, favorites, favorite, search, setSearch, setEditing, notify, ovHours, pickOvHours, setUi, shared, targetLines, rawCount: rawPoints.length, airobot, weather, lux, climate: climate(outdoor?.value, airobot.view),
       m: { supply, returnT, returnTarget, buffer, water, waterTarget, power, outdoor, heatingState, hwState, workMode, compressor } };
     return <><OfflineBanner online={networkOnline} onRetry={() => selection ? refresh() : bootstrap()}/><Suspense fallback={<div className="loading-grid" aria-label={t('shell.loadingUi')} style={{ padding: 32 }}><div className="skeleton large"/></div>}><NextUI ctx={ctx}/></Suspense>{overlays}</>;
   }
@@ -158,7 +173,7 @@ export default function App() {
       <div className="sidebar-bottom"><div className="connection-summary"><span className={`connection-symbol ${status?.connected ? 'connected' : ''}`}><Link2 size={17}/></span><div><b>myUplink</b><small>{status?.connected ? t('shell.connectedSecurely') : t('shell.notConfigured')}</small></div><i className={status?.connected ? 'tiny-dot' : 'tiny-dot gray-dot'}/></div><div className="sidebar-footer"><span>v1.0</span></div></div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label={t('shell.openMenu')} onClick={() => setMobile(true)}><Menu size={21}/></button><Home size={15}/><span>{t('shell.myHome')}</span><ChevronRight size={13}/><b>{t(pages.find(p => p.id === page)?.label || 'titles.overview')}</b></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15}/>{new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}</span><button className="icon-button theme-toggle" aria-label={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')} aria-pressed={theme === 'dark'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={19}/> : <Moon size={19}/>}</button><button className="icon-button" aria-label={t('shell.nextUi')} title={t('shell.nextUi')} onClick={() => setUi('next')}><LayoutTemplate size={19}/></button><button className="icon-button notification-button" aria-label={t('shell.notifications')} onClick={() => navigate('alarms')}><Bell size={19}/>{activeNotices.length > 0 && <i/>}</button><span className="avatar">MK</span></div></header>
+      <header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label={t('shell.openMenu')} onClick={() => setMobile(true)}><Menu size={21}/></button><Home size={15}/><span>{t('shell.myHome')}</span><ChevronRight size={13}/><b>{t(pages.find(p => p.id === page)?.label || 'titles.overview')}</b></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15}/>{new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}</span><GeneralSettings themeChoice={themeChoice} setThemeChoice={setThemeChoice} ui={ui} setUi={setUi} musicHidden={musicHidden} setMusicHidden={setMusicHidden}/><button className="icon-button notification-button" aria-label={t('shell.notifications')} onClick={() => navigate('alarms')}><Bell size={19}/>{activeNotices.length > 0 && <i/>}</button><span className="avatar">MK</span></div></header>
       <main id="main">
         <div className="page-heading"><div><h1>{t(pages.find(p => p.id === page)?.label || 'titles.overview')}</h1><p>{t(`subtitles.${page}`)}</p></div><div className="heading-actions">{page === 'overview' && <span className="weather-chip"><CloudSun size={22}/>{number(outdoor?.value)}<span>{t('shell.weatherOut')}</span>{climate(outdoor?.value, airobot.view).indoor != null && <>{' · '}{number(climate(outdoor?.value, airobot.view).indoor)}<span>{t('shell.weatherIn')}</span></>}</span>}<Button icon={RefreshCw} busy={refreshing} onClick={() => selection ? refresh() : bootstrap()}>{t('shell.refreshAction')}</Button></div></div>
         {(errors.global || errors.points) && <div role="alert" className="error-banner"><AlertCircle size={19}/><span>{errors.global || errors.points} {rawPoints.length > 0 && t('shell.latestShown')}</span><Button onClick={bootstrap}>Proovi uuesti</Button></div>}
@@ -179,7 +194,7 @@ export default function App() {
           {page === 'history' && <HistoryPage deviceId={selection} points={points} tick={tick} theme={theme} model={model} stateId={model === 'WZSV 92H3M' ? '17' : null} ventPoints={airobot.view?.configured && airobot.view.data ? airobot.view.points : []} luxPoints={lux.view?.configured && lux.view.data ? lux.view.points : []}/>}
           {page === 'alarms' && <AlarmsPage systemId={system?.systemId} tick={tick}/>}
           {page === 'device' && <DevicePage {...shared} firmware={firmware} aid={aid} subscriptions={subscriptions}/>}
-          {page === 'settings' && <SettingsPage status={status} notify={notify} onConnect={bootstrap} tick={tick} navigate={navigate} ui={ui} setUi={setUi} weather={weather} lux={lux}/>}
+          {page === 'settings' && <SettingsPage status={status} notify={notify} onConnect={bootstrap} tick={tick} navigate={navigate} ui={ui} setUi={setUi} themeChoice={themeChoice} setThemeChoice={setThemeChoice} musicHidden={musicHidden} setMusicHidden={setMusicHidden} weather={weather} lux={lux}/>}
           </Suspense>
         </>}
         <footer className="main-footer"><span><Waves size={14}/> SOOJUS</span><span>{t('shell.footerData')}: {directPrimary ? `${t('shell.footerDirect')}${lux.view?.upstreamProblem ? t('shell.footerDown') : ''}` : t('shell.footerApi')} <span className="footer-divider">·</span> {lastFetch ? `${t('shell.footerLast')} ${time(lastFetch)}` : t('shell.footerServer')}</span></footer>

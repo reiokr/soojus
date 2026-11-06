@@ -1,8 +1,7 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, Check, ChevronDown, Clock3, Droplets, Globe, History, LayoutTemplate, Link2, MoreHorizontal, Moon, Monitor, Pencil, RefreshCw, Settings2, SlidersHorizontal, Sun, Thermometer, LayoutDashboard, Waves, Flame, Timer, Repeat2, ArrowUpDown, Fan, Sparkles, ChartLine } from 'lucide-react';
+import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, Clock3, Droplets, History, Link2, MoreHorizontal, Monitor, Pencil, RefreshCw, Settings2, SlidersHorizontal, Thermometer, LayoutDashboard, Waves, Flame, Timer, Repeat2, ArrowUpDown, Fan, Sparkles, ChartLine } from 'lucide-react';
 import { api, number, time, enumText, timeTicks } from '../lib.js';
-import { t, LOCALES, setLocale, getLocale } from '../i18n/index.js';
-import { useLocale } from '../i18n/react.js';
+import { t, getLocale } from '../i18n/index.js';
 import HousePlan from './HousePlan.jsx';
 import HistoryChart from '../history-chart.jsx';
 import HistoryPage from '../history-page.jsx';
@@ -12,6 +11,7 @@ import DevicePage from '../device.jsx';
 import SettingsPage from '../settings.jsx';
 import { VentilationPage } from '../ventilation.jsx';
 import { Empty, Button } from '../ui.jsx';
+import GeneralSettings from '../general-settings.jsx';
 import DhwCycles from './dhw-cycles.jsx';
 const EnergyPage = lazy(() => import('./energy.jsx'));
 const HeatingCurvePage = lazy(() => import('./curve.jsx'));
@@ -475,31 +475,8 @@ function LegionellaPanel({ notify }) {
   </section>;
 }
 
-function LanguageMenu() {
-  const locale = useLocale();
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = e => { if (!ref.current?.contains(e.target)) setOpen(false); };
-    const esc = e => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
-  }, [open]);
-  return <div className="nx-lang" ref={ref}>
-    <button type="button" className="nx-lang-btn" aria-haspopup="menu" aria-expanded={open} aria-label={t('settings.language.title')} title={t('settings.language.title')} onClick={() => setOpen(!open)}>
-      <Globe size={16}/><span>{locale.toUpperCase()}</span><ChevronDown size={13}/>
-    </button>
-    {open && <div className="nx-menu nx-lang-menu" role="menu">
-      {LOCALES.map(([code, label]) => <button key={code} type="button" role="menuitemradio" aria-checked={locale === code} className={locale === code ? 'active' : ''} onClick={() => { setLocale(code); setOpen(false); }}>{label}{locale === code && <Check size={14}/>}</button>)}
-    </div>}
-  </div>;
-}
-
 export default function NextUI({ ctx }) {
-  const { page, navigate, status, systems, selection, setSelection, device, model, system, activeNotices, errors, loading, refreshing, lastFetch, online, stale, theme, setTheme, setUi, shared, rawCount } = ctx;
-  const locale = useLocale();
+  const { page, navigate, status, systems, selection, setSelection, device, model, system, activeNotices, errors, loading, refreshing, lastFetch, online, stale, theme, themeChoice, setThemeChoice, musicHidden, setMusicHidden, setUi, shared, rawCount } = ctx;
   const [more, setMore] = useState(false);
   const moreRef = useRef(null);
   useEffect(() => {
@@ -528,7 +505,7 @@ export default function NextUI({ ctx }) {
     {page === 'alarms' && <><AlarmsPage systemId={system?.systemId} tick={ctx.tick}/><PlanNotes ctx={ctx}/></>}
     {page === 'analysis' && <ErrorAnalysis ctx={ctx}/>}
     {page === 'device' && <DevicePage {...shared} firmware={ctx.firmware} aid={ctx.aid} subscriptions={ctx.subscriptions}/>}
-    {page === 'settings' && <SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} weather={ctx.weather} lux={ctx.lux}/>}
+    {page === 'settings' && <SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} themeChoice={themeChoice} setThemeChoice={setThemeChoice} musicHidden={musicHidden} setMusicHidden={setMusicHidden} weather={ctx.weather} lux={ctx.lux}/>}
   </>;
   return <div className="nx" data-page={page}>
     <header className="nx-top">
@@ -544,10 +521,8 @@ export default function NextUI({ ctx }) {
         {systems.length > 1 && <select aria-label={t('shell.selectPump')} value={selection} onChange={e => setSelection(e.target.value)}>{systems.flatMap(s => (s.devices || []).map(d => <option key={d.id} value={d.id}>{s.name} · {d.product?.name}</option>))}</select>}
         <span className={`nx-status ${online && !stale ? 'ok' : 'warn'}`}><i/>{online ? stale ? t('shell.stale') : t('shell.online') : t('shell.offline')}</span>
         <button type="button" className="nx-icon" aria-label={t('shell.refresh')} onClick={() => selection ? ctx.refresh() : ctx.bootstrap()}><RefreshCw size={17} className={refreshing ? 'spin' : ''}/></button>
-        <button type="button" className="nx-icon" aria-label={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')} aria-pressed={theme === 'dark'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={17}/> : <Moon size={17}/>}</button>
-        <button type="button" className="nx-icon" aria-label={t('shell.classic')} title={t('shell.classicTitle')} onClick={() => setUi('classic')}><LayoutTemplate size={17}/></button>
+        <GeneralSettings themeChoice={themeChoice} setThemeChoice={setThemeChoice} ui="next" setUi={setUi} musicHidden={musicHidden} setMusicHidden={setMusicHidden}/>
         <button type="button" className="nx-icon bell" aria-label={t('shell.notifications')} onClick={() => go('alarms')}><Bell size={17}/>{activeNotices.length > 0 && <i/>}</button>
-<LanguageMenu/>
       </div>
     </header>
     <main className="nx-main" id="main">

@@ -40,7 +40,16 @@ Repos on `Dockerfile` ja `deploy/docker-compose.yml` (Soojus, Mosquitto, Node-RE
 
 ## Liides
 
-Rakendusel on kaks liidest, mille vahel saab valida: **Klassikaline** (külgriba, kaardid) ja **Uus · Kodu-plaan** (maja lõige, kus näidud on paigutatud seadmete juurde, ja viimase 24 tunni kokkuvõte). Vaheta seadetes (*Seaded ja ühendus → Liides*) või ülemise riba ikooniga; valik salvestub brauserisse. Aadress `?ui=next` või `?ui=classic` valib liidese otse. Mõlemad kasutavad samu andmeid, dialooge ja graafikuid; uus liides on `src/next/` kaustas ja laetakse alles siis, kui see valitakse. Uue liidese värvipalett genereeritakse käsuga `python3 scripts/make-next-palette.py`.
+Rakendusel on kaks liidest, mille vahel saab valida: **Klassikaline** (külgriba, kaardid) ja **Uus · Kodu-plaan** (maja lõige, kus näidud on paigutatud seadmete juurde, ja viimase 24 tunni kokkuvõte). Vaheta ülariba **Üldseaded** menüüst või seadetes (*Seaded ja ühendus → Liides*); valik salvestub brauserisse. Aadress `?ui=next` või `?ui=classic` valib liidese otse. Mõlemad kasutavad samu andmeid, dialooge ja graafikuid; uus liides on `src/next/` kaustas ja laetakse alles siis, kui see valitakse. Uue liidese värvipalett genereeritakse käsuga `python3 scripts/make-next-palette.py`.
+
+### Üldseaded
+
+Mõlema liidese ülariba hammasratta nupp (**Üldseaded**) avab väikese menüü, kus saab valida teema, keele, liidese ja muusikamängija nähtavuse. Kõik valikud salvestuvad brauserisse ja kehtivad kohe:
+
+- **Teema:** *Hele*, *Tume* või *Süsteem*. Süsteemi valik järgib arvuti või telefoni heledat/tumedat režiimi ka siis, kui see muutub; see on ka vaikimisi valik.
+- **Keel:** *Eesti* või *English* (sama, mis seadete lehel).
+- **Liides:** *Klassikaline* või *Uus · Kodu-plaan*.
+- **Muusikamängija:** kui lüliti välja võtta, kaob muusikanupp Elava kodu lehelt (ja Kodu lehe sisse ehitatud vaatest) ning pooleli olev muusika peatub. Uuesti sisse lülitades tuleb nupp tagasi ja muusika algab algusest.
 
 ### Elav kodu
 
@@ -60,7 +69,7 @@ Elutoas elab kass (`src/next/live/cat.js`): ta magab, istub ja vaatab ringi, rin
 
 #### Muusika ja heliefektid
 
-Pildi all olev *Muusika* nupp lülitab sisse rahuliku taustamuusika. Nupu kõrval on eelmise ja järgmise loo nupp, paus/jätka nupp (lugu jätkub samast kohast; *Muusika* nupp peatab täielikult ja järgmine käivitus algab algusest), esitusrežiimi nupp (ühe loo kordamine või kõik lood järjest), loovalik ja helitugevuse liugur; lugude vahetus toimub sujuva üleminekuga. Muusika seis jääb brauseris meelde (kas muusika oli sees, kas oli pausil, lugu, koht loos, režiim ja helitugevus) ning on kogu rakenduse peale ühine: Kodu ja Elava kodu lehe vahel liikudes muusika ei katke, lehtedel ilma muusikanupata jääb see pausile ja jätkub samast kohast. Lehe uuesti laadimisel jätkub sees olnud muusika varasemast kohast; brauser lubab heli alustada alles pärast esimest klõpsu või klahvivajutust, seni näitab nupp *Klõpsa lehel*. Pausil olnud muusika ei hakka ise mängima.
+Pildi all olev *Muusika* nupp lülitab sisse rahuliku taustamuusika. Kui muusikat ei soovi, saab nupu **Üldseaded → Muusikamängija** lülitiga ekraanilt täielikult peita (vt [Üldseaded](#üldseaded)). Nupu kõrval on eelmise ja järgmise loo nupp, paus/jätka nupp (lugu jätkub samast kohast; *Muusika* nupp peatab täielikult ja järgmine käivitus algab algusest), esitusrežiimi nupp (ühe loo kordamine või kõik lood järjest), loovalik ja helitugevuse liugur; lugude vahetus toimub sujuva üleminekuga. Muusika seis jääb brauseris meelde (kas muusika oli sees, kas oli pausil, lugu, koht loos, režiim ja helitugevus) ning on kogu rakenduse peale ühine: Kodu ja Elava kodu lehe vahel liikudes muusika ei katke, lehtedel ilma muusikanupata jääb see pausile ja jätkub samast kohast. Lehe uuesti laadimisel jätkub sees olnud muusika varasemast kohast; brauser lubab heli alustada alles pärast esimest klõpsu või klahvivajutust, seni näitab nupp *Klõpsa lehel*. Pausil olnud muusika ei hakka ise mängima.
 
 Kaasas on üks sünteesitud lugu: *Hubane lounge* (60 sekundit, pausita silmus). Lood genereerib `python3 scripts/make-music.py` (numpy, scipy, ffmpeg) kausta `public/audio/`; skriptis on viis lugu (*Hubane lounge*, *Pehme jazz*, *Õhtune rahu*, *Kitarriõhtu* ja *Pühapäeva hommik*), helid on täielikult sünteesitud, seega autoriõigusi pole. Kaasas olevate lugude nimekiri ja URL-id on failis `src/next/live/ambience.js` (`TRACKS`) — uue sisse ehitatud loo lisamiseks lisa see skripti `SONGS` nimekirja, genereeri fail ja lisa kirje `TRACKS`-i.
 
@@ -114,7 +123,7 @@ Ajaloo lehel on ventilatsiooni näidud soojuspumba omadega samas valijas: sama �
 - Püsivara versioonid ja fail, tellimused, seadme võimekused, abirežiimi olek.
 - Serveripoolne sisendite ja skaleerimise kontroll; muudatuste audit; osaliste vigade käsitlus.
 - Mobiilivaade, klaviatuuriga kasutatavad dialoogid, reduced-motion tugi, kohalikud fondid.
-- Hele ja tume teema ühe klõpsuga; valik salvestub ja esmakordsel avamisel järgitakse seadme eelistust.
+- Hele, tume või süsteemiteema; keel, liides ja muusikamängija nähtavus on ühes **Üldseaded** menüüs, valikud salvestuvad brauserisse.
 
 ## Varukoopia ja taastamine
 

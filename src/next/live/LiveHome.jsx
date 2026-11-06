@@ -26,6 +26,8 @@ export default function LiveHome({ ctx, embedded = false }) {
   const stageRef = useRef(null), viewRef = useRef(null), canvasRef = useRef(null), sceneRef = useRef(null), hideTimer = useRef(0);
   const [size, setSize] = useState({ w: 0, h: 0 }), [hot, setHot] = useState(null);
   const [demo, setDemo] = useState('off'), [weatherDemo, setWeatherDemo] = useState('off'), [showLoc, setShowLoc] = useState(false), [hour, setHour] = useState(null), [full, setFull] = useState(false), [idle, setIdle] = useState(false), [clock, setClock] = useState(() => new Date());
+  // Üldseadetes peidetud muusikamängija: peata ka pooleli olev muusika, et see ei jääks nähtamatuks taustaks.
+  useEffect(() => { if (ctx.musicHidden) getAmbience().stop(); }, [ctx.musicHidden]);
   useEffect(() => { const timer = setInterval(() => setClock(new Date()), 15000); return () => clearInterval(timer); }, []);
   const vent = ctx.airobot?.view?.configured ? ctx.airobot.view : null;
   const forecast = ctx.weather?.view?.weather ?? null, place = ctx.weather?.place ?? null;
@@ -160,7 +162,7 @@ export default function LiveHome({ ctx, embedded = false }) {
         <button type="button" className="live-loc" onClick={() => setShowLoc(!showLoc)} aria-expanded={showLoc}><MapPin size={14}/>{live.place.name}</button>
         </>}
         {embedded && <button type="button" className="live-loc" onClick={() => ctx.navigate('live')}><Sparkles size={14}/>{tr('live.demo')}</button>}
-        <SoundControl/>
+        {!ctx.musicHidden && <SoundControl/>}
         <button type="button" className="live-full" onClick={toggleFull} aria-label={full ? tr('live.exitFullscreen') : tr('live.fullscreen')} title={full ? tr('live.exitFullscreen') : tr('live.fullscreen')}>{full ? <Minimize2 size={17}/> : <Maximize2 size={17}/>}</button>
       </div>
       </div>

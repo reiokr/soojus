@@ -62,6 +62,13 @@ export default {
     footerLast: 'last request',
     footerServer: 'server-side connection'
   },
+  prefs: {
+    button: 'General settings', title: 'General settings', close: 'Close general settings',
+    theme: 'Theme', themeAuto: 'System', themeLight: 'Light', themeDark: 'Dark',
+    language: 'Language', interface: 'Interface',
+    music: 'Music player', musicShow: 'Show music player',
+    musicHint: 'When off, the music button is hidden on the Live home page and music stops.'
+  },
   overview: {
     allgood: 'No alarms, data is up to date.',
     offline: 'The heat pump is offline.',

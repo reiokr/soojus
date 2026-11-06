@@ -62,6 +62,13 @@ export default {
     footerLast: 'viimane päring',
     footerServer: 'serveripoolne ühendus'
   },
+  prefs: {
+    button: 'Üldseaded', title: 'Üldseaded', close: 'Sulge üldseaded',
+    theme: 'Teema', themeAuto: 'Süsteem', themeLight: 'Hele', themeDark: 'Tume',
+    language: 'Keel', interface: 'Liides',
+    music: 'Muusikamängija', musicShow: 'Näita muusikamängijat',
+    musicHint: 'Kui väljas, on muusikanupp Elava kodu lehelt peidetud ja muusika peatub.'
+  },
   overview: {
     allgood: 'Häireid ei ole, andmed on värsked.',
     offline: 'Soojuspump on võrguühenduseta.',
