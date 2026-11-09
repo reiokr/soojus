@@ -21,6 +21,7 @@ import { createLogger } from './log.js';
 import { BACKUP_KEY, BackupError, applyPendingRestore, backupFile, createBackup, deleteBackup, listBackups, parseBackupSettings, runNightlyBackup, saveUpload, stageRestore, validateBackup } from './backup.js';
 import { advanceNext, beginRun, defaultLegionella, endRun, legionellaAction, legionellaPoke, legionellaPlateau, legionellaStop, normalizeLegionella, shiftAfterManual, WEEKDAY_NAMES } from './legionella.js';
 import { ANALYSIS_PARAMS, MODE_NAMES, errorWindow, mean } from './analysis.js';
+import { createRecentWrites } from './recent-writes.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT || 3210);
@@ -217,6 +218,7 @@ async function historyDevice(id) {
 }
 // Viimane hea myUplinki vastus: kui pilv ei vasta, saab otseandmeid sellele peale kanda ja pump töötab edasi.
 const lastGood = new Map(); let snapshotSavedAt = 0, rememberedPump = null, upstreamProblem = null;
+const recentWrites = createRecentWrites();
 function rememberPoints(id, data) {
   lastGood.set(id, data);
   if (Date.now() - snapshotSavedAt > 600000) { snapshotSavedAt = Date.now(); setSetting('pointsSnapshot', { id, at: new Date().toISOString(), data }); }
@@ -241,6 +243,8 @@ async function fetchPoints(id, force = false) {
     data = snapshot; fromSnapshot = true; upstreamProblem = e.message;
   }
   if (isUsable(luxState)) data = overlayDirect(data, luxState.data, luxState.recordTime, { powerSource: powerChoice.source }).points;
+  // Pilv võib kirjutuse järel hetk aega vana väärtust näidata – näita seni kirjutatut.
+  data = recentWrites.apply(id, data);
   record(id, fromSnapshot ? data.filter(p => p.source === 'direct') : data);
   return data;
 }
@@ -252,7 +256,8 @@ async function points(id, force = false) {
     const snapshot = snapshotFor(id);
     if (snapshot) {
       fetchPoints(id).catch(() => {});
-      return isUsable(luxState) ? overlayDirect(snapshot, luxState.data, luxState.recordTime, { powerSource: powerChoice.source }).points : snapshot;
+      const data = isUsable(luxState) ? overlayDirect(snapshot, luxState.data, luxState.recordTime, { powerSource: powerChoice.source }).points : snapshot;
+      return recentWrites.apply(id, data);
     }
   }
   return fetchPoints(id, force);
@@ -319,6 +324,10 @@ async function applyPointPatch(id, body) {
   }
   if (Object.keys(patch).length) Object.assign(result, await upstream(`/v2/devices/${enc(id)}/points`, { method: 'PATCH', body: JSON.stringify(patch) }));
   const results = pointResults(result, Object.keys(body));
+  // Järgmine GET ei tohi näidata kirjutuseelset snapshotti ega pilve hilinenud väärtust.
+  const written = {};
+  for (const item of results) if (item.success) written[item.id] = body[item.id];
+  if (Object.keys(written).length) recentWrites.record(id, written);
   cache.delete(`/v2/devices/${enc(id)}/points`);
   return { results, allModified: results.every(x => x.success) };
 }
@@ -454,7 +463,11 @@ app.get('/api/heating-curve', async (req, res) => {
     AVG(CASE WHEN point='70' THEN value END) AS compressor
     FROM samples WHERE device=? AND time>=? AND time<? AND point IN ('0','1','2','5','70')
     GROUP BY CAST(unixepoch(time)/? AS INTEGER) ORDER BY time`).all(bucket, bucket, device, from.toISOString(), to.toISOString(), bucket);
-  const last = id => db.prepare('SELECT value FROM samples WHERE device=? AND point=? ORDER BY time DESC LIMIT 1').get(device, id)?.value ?? null;
+  // Värske kirjutus (nt kütte nihe) peab jõudma vastusesse enne järgmist 60 s mõõtmist.
+  const last = id => {
+    const written = recentWrites.get(device, id);
+    return written != null && Number.isFinite(Number(written)) ? Number(written) : db.prepare('SELECT value FROM samples WHERE device=? AND point=? ORDER BY time DESC LIMIT 1').get(device, id)?.value ?? null;
+  };
   const latest = { outdoor: last('5'), target: last('2'), return: last('1'), supply: last('0'), offset: last('5001'), limit: last('5700'), compressor: last('70') };
   res.json({ from: from.toISOString(), to: to.toISOString(), days, ...buildHeatingCurve(rows), latest });
 });
