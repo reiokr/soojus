@@ -260,6 +260,7 @@ export default {
   control: {
     brineIn: 'Soojakandja maast', brineOut: 'Soojakandja maasse', hotGas: 'Kuumgaas', indoorTemp: 'Sisetemperatuur (ventilatsioon)', outdoorTemp: 'Välisõhk ({source})', sourcePump: 'soojuspump', sourceVent: 'ventilatsioon', heatingUp: 'kuumeneb', legionellaTarget: 'legionella siht', setpoint: 'sihtväärtus',
     readings: 'Näidud', deviceReadings: 'Seadme raporteeritud väärtused', settings: 'Seadistused', editable: '{count} muudetavat',
+    settingsOpenHint: 'Muudatus kehtib kohe ja salvestub seadmesse.', settingsClosedHint: 'Vajuta, et avada.',
     homeMode: 'Kodurežiim', homeModeHint: 'Kogu kodu režiim', edit: 'Muuda', editAria: 'Muuda: {label}', editHomeAria: 'Muuda kodurežiimi',
     zoneOnlyCommands: 'Ainult käsklused', zoneNow: 'Hetkel {temp}', zoneSetpoint: 'siht {temp} °', editZoneAria: 'Tsooni seadistused: {name}',
     noSettings: 'Selles valdkonnas ei paku seade avaliku API kaudu muudetavaid seadistusi.', zonesError: 'Tsoonid: {error}'

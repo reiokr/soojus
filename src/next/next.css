@@ -764,8 +764,7 @@ button.nx-pill:hover {
 .nx-split {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  grid-template-areas: "plan set" "read set";
-  grid-template-rows: auto 1fr;
+  grid-template-areas: "plan read";
   gap: 22px;
   align-items: start;
 }
@@ -775,11 +774,58 @@ button.nx-pill:hover {
 .nx-a-read {
   grid-area: read;
 }
-.nx-a-set {
-  grid-area: set;
-}
 .nx-split .nx-panel {
   margin-bottom: 22px;
+}
+
+/* Kokkuklapitavad seadistused (Küte, Tarbevesi) */
+.nx-settings-panel {
+  padding: 0;
+}
+.nx-collapse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 22px;
+  background: transparent;
+  color: var(--nx-ink);
+  text-align: left;
+  border-radius: inherit;
+}
+.nx-collapse-toggle:hover {
+  background: color-mix(in srgb, var(--nx-line) 30%, transparent);
+}
+.nx-collapse-toggle b {
+  display: block;
+  font: 700 16px "Plus Jakarta Sans", sans-serif;
+}
+.nx-collapse-toggle small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.nx-collapse-toggle svg {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.nx-settings-panel.open .nx-collapse-toggle svg {
+  transform: rotate(180deg);
+}
+.nx-collapse-body {
+  padding: 4px 22px 10px;
+  border-top: 1px solid var(--nx-line);
+}
+@media (max-width: 700px) {
+  .nx-collapse-toggle {
+    padding: 16px;
+  }
+  .nx-collapse-body {
+    padding: 4px 16px 8px;
+  }
 }
 .nx-rows {
   list-style: none;
@@ -1060,7 +1106,7 @@ html[data-ui="next"] .nx-liide .segmented {
 }
 @media (max-width: 980px) {
   .nx-split {
-    grid-template-areas: "plan" "set" "read";
+    grid-template-areas: "plan" "read";
     grid-template-rows: auto;
   }
   .nx-hero,

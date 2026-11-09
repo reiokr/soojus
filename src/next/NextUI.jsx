@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, Clock3, Droplets, History, Link2, MoreHorizontal, Monitor, Pencil, RefreshCw, Settings2, SlidersHorizontal, Thermometer, LayoutDashboard, Waves, Flame, Timer, Repeat2, ArrowUpDown, Fan, Sparkles, ChartLine } from 'lucide-react';
+import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, ChevronDown, Clock3, Droplets, History, Link2, MoreHorizontal, Monitor, Pencil, RefreshCw, Settings2, SlidersHorizontal, Thermometer, LayoutDashboard, Waves, Flame, Timer, Repeat2, ArrowUpDown, Fan, Sparkles, ChartLine } from 'lucide-react';
 import { api, number, tempStep, tempText, tempUnit, tempValue, time, enumText, timeTicks } from '../lib.js';
 import { t, getLocale } from '../i18n/index.js';
 import HousePlan from './HousePlan.jsx';
@@ -348,6 +348,8 @@ function Control({ ctx, water }) {
   const { points, zones, online, setEditing, categories, mode, errors, m } = ctx;
   // Legionella programmi seis: kui kuumutus parasjagu käib, näitame seda ka "Näidud" kaartidel.
   const [leg, setLeg] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsBodyId = water ? 'nx-water-settings' : 'nx-heat-settings';
   useEffect(() => {
     if (!water) return undefined;
     let live = true;
@@ -395,8 +397,17 @@ function Control({ ctx, water }) {
         <HousePlan view={water ? 'water' : 'heat'} {...m} state={state} onOpen={ctx.navigate}/>
       </section>
       {(readings.length > 0 || extra.length > 0) && <section className="nx-panel nx-a-read"><div className="nx-panel-head"><h2>{t('control.readings')}</h2><span className="nx-muted">{t('control.deviceReadings')}</span></div><div className="nx-tiles">{extra.map(e => <div key={e.label} className={`nx-tile ${e.quality?.key || ''}`}><small>{e.label}</small><b>{e.value}</b>{e.quality && <span className="nx-tile-state">{e.quality.label}</span>}<em>{t('overview.now')}</em></div>)}{readings.map(p => <Tile key={p.parameterId} point={p} quality={qById[p.parameterId]}/>)}</div></section>}
-      <section className="nx-panel nx-a-set">
-        <div className="nx-panel-head"><h2>{t('control.settings')}</h2><span className="nx-muted">{t('control.editable', { count: writable.length + waterZones.length + (!water && categories['sh-smartMode'] ? 1 : 0) })}</span></div>
+    </div>
+    {!water && <SystemDiagnostics ctx={ctx} m={m} state={state}/>}
+    {water && <LegionellaPanel notify={ctx.notify}/>}
+    <Trend ctx={ctx} initial={water ? 'water' : 'heat'}/>
+    {water && <DhwCycles ctx={ctx}/>}
+    <section className={`nx-panel nx-settings-panel ${settingsOpen ? 'open' : ''}`}>
+      <button type="button" className="nx-collapse-toggle" aria-expanded={settingsOpen} aria-controls={settingsBodyId} onClick={() => setSettingsOpen(!settingsOpen)}>
+        <span><b>{t('control.settings')}</b><small>{settingsOpen ? t('control.settingsOpenHint') : t('control.settingsClosedHint')}</small></span>
+        <ChevronDown size={20}/>
+      </button>
+      {settingsOpen && <div className="nx-collapse-body" id={settingsBodyId}>
         <ul className="nx-rows">
           {writable.map(p => <li key={p.parameterId}><div><b>{p.label}</b><small>{hintText(p)}</small></div><strong>{valueText(p)}</strong><button type="button" className="nx-edit" disabled={!online} onClick={() => setEditing({ type: 'point', point: p })} aria-label={t('control.editAria', { label: p.label })}><Pencil size={15}/>{t('control.edit')}</button></li>)}
           {!water && categories['sh-smartMode'] && <li><div><b>{t('control.homeMode')}</b><small>{t('control.homeModeHint')}</small></div><strong>{enumText(mode)}</strong><button type="button" className="nx-edit" disabled={!online} onClick={() => setEditing({ type: 'mode', mode })} aria-label={t('control.editHomeAria')}><Pencil size={15}/>{t('control.edit')}</button></li>}
@@ -404,12 +415,8 @@ function Control({ ctx, water }) {
         </ul>
         {!writable.length && !waterZones.length && <p className="nx-muted">{t('control.noSettings')}</p>}
         {water && errors.zones && <p className="nx-warn"><AlertCircle size={15}/>{t('control.zonesError', { error: errors.zones })}</p>}
-      </section>
-    </div>
-    {!water && <SystemDiagnostics ctx={ctx} m={m} state={state}/>}
-    {water && <LegionellaPanel notify={ctx.notify}/>}
-    <Trend ctx={ctx} initial={water ? 'water' : 'heat'}/>
-    {water && <DhwCycles ctx={ctx}/>}
+      </div>}
+    </section>
   </>;
 }
 

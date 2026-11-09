@@ -260,6 +260,7 @@ export default {
   control: {
     brineIn: 'Brine from ground', brineOut: 'Brine to ground', hotGas: 'Hot gas', indoorTemp: 'Indoor temperature (ventilation)', outdoorTemp: 'Outdoor air ({source})', sourcePump: 'heat pump', sourceVent: 'ventilation', heatingUp: 'heating up', legionellaTarget: 'legionella target', setpoint: 'setpoint',
     readings: 'Readings', deviceReadings: 'Reported by the device', settings: 'Settings', editable: '{count} editable',
+    settingsOpenHint: 'Changes apply immediately and are saved to the device.', settingsClosedHint: 'Tap to open.',
     homeMode: 'Home mode', homeModeHint: 'Whole-home mode', edit: 'Edit', editAria: 'Edit: {label}', editHomeAria: 'Edit home mode',
     zoneOnlyCommands: 'Commands only', zoneNow: 'Currently {temp}', zoneSetpoint: 'target {temp} °', editZoneAria: 'Zone settings: {name}',
     noSettings: 'The device does not expose any editable settings for this area through the public API.', zonesError: 'Zones: {error}'
