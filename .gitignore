@@ -5,3 +5,7 @@ data/
 *.log
 test-results/
 playwright-report/
+deploy/nodered/settings.js
+deploy/nodered-admin-password.txt
+deploy/mosquitto/passwd
+deploy/mosquitto/.ha-password

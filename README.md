@@ -30,7 +30,7 @@ Teenus on lubatud (`enable`) ja taaskäivitub vea korral. Kasutajal on
 
 ### Docker ja kodune server
 
-Repos on `Dockerfile` ja `deploy/docker-compose.yml` (Soojus, Mosquitto, Node-RED, AdGuard). Serveri juurutus Proxmoxiga: [docs/proxmox.md](docs/proxmox.md). Konteineris kuulab server aadressil `HOST` (vaikimisi `127.0.0.1`).
+Repos on `Dockerfile` ja `deploy/docker-compose.yml` (Soojus, Mosquitto, Node-RED, AdGuard). Serveri tegelik juurutus ja haldus: [docs/server.md](docs/server.md). Algne plaan: [docs/proxmox.md](docs/proxmox.md). Konteineris kuulab server aadressil `HOST` (vaikimisi `127.0.0.1`).
 
 ### Töölaua ikoon
 

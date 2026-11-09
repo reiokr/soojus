@@ -35,14 +35,15 @@ services:
       - "1880:1880"
     volumes:
       - nodered-data:/data
+      - ./nodered/settings.js:/data/settings.js:ro
 
   adguard:
     image: adguard/adguardhome:latest
     container_name: adguard
     restart: unless-stopped
     ports:
-      - "53:53/tcp"
-      - "53:53/udp"
+      - "192.168.100.67:53:53/tcp"
+      - "192.168.100.67:53:53/udp"
       - "3000:3000/tcp"
       - "8081:80/tcp"
     volumes:

@@ -14,6 +14,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY server ./server
 COPY src/weather-logic.js ./src/weather-logic.js
+COPY src/i18n ./src/i18n
 COPY --from=build /app/dist ./dist
 RUN mkdir -p /app/data && chown node:node /app/data
 USER node
