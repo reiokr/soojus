@@ -399,9 +399,9 @@ function Control({ ctx, water }) {
       {(readings.length > 0 || extra.length > 0) && <section className="nx-panel nx-a-read"><div className="nx-panel-head"><h2>{t('control.readings')}</h2><span className="nx-muted">{t('control.deviceReadings')}</span></div><div className="nx-tiles">{extra.map(e => <div key={e.label} className={`nx-tile ${e.quality?.key || ''}`}><small>{e.label}</small><b>{e.value}</b>{e.quality && <span className="nx-tile-state">{e.quality.label}</span>}<em>{t('overview.now')}</em></div>)}{readings.map(p => <Tile key={p.parameterId} point={p} quality={qById[p.parameterId]}/>)}</div></section>}
     </div>
     {!water && <SystemDiagnostics ctx={ctx} m={m} state={state}/>}
-    {water && <LegionellaPanel notify={ctx.notify}/>}
     <Trend ctx={ctx} initial={water ? 'water' : 'heat'}/>
-    <section className={`nx-panel nx-settings-panel ${settingsOpen ? 'open' : ''}`}>
+    {water && <LegionellaPanel notify={ctx.notify}/>}
+    <section className={`nx-panel nx-settings-panel nx-collapse-panel ${settingsOpen ? 'open' : ''}`}>
       <button type="button" className="nx-collapse-toggle" aria-expanded={settingsOpen} aria-controls={settingsBodyId} onClick={() => setSettingsOpen(!settingsOpen)}>
         <span><b>{t('control.settings')}</b><small>{settingsOpen ? t('control.settingsOpenHint') : t('control.settingsClosedHint')}</small></span>
         <ChevronDown size={20}/>
@@ -430,7 +430,7 @@ const lgWhen = iso => { const d = new Date(iso); return Number.isFinite(d.getTim
 const lgPick = c => ({ enabled: c.enabled, weeks: c.weeks, weekday: c.weekday, time: c.time, target: c.target, durationMin: c.durationMin });
 
 function LegionellaPanel({ notify }) {
-  const [cfg, setCfg] = useState(null), [draft, setDraft] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState(null);
+  const [cfg, setCfg] = useState(null), [draft, setDraft] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState(null), [open, setOpen] = useState(false);
   const dirtyRef = useRef(false);
   const apply = c => { dirtyRef.current = false; setCfg(c); setDraft(lgPick(c)); };
   // Värskendame seisu minutiga (kas programm parasjagu töötab), aga ei kirjuta üle pooleli olevat muudatust.
@@ -450,20 +450,24 @@ function LegionellaPanel({ notify }) {
     catch (e) { setError(e.message); } finally { setBusy(false); }
   };
   const runNow = async () => {
-    const t = number(draft.target, 1);
-    if (!window.confirm(t('legionella.confirm', { target: t }))) return;
+    const target = number(draft.target, 1);
+    if (!window.confirm(t('legionella.confirm', { target }))) return;
     setBusy(true); setError(null);
     try {
       // Kui väljad on muudetud, salvesta enne – muidu kuumutaks vanade väärtustega.
       if (changed) { const saved = await api('/legionella', { method: 'POST', body: JSON.stringify(draft) }); dirtyRef.current = false; setCfg(saved); }
       apply(await api('/legionella/run', { method: 'POST', body: '{}' }));
-      notify?.(t('legionella.started', { target: t }));
+      notify?.(t('legionella.started', { target }));
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
   const running = cfg.running;
   const status = running ? t('legionella.running', { time: lgWhen(running.endsAt) }) : cfg.enabled && cfg.nextRun ? t('legionella.next', { time: lgWhen(cfg.nextRun) }) : t('legionella.currentlyOff');
-  return <section className="nx-panel nx-legionella">
-    <div className="nx-panel-head"><h2>{t('legionella.title')}</h2><span className="nx-muted">{t('legionella.hint')}</span></div>
+  return <section className={`nx-panel nx-legionella nx-collapse-panel ${open ? 'open' : ''}`}>
+    <button type="button" className="nx-collapse-toggle" aria-expanded={open} aria-controls="nx-legionella-body" onClick={() => setOpen(!open)}>
+      <span><b>{t('legionella.title')}</b><small>{open ? t('legionella.hint') : status}</small></span>
+      <ChevronDown size={20}/>
+    </button>
+    {open && <div className="nx-collapse-body" id="nx-legionella-body">
     <div className="lg-row">
       <div className="segmented" role="group" aria-label={t('legionella.interval')}>
         <button type="button" className={!draft.enabled ? 'selected' : ''} aria-pressed={!draft.enabled} onClick={() => set({ enabled: false })}>{t('legionella.off')}</button>
@@ -479,6 +483,7 @@ function LegionellaPanel({ notify }) {
     <p className="lg-status"><b>{status}</b>{cfg.lastRun && <> · {t('legionella.last', { time: lgWhen(cfg.lastRun) })}{cfg.lastMaxTemp != null ? t('legionella.max', { value: number(tempValue(cfg.lastMaxTemp), 1), unit: tempUnit() }) : ''}</>}{running?.maxTemp != null && t('legionella.now', { value: number(tempValue(running.maxTemp), 1), unit: tempUnit() })}</p>
     {cfg.lastError && <p className="nx-warn"><AlertCircle size={15}/>{t('legionella.failed', { error: cfg.lastError })}</p>}
     {error && <p className="nx-warn"><AlertCircle size={15}/>{error}</p>}
+    </div>}
   </section>;
 }
 

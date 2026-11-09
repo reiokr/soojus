@@ -778,8 +778,8 @@ button.nx-pill:hover {
   margin-bottom: 22px;
 }
 
-/* Kokkuklapitavad seadistused (Küte, Tarbevesi) */
-.nx-settings-panel {
+/* Kokkuklapitavad seadistused (Küte, Tarbevesi, Legionella) */
+.nx-collapse-panel {
   padding: 0;
 }
 .nx-collapse-toggle {
@@ -812,7 +812,7 @@ button.nx-pill:hover {
   color: var(--muted);
   transition: transform 0.15s;
 }
-.nx-settings-panel.open .nx-collapse-toggle svg {
+.nx-collapse-panel.open .nx-collapse-toggle svg {
   transform: rotate(180deg);
 }
 .nx-collapse-body {
