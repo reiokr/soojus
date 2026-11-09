@@ -401,7 +401,6 @@ function Control({ ctx, water }) {
     {!water && <SystemDiagnostics ctx={ctx} m={m} state={state}/>}
     {water && <LegionellaPanel notify={ctx.notify}/>}
     <Trend ctx={ctx} initial={water ? 'water' : 'heat'}/>
-    {water && <DhwCycles ctx={ctx}/>}
     <section className={`nx-panel nx-settings-panel ${settingsOpen ? 'open' : ''}`}>
       <button type="button" className="nx-collapse-toggle" aria-expanded={settingsOpen} aria-controls={settingsBodyId} onClick={() => setSettingsOpen(!settingsOpen)}>
         <span><b>{t('control.settings')}</b><small>{settingsOpen ? t('control.settingsOpenHint') : t('control.settingsClosedHint')}</small></span>
@@ -417,6 +416,7 @@ function Control({ ctx, water }) {
         {water && errors.zones && <p className="nx-warn"><AlertCircle size={15}/>{t('control.zonesError', { error: errors.zones })}</p>}
       </div>}
     </section>
+    {water && <DhwCycles ctx={ctx}/>}
   </>;
 }
 
