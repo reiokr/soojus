@@ -1,14 +1,14 @@
 import express from 'express';
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, chmodSync, readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
-import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
+import { mkdirSync, chmodSync, readdirSync, readFileSync, existsSync, statSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
+import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readLuxtronik, luxValues, errorName, LUX_ID, LUX_MAP, overlayDirect, verifyMapping, isUsable, votePower, updatePowerChoice } from './luxtronik.js';
 import { createWeather, searchPlaces, WeatherError } from './weather.js';
 import { validatePlace, DEFAULT_PLACE } from '../src/weather-logic.js';
 import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, effectiveMode, MODE_TEXT, parseControl, applyControl, parseSettings, applySettings, ControlError } from './airobot.js';
-import { listAudio } from './audio.js';
+import { listAudio, audioFileName, uniqueAudioName, AUDIO_EXT } from './audio.js';
 import { AppError, validatePoint, validateZone, pointResults, csvCell } from './domain.js';
 import { createStore, RETENTION_DAYS, ARCHIVE_MIN_AGE_DAYS, DAY_MS } from './store.js';
 import { energyReport, MAX_DAYS } from './energy.js';
@@ -33,6 +33,11 @@ const logger = createLogger({ dir: path.join(dataDir, 'logs') });
 try { chmodSync(path.join(root, '.env'), 0o600); } catch {}
 const dbFile = path.join(dataDir, 'soojus.sqlite');
 const backupDir = path.join(dataDir, 'backups');
+// Kasutaja üleslaaditud muusika: data-kataloogis, seega jääb alles ka konteineri uuendamisel.
+const userAudioDir = path.join(dataDir, 'audio');
+mkdirSync(userAudioDir, { recursive: true, mode: 0o700 });
+const audioDir = () => path.join(root, process.argv.includes('--production') ? 'dist/audio' : 'public/audio');
+const MAX_AUDIO_FILE = 40 * 1024 * 1024, MAX_AUDIO_TOTAL = 1024 * 1024 * 1024;
 // Taaste rakendatakse enne andmebaasi avamist; nii ei jää pooleldi asendatud baasi.
 try {
   const restored = applyPendingRestore({ dir: backupDir, dbFile });
@@ -273,7 +278,48 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '32kb' }));
-app.get('/api/audio', (req, res) => res.json({ files: listAudio(path.join(root, process.argv.includes('--production') ? 'dist/audio' : 'public/audio')) }));
+app.get('/api/audio', (req, res) => {
+  const files = [...listAudio(audioDir()), ...listAudio(userAudioDir, '/user-audio')];
+  res.json({ files, limits: { fileBytes: MAX_AUDIO_FILE, totalBytes: MAX_AUDIO_TOTAL } });
+});
+// Kasutaja muusika on eraldi teel, et see ei seguneks kujutise sees olevate lugudega.
+app.get('/user-audio/:file', (req, res, next) => {
+  const name = req.params.file;
+  if (!AUDIO_EXT.test(name) || name.startsWith('.') || path.basename(name) !== name) return next();
+  const file = path.join(userAudioDir, name);
+  if (!existsSync(file)) return next();
+  res.sendFile(file, { headers: { 'Cache-Control': 'public, max-age=86400' } });
+});
+const uploadAudio = express.raw({ type: 'application/octet-stream', limit: MAX_AUDIO_FILE });
+app.post('/api/audio', (req, res, next) => {
+  if (Number(req.headers['content-length'] || 0) > MAX_AUDIO_FILE) return next(new AppError(`Fail on liiga suur (kuni ${Math.round(MAX_AUDIO_FILE / 1048576)} MB).`, 413));
+  next();
+}, uploadAudio, (req, res) => {
+  if (typeof req.query.name !== 'string') throw new AppError('Faili nimi on puudu.');
+  const name = audioFileName(req.query.name);
+  if (!name) throw new AppError('Vali helifail (mp3, ogg, opus, m4a, aac, wav või flac).');
+  if (!Buffer.isBuffer(req.body) || !req.body.length) throw new AppError('Fail on tühi.');
+  const used = listAudio(userAudioDir).reduce((sum, file) => sum + file.size, 0);
+  if (used + req.body.length > MAX_AUDIO_TOTAL) throw new AppError('Muusika salvestusruum on täis — kustuta vanu lugusid.', 413);
+  const finalName = uniqueAudioName(userAudioDir, name);
+  const temp = path.join(userAudioDir, `.upload-${randomUUID()}`);
+  try {
+    writeFileSync(temp, req.body, { mode: 0o600 });
+    renameSync(temp, path.join(userAudioDir, finalName));
+  } catch {
+    try { unlinkSync(temp); } catch { /* temp ei pruugi tekkida */ }
+    throw new AppError('Faili salvestamine ebaõnnestus.', 500);
+  }
+  res.json({ file: listAudio(userAudioDir, '/user-audio').find(file => file.name === finalName) });
+});
+app.delete('/api/audio/:name', (req, res) => {
+  const name = req.params.name;
+  if (!AUDIO_EXT.test(name) || name.startsWith('.') || path.basename(name) !== name) throw new AppError('Vale failinimi.');
+  const file = path.join(userAudioDir, name);
+  if (!existsSync(file)) throw new AppError('Faili ei leitud.', 404);
+  unlinkSync(file);
+  res.json({ ok: true });
+});
 app.get('/api/status', (req, res) => { const c = credentials(); const t = getSetting('token'); res.json({ configured: Boolean(c.clientId && c.clientSecret), connected: Boolean(t && !getSetting('disconnected')), callbackUrl: `${origin}/auth/callback`, pollSeconds: 60, collectorError, lastCollected, appVersion: '1.0.0' }); });
 app.post('/api/connect', async (req, res) => {
   if (req.body.clientId || req.body.clientSecret) {

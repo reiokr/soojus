@@ -75,6 +75,19 @@ export default {
     music: 'Music player', musicShow: 'Show music player',
     musicHint: 'When off, the music button is hidden on the Live home page and music stops.'
   },
+  music: {
+    title: 'Music',
+    hint: 'Upload your own tracks from a computer or phone. Files are stored on the server and survive updates.',
+    uploadFiles: 'Choose files', uploadFolder: 'Choose folder',
+    folderHint: 'Folder selection works on a computer; on a phone choose files. Selected audio files are uploaded to the server.',
+    empty: 'No music yet. Choose files or a folder above.',
+    uploaded: '{count} track(s) added.', deleted: 'Track deleted.',
+    noAudio: 'None of the selected files were supported audio files.',
+    deleteAria: 'Delete {name}', deleteConfirm: 'Delete “{name}” from the server?',
+    uploading: 'Uploading {done}/{total}: {name}',
+    limit: 'Using {used} / {total} MB.',
+    typeHint: 'Supported: mp3, ogg, opus, m4a, aac, wav, flac. Up to 40 MB per file.'
+  },
   overview: {
     allgood: 'No alarms, data is up to date.',
     offline: 'The heat pump is offline.',

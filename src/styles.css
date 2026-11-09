@@ -322,6 +322,18 @@ html[data-theme="dark"] .vent-tip::after{border-top-color:#e9eef3}
   .backup-actions .button { flex: 1; justify-content: center; }
 }
 
+/* Oma muusika */
+.music-panel .button-row { margin-bottom: 8px; }
+.music-list { list-style: none; margin: 14px 0; padding: 0; }
+.music-list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.music-list li:first-child { border-top: 0; }
+.music-list li > span:nth-child(2) { flex: 1; min-width: 0; }
+.music-list b { display: block; font-size: 13.2px; }
+.music-list small { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.music-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: var(--t62); color: var(--t66); flex-shrink: 0; }
+.music-list .icon-button:hover { color: var(--t197); background: var(--t103); }
+.button.is-disabled { opacity: .46; cursor: not-allowed; }
+
 /* Võrguühenduseta riba ja viimane veakaitse */
 .offline-banner {
   position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);

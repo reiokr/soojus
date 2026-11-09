@@ -75,6 +75,19 @@ export default {
     music: 'Muusikamängija', musicShow: 'Näita muusikamängijat',
     musicHint: 'Kui väljas, on muusikanupp Elava kodu lehelt peidetud ja muusika peatub.'
   },
+  music: {
+    title: 'Muusika',
+    hint: 'Laadi oma lugusid arvutist või telefonist. Failid salvestatakse serverisse ja jäävad uuenduste järel alles.',
+    uploadFiles: 'Vali failid', uploadFolder: 'Vali kaust',
+    folderHint: 'Kaustavalik töötab arvutis; telefonis vali failid. Valitud helifailid laetakse serverisse.',
+    empty: 'Oma muusikat veel pole. Vali failid või kaust ülal.',
+    uploaded: '{count} lugu lisatud.', deleted: 'Lugu kustutatud.',
+    noAudio: 'Valitud failide hulgas ei olnud toetatud helifaile.',
+    deleteAria: 'Kustuta {name}', deleteConfirm: 'Kustutada „{name}” serverist?',
+    uploading: 'Laen üles {done}/{total}: {name}',
+    limit: 'Kasutusel {used} / {total} MB.',
+    typeHint: 'Toetatud: mp3, ogg, opus, m4a, aac, wav, flac. Üks fail kuni 40 MB.'
+  },
   overview: {
     allgood: 'Häireid ei ole, andmed on värsked.',
     offline: 'Soojuspump on võrguühenduseta.',

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { listAudio } from '../server/audio.js';
+import { listAudio, audioFileName, uniqueAudioName } from '../server/audio.js';
 import { TRACKS, buildTracks, titleFromFile, loadTrack } from '../src/next/live/ambience.js';
 
 test('listAudio leiab ainult helifailid otse kataloogis, kodeeritud aadressi ja tähestikulise järjestusega', () => {
@@ -17,6 +17,34 @@ test('listAudio leiab ainult helifailid otse kataloogis, kodeeritud aadressi ja 
     assert.equal(files[0].size, 1);
     assert.deepEqual(listAudio(path.join(dir, 'puudub')), []);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('listAudio kasutab kasutaja failidele eraldi URL-i baasi', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'soojus-audio-'));
+  try {
+    writeFileSync(path.join(dir, 'lugu.mp3'), 'x');
+    const files = listAudio(dir, '/user-audio');
+    assert.equal(files[0].url, '/user-audio/lugu.mp3');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('audioFileName puhastab tee ja lubab ainult helilaiendeid', () => {
+  assert.equal(audioFileName('../../etc/lugu.mp3'), 'lugu.mp3');
+  assert.equal(audioFileName('Minu Lugu (live).MP3'), 'Minu Lugu (live).mp3');
+  assert.equal(audioFileName('õhtu_kohvi-2.ogg'), 'õhtu_kohvi-2.ogg');
+  assert.equal(audioFileName('fail: nimi?.flac'), 'fail_ nimi_.flac');
+  assert.equal(audioFileName('pilt.jpg'), null);
+  assert.equal(audioFileName('.mp3'), null);
+  assert.equal(audioFileName(''), null);
+  assert.equal(audioFileName(null), null);
+  assert.equal(audioFileName('a'.repeat(300) + '.mp3').length, 104);
+});
+
+test('uniqueAudioName lisab kollisioonil numbri', () => {
+  const taken = new Set(['lugu.mp3', 'lugu-2.mp3']);
+  const exists = name => taken.has(path.basename(name));
+  assert.equal(uniqueAudioName('/x', 'lugu.mp3', exists), 'lugu-3.mp3');
+  assert.equal(uniqueAudioName('/x', 'uus.mp3', exists), 'uus.mp3');
 });
 
 test('titleFromFile teeb failinimest ilusa pealkirja', () => {
