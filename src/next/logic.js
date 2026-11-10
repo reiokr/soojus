@@ -5,17 +5,26 @@ const HOUR = 3600000;
 
 // Töörežiim ("küte", "tarbevesi") ei tähenda, et kompressor töötab: pärast viga võib pump tund aega seista, kuigi režiim näitab küttepäringut.
 // Kui kompressori olek on teada, loetakse "kütab/soojendab" ainult töötava kompressori korral, muidu on see ootel.
-export function pumpState({ workMode, heatingState, hwState, compressor }) {
+export function pumpState({ workMode, heatingState, hwState, compressor, water, waterTarget, returnT, returnTarget }) {
   const mode = Number(workMode?.value);
-  const modeHeat = mode === 0 || mode === 6 || Number(heatingState?.value) === 3;
-  const modeHw = mode === 1 || Number(hwState?.value) === 3;
+  const heatState = Number(heatingState?.value), hwStateValue = Number(hwState?.value);
+  const modeHeat = mode === 0 || mode === 6 || heatState === 3;
+  const modeHw = mode === 1 || hwStateValue === 3;
   const comp = compressor?.value == null ? null : Number(compressor.value) === 1;
+  const num = point => point?.value == null || point.value === '' ? null : Number(point.value);
+  const w = num(water), wt = num(waterTarget), r = num(returnT), rt = num(returnTarget);
+  // Vajadus tuleb eelkõige seadme enda olekust (2 = vajadus). Kui see puudub, ei piisa ainult
+  // töörežiimist: tarbevesi võib olla sihi juba saavutanud või tagasivool sihist kõrgemal,
+  // mistõttu kompressori seismine on normaalne, mitte rike.
+  const heatNeed = heatState === 2 || (modeHeat && comp === false && (r == null || rt == null || r < rt - 1));
+  const hwNeed = hwStateValue === 2 || (modeHw && comp === false && (w == null || wt == null || w < wt - 1));
   const heatOn = modeHeat && comp !== false, hwOn = modeHw && comp !== false;
-  const heatDemand = !heatOn && (Number(heatingState?.value) === 2 || (modeHeat && comp === false));
-  const hwDemand = !hwOn && (Number(hwState?.value) === 2 || (modeHw && comp === false));
+  const heatDemand = !heatOn && heatNeed;
+  const hwDemand = !hwOn && hwNeed;
   // Kompressori tegelik olek on töötamise peamine signaal; režiim ütleb ainult, mida parasjagu tehakse.
   const running = comp === true || heatOn || hwOn;
-  return { heatOn, hwOn, heatDemand, hwDemand, compressor: comp, running, stalled: comp === false && (modeHeat || modeHw), stalledFor: modeHw && !modeHeat ? 'tarbevee soojendus' : 'küte', modeHeat, modeHw };
+  const stalledFor = heatNeed && !hwNeed ? 'küte' : hwNeed && !heatNeed ? 'tarbevee soojendus' : modeHw && !modeHeat ? 'tarbevee soojendus' : 'küte';
+  return { heatOn, hwOn, heatDemand, hwDemand, compressor: comp, running, stalled: comp === false && (heatNeed || hwNeed), stalledFor, modeHeat, modeHw };
 }
 
 // Tarbevee temperatuur seatud sihi suhtes: mida kaugemal allpool, seda tugevam hoiatus.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pumpState, systemDiagnostics } from '../src/next/logic.js';
+import { pumpState, stateSentence, systemDiagnostics } from '../src/next/logic.js';
 
 test('diagnostics do not compare the buffer with the return while DHW is heating', () => {
   const state = pumpState({ workMode: { value: 1 }, heatingState: { value: 1 }, hwState: { value: 3 }, compressor: { value: 1 } });
@@ -18,10 +18,10 @@ test('diagnostics do not compare the buffer with the return while DHW is heating
 });
 
 test('diagnostics stay quiet about the buffer while the DHW circuit runs with the compressor off', () => {
-  const state = pumpState({ workMode: { value: 1 }, heatingState: { value: 1 }, hwState: { value: 3 }, compressor: { value: 0 } });
+  const state = pumpState({ workMode: { value: 1 }, heatingState: { value: 1 }, hwState: { value: 3 }, compressor: { value: 0 }, water: { value: 45 }, waterTarget: { value: 48 } });
   const items = systemDiagnostics({
     state, supply: 51, returnT: 51.2, returnTarget: 29.5, buffer: 30,
-    water: 47.5, waterTarget: 48, power: 0,
+    water: 45, waterTarget: 48, power: 0,
     compressor: false, heatingPump: true, hotWaterPump: true
   });
   const keys = items.map(item => item.key);
@@ -29,6 +29,23 @@ test('diagnostics stay quiet about the buffer while the DHW circuit runs with th
   assert.ok(!keys.includes('diag.bufferStagnant'));
   assert.ok(!keys.includes('diag.bufferBelowReturn'));
   assert.ok(!keys.includes('diag.bufferAboveTarget'));
+});
+
+test('a stopped compressor is not stalled when the DHW target is already reached', () => {
+  const state = pumpState({
+    workMode: { value: 1 }, heatingState: { value: 1 }, hwState: { value: 3 }, compressor: { value: 0 },
+    water: { value: 49.1 }, waterTarget: { value: 48 }, returnT: { value: 47.7 }, returnTarget: { value: 29.5 }
+  });
+  const items = systemDiagnostics({
+    state, supply: 51, returnT: 47.7, returnTarget: 29.5, buffer: 30,
+    water: 49.1, waterTarget: 48, power: 0,
+    compressor: false, heatingPump: true, hotWaterPump: true
+  });
+  const keys = items.map(item => item.key);
+  assert.ok(!keys.includes('diag.stalled'));
+  assert.ok(!keys.includes('diag.hwDemand'));
+  assert.ok(keys.includes('diag.normal'));
+  assert.match(stateSentence(state, true), /puhkab/);
 });
 
 test('diagnostics flag a heating-mode compressor with the heating pump off', () => {
