@@ -340,7 +340,6 @@ function SystemDiagnostics({ ctx, m, state }) {
       <div><dt>{t('diag.power')}</dt><dd>{number(power, 2)} kW</dd></div>
     </dl>
     <ul className="nx-diag-list">{items.map((item, index) => <li key={`${item.key}-${index}`} className={item.tone}>{t(item.key, item.params)}</li>)}</ul>
-    <p className="nx-note">{t('diag.readOnly')}</p>
   </section>;
 }
 

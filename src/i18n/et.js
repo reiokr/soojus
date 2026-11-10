@@ -279,7 +279,7 @@ export default {
     noSettings: 'Selles valdkonnas ei paku seade avaliku API kaudu muudetavaid seadistusi.', zonesError: 'Tsoonid: {error}'
   },
   diag: {
-    title: 'Süsteemi diagnostika', hint: 'Ainult lugemine — seadeid ei muudeta.', readOnly: 'See paneel loeb ainult pumba olekut ja temperatuure. Muudatusi siit teha ei saa.',
+    title: 'Süsteemi diagnostika', hint: 'Ainult lugemine — seadeid ei muudeta.',
     mode: 'Töörežiim', heatingState: 'Kütte olek', dhwState: 'Tarbevee olek', compressor: 'Kompressor', hup: 'Kütte ringipump (HUP)', hwPump: 'Tarbevee pump',
     supply: 'Pealevool', return: 'Tagasivool', target: 'Tagasivoolu siht', buffer: 'Akupaak', water: 'Tarbevesi', waterTarget: 'Tarbevee siht', power: 'Soojusvõimsus',
     heatOn: 'Küte töötab: pealevool {supply} °C, tagasivool {return} °C.',

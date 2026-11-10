@@ -279,7 +279,7 @@ export default {
     noSettings: 'The device does not expose any editable settings for this area through the public API.', zonesError: 'Zones: {error}'
   },
   diag: {
-    title: 'System diagnostics', hint: 'Read-only — no settings are changed.', readOnly: 'This panel only reads pump status and temperatures. No changes can be made here.',
+    title: 'System diagnostics', hint: 'Read-only — no settings are changed.',
     mode: 'Work mode', heatingState: 'Heating state', dhwState: 'DHW state', compressor: 'Compressor', hup: 'Heating circuit pump (HUP)', hwPump: 'DHW pump',
     supply: 'Flow', return: 'Return', target: 'Return target', buffer: 'Buffer tank', water: 'DHW', waterTarget: 'DHW target', power: 'Heat output',
     heatOn: 'Heating is running: flow {supply} °C, return {return} °C.',
