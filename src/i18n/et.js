@@ -289,9 +289,6 @@ export default {
     dhwDemand: 'Tarbevee nõudlus on, kuid tarbevesi ei kuumene.',
     compressorNoHeatingPump: 'Kompressor töötab kütterežiimis, kuid kütte ringipump (HUP) on väljas.',
     returnAboveTarget: 'Tagasivool on sihist {diff} K kõrgem — pump võib tarbetult käia.',
-    bufferStagnant: 'Akupaak on tagasivoolust {diff} K madalam. Kütte ringipumba seistes võib andur mõõta seisvat toru, mitte paaki.',
-    bufferBelowReturn: 'Akupaak on tagasivoolust {diff} K madalam — võib olla kihistumine või anduri asukoht.',
-    bufferAboveTarget: 'Akupaak on sihist {diff} K kõrgem, kuigi kütte ringipump seisab — võib olla soojuse ülekandumine tarbevee kütmisest või anduri asukoht.',
     minPower: 'Kompressor töötab minimaalsel võimsusel ({power} kW).',
     compressorNoLoop: 'Kompressor töötab, kuid kütte ega tarbevee ring ei ole aktiivne (võib olla sulatus või lisaküte).',
     normal: 'Andmete põhjal ei paista praegu anomaaliat.'

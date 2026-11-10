@@ -289,9 +289,6 @@ export default {
     dhwDemand: 'DHW demand exists, but DHW is not heating.',
     compressorNoHeatingPump: 'The compressor runs in heating mode, but the heating circuit pump (HUP) is off.',
     returnAboveTarget: 'Return is {diff} K above target — the pump may be running unnecessarily.',
-    bufferStagnant: 'Buffer tank is {diff} K below return. With the heating circuit pump off, the sensor may be reading a stagnant pipe instead of the tank.',
-    bufferBelowReturn: 'Buffer tank is {diff} K below return — could be stratification or sensor placement.',
-    bufferAboveTarget: 'Buffer tank is {diff} K above target although the heating circuit pump is off — could be heat carry-over from DHW heating or sensor placement.',
     minPower: 'Compressor is running at minimum output ({power} kW).',
     compressorNoLoop: 'Compressor is running, but neither the heating nor DHW circuit is active (could be defrost or auxiliary heat).',
     normal: 'No anomaly is apparent from the current data.'
