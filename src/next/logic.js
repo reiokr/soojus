@@ -87,8 +87,10 @@ export function systemDiagnostics({ state, supply, returnT, returnTarget, buffer
   if (state?.hwDemand) add('warn', 'diag.dhwDemand');
   if (compressor && heatingPump === false && state?.heatOn) add('warn', 'diag.compressorNoHeatingPump');
   if (compressor && r != null && rt != null && r - rt > 5 && !state?.hwOn) add('warn', 'diag.returnAboveTarget', { diff: number(r - rt) });
-  if (b != null && r != null && r - b > 5) add(heatingPump === false ? 'info' : 'warn', heatingPump === false ? 'diag.bufferStagnant' : 'diag.bufferBelowReturn', { diff: number(r - b) });
-  if (b != null && rt != null && b - rt > 3 && heatingPump === false) add('info', 'diag.bufferAboveTarget', { diff: number(b - rt) });
+  // Tarbevee soojendamise ajal on tagasivoolu andur tarbevee ringis või seisvas torus – akupaagi
+  // (kütteringi) võrdlemine sellega annab eksitava hoiatuse.
+  if (!state?.hwOn && b != null && r != null && r - b > 5) add(heatingPump === false ? 'info' : 'warn', heatingPump === false ? 'diag.bufferStagnant' : 'diag.bufferBelowReturn', { diff: number(r - b) });
+  if (!state?.hwOn && b != null && rt != null && b - rt > 3 && heatingPump === false) add('info', 'diag.bufferAboveTarget', { diff: number(b - rt) });
   if (compressor && p != null && p < 0.6) add('info', 'diag.minPower', { power: number(p, 2) });
   if (compressor && !state?.heatOn && !state?.hwOn) add('info', 'diag.compressorNoLoop');
   if (!items.length) add('ok', 'diag.normal');
