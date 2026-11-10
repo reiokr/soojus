@@ -166,6 +166,7 @@ function Overview({ ctx }) {
       </> : <p className="nx-muted">Laadin ööpäeva kokkuvõtet…</p> : <p className="nx-muted">Ööpäeva kokkuvõte on praegu saadaval ainult mudelile WZSV 92H3M.</p>}
     </section>
     </div>
+    <SystemDiagnostics ctx={ctx} m={m} state={state}/>
     <Trend ctx={ctx}/>
     {favorites.length > 0 && <section className="nx-panel"><div className="nx-panel-head"><h2>{t('overview.favorites')}</h2></div><div className="nx-tiles">{points.filter(p => favorites.includes(`${selection}:${p.parameterId}`)).map(p => <Tile key={p.parameterId} point={p}/>)}</div></section>}
   </>;
@@ -397,7 +398,6 @@ function Control({ ctx, water }) {
       </section>
       {(readings.length > 0 || extra.length > 0) && <section className="nx-panel nx-a-read"><div className="nx-panel-head"><h2>{t('control.readings')}</h2><span className="nx-muted">{t('control.deviceReadings')}</span></div><div className="nx-tiles">{extra.map(e => <div key={e.label} className={`nx-tile ${e.quality?.key || ''}`}><small>{e.label}</small><b>{e.value}</b>{e.quality && <span className="nx-tile-state">{e.quality.label}</span>}<em>{t('overview.now')}</em></div>)}{readings.map(p => <Tile key={p.parameterId} point={p} quality={qById[p.parameterId]}/>)}</div></section>}
     </div>
-    {!water && <SystemDiagnostics ctx={ctx} m={m} state={state}/>}
     <Trend ctx={ctx} initial={water ? 'water' : 'heat'}/>
     {water && <LegionellaPanel notify={ctx.notify}/>}
     <section className={`nx-panel nx-settings-panel nx-collapse-panel ${settingsOpen ? 'open' : ''}`}>
