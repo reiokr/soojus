@@ -15,7 +15,7 @@ export function pumpState({ workMode, heatingState, hwState, compressor }) {
   const hwDemand = !hwOn && (Number(hwState?.value) === 2 || (modeHw && comp === false));
   // Kompressori tegelik olek on töötamise peamine signaal; režiim ütleb ainult, mida parasjagu tehakse.
   const running = comp === true || heatOn || hwOn;
-  return { heatOn, hwOn, heatDemand, hwDemand, compressor: comp, running, stalled: comp === false && (modeHeat || modeHw), stalledFor: modeHw && !modeHeat ? 'tarbevee soojendus' : 'küte' };
+  return { heatOn, hwOn, heatDemand, hwDemand, compressor: comp, running, stalled: comp === false && (modeHeat || modeHw), stalledFor: modeHw && !modeHeat ? 'tarbevee soojendus' : 'küte', modeHeat, modeHw };
 }
 
 // Tarbevee temperatuur seatud sihi suhtes: mida kaugemal allpool, seda tugevam hoiatus.
@@ -87,10 +87,11 @@ export function systemDiagnostics({ state, supply, returnT, returnTarget, buffer
   if (state?.hwDemand) add('warn', 'diag.dhwDemand');
   if (compressor && heatingPump === false && state?.heatOn) add('warn', 'diag.compressorNoHeatingPump');
   if (compressor && r != null && rt != null && r - rt > 5 && !state?.hwOn) add('warn', 'diag.returnAboveTarget', { diff: number(r - rt) });
-  // Tarbevee soojendamise ajal on tagasivoolu andur tarbevee ringis või seisvas torus – akupaagi
-  // (kütteringi) võrdlemine sellega annab eksitava hoiatuse.
-  if (!state?.hwOn && b != null && r != null && r - b > 5) add(heatingPump === false ? 'info' : 'warn', heatingPump === false ? 'diag.bufferStagnant' : 'diag.bufferBelowReturn', { diff: number(r - b) });
-  if (!state?.hwOn && b != null && rt != null && b - rt > 3 && heatingPump === false) add('info', 'diag.bufferAboveTarget', { diff: number(b - rt) });
+  // Tarbevee ringi ajal on tagasivoolu andur tarbevee ringis või seisvas torus – akupaagi
+  // (kütteringi) võrdlemine sellega annab eksitava hoiatuse, kuni kütteringiga samal ajal ei köeta.
+  const dhwOnly = Boolean(state?.modeHw && !state?.modeHeat);
+  if (!dhwOnly && b != null && r != null && r - b > 5) add(heatingPump === false ? 'info' : 'warn', heatingPump === false ? 'diag.bufferStagnant' : 'diag.bufferBelowReturn', { diff: number(r - b) });
+  if (!dhwOnly && b != null && rt != null && b - rt > 3 && heatingPump === false) add('info', 'diag.bufferAboveTarget', { diff: number(b - rt) });
   if (compressor && p != null && p < 0.6) add('info', 'diag.minPower', { power: number(p, 2) });
   if (compressor && !state?.heatOn && !state?.hwOn) add('info', 'diag.compressorNoLoop');
   if (!items.length) add('ok', 'diag.normal');

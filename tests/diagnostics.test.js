@@ -17,6 +17,20 @@ test('diagnostics do not compare the buffer with the return while DHW is heating
   assert.ok(!keys.includes('diag.returnAboveTarget'), 'return is high during DHW heating and must not be flagged');
 });
 
+test('diagnostics stay quiet about the buffer while the DHW circuit runs with the compressor off', () => {
+  const state = pumpState({ workMode: { value: 1 }, heatingState: { value: 1 }, hwState: { value: 3 }, compressor: { value: 0 } });
+  const items = systemDiagnostics({
+    state, supply: 51, returnT: 51.2, returnTarget: 29.5, buffer: 30,
+    water: 47.5, waterTarget: 48, power: 0,
+    compressor: false, heatingPump: true, hotWaterPump: true
+  });
+  const keys = items.map(item => item.key);
+  assert.ok(keys.includes('diag.dhwDemand'));
+  assert.ok(!keys.includes('diag.bufferStagnant'));
+  assert.ok(!keys.includes('diag.bufferBelowReturn'));
+  assert.ok(!keys.includes('diag.bufferAboveTarget'));
+});
+
 test('diagnostics flag a heating-mode compressor with the heating pump off', () => {
   const state = pumpState({ workMode: { value: 0 }, heatingState: { value: 3 }, hwState: { value: 0 }, compressor: { value: 1 } });
   const items = systemDiagnostics({
