@@ -280,6 +280,7 @@ export default {
   },
   diag: {
     title: 'Süsteemi diagnostika', hint: 'Ainult lugemine — seadeid ei muudeta.',
+    groupState: 'Režiim ja olekud', groupDevices: 'Kompressor ja pumbad', groupTemps: 'Temperatuurid', powerNow: 'hetkevõimsus',
     mode: 'Töörežiim', heatingState: 'Kütte olek', dhwState: 'Tarbevee olek', compressor: 'Kompressor', hup: 'Kütte ringipump (HUP)', hwPump: 'Tarbevee pump',
     supply: 'Pealevool', return: 'Tagasivool', target: 'Tagasivoolu siht', buffer: 'Akupaak', water: 'Tarbevesi', waterTarget: 'Tarbevee siht', power: 'Soojusvõimsus',
     heatOn: 'Küte töötab: pealevool {supply} °C, tagasivool {return} °C.',

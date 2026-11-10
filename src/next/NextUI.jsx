@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, ChevronDown, Clock3, Droplets, History, Link2, MoreHorizontal, Monitor, Pencil, RefreshCw, Settings2, SlidersHorizontal, Thermometer, LayoutDashboard, Waves, Flame, Timer, Repeat2, ArrowUpDown, Fan, Sparkles, ChartLine } from 'lucide-react';
+import { Activity, AlertCircle, AlertTriangle, ArrowRight, BarChart3, Bell, CheckCircle2, ChevronDown, Clock3, Droplets, Gauge, History, Info, Link2, MoreHorizontal, Monitor, Pencil, RefreshCw, Settings2, SlidersHorizontal, Thermometer, LayoutDashboard, Waves, Flame, Timer, Repeat2, ArrowUpDown, Fan, Sparkles, ChartLine, XCircle } from 'lucide-react';
 import { api, number, tempStep, tempText, tempUnit, tempValue, time, enumText, timeTicks } from '../lib.js';
 import { t, getLocale } from '../i18n/index.js';
 import HousePlan from './HousePlan.jsx';
@@ -16,7 +16,7 @@ import DhwCycles from './dhw-cycles.jsx';
 const EnergyPage = lazy(() => import('./energy.jsx'));
 const HeatingCurvePage = lazy(() => import('./curve.jsx'));
 import { co2Quality, climatePoints, climateQuery, readingQuality } from '../ventilation-logic.js';
-import { pumpState, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality, temperatureTrend, systemDiagnostics } from './logic.js';
+import { pumpState, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality, temperatureTrend, systemDiagnostics, tempColor } from './logic.js';
 import { buildReportModel, buildReportHtml, buildReportText, buildReportDocument } from './error-report.js';
 import './palette.css';
 import './next.css';
@@ -153,6 +153,7 @@ function Overview({ ctx }) {
     </section>
     <div className="nx-overview">
     <Suspense fallback={<section className="nx-panel"><div className="nx-skeleton"><i/></div></section>}><LiveHome ctx={ctx} embedded/></Suspense>
+    <SystemDiagnostics ctx={ctx} m={m} state={state}/>
     <section className="nx-panel nx-today">
       <div className="nx-panel-head"><h2>{t('overview.today')}</h2>{day && day.coverage < .9 && <span className="nx-muted">{t('overview.coverage', { percent: Math.round(day.coverage * 100) })}</span>}</div>
       {hasState ? day ? <>
@@ -166,7 +167,6 @@ function Overview({ ctx }) {
       </> : <p className="nx-muted">Laadin ööpäeva kokkuvõtet…</p> : <p className="nx-muted">Ööpäeva kokkuvõte on praegu saadaval ainult mudelile WZSV 92H3M.</p>}
     </section>
     </div>
-    <SystemDiagnostics ctx={ctx} m={m} state={state}/>
     <Trend ctx={ctx}/>
     {favorites.length > 0 && <section className="nx-panel"><div className="nx-panel-head"><h2>{t('overview.favorites')}</h2></div><div className="nx-tiles">{points.filter(p => favorites.includes(`${selection}:${p.parameterId}`)).map(p => <Tile key={p.parameterId} point={p}/>)}</div></section>}
   </>;
@@ -321,26 +321,55 @@ function SystemDiagnostics({ ctx, m, state }) {
   const heatingPump = outputs?.heatingPump;
   const hotWaterPump = outputs?.hotWaterPump;
   const items = systemDiagnostics({ state, supply, returnT, returnTarget, buffer, water, waterTarget, power, compressor, heatingPump, hotWaterPump });
-  const onOff = value => value == null ? '—' : t(value ? 'enum.on' : 'enum.off');
   const stateText = point => point?.strVal ? enumText(point.strVal) : '—';
+  const stateTone = point => { const v = Number(point?.value); return v === 3 ? 'on' : v === 2 ? 'warn' : 'off'; };
+  const onOff = value => value == null ? null : Boolean(value);
+  const toneIcon = { ok: CheckCircle2, warn: AlertTriangle, bad: XCircle, info: Info };
+  const Status = ({ value }) => value == null
+    ? <span className="nx-diag-value off">—</span>
+    : <span className={`nx-diag-value ${value ? 'on' : 'off'}`}><i/>{t(value ? 'enum.on' : 'enum.off')}</span>;
+  const State = ({ point }) => <span className={`nx-diag-value ${stateTone(point)}`}><i/>{stateText(point)}</span>;
+  const Temp = ({ value, target }) => <span className={`nx-diag-temp${target ? ' target' : ''}`}>{!target && value != null && <i style={{ background: tempColor(Number(value)) }}/>}{tempText(value, 1)}</span>;
   return <section className="nx-panel nx-diag">
     <div className="nx-panel-head"><h2>{t('diag.title')}</h2><span className="nx-muted">{t('diag.hint')}</span></div>
-    <dl className="nx-diag-grid">
-      <div><dt>{t('diag.mode')}</dt><dd>{stateText(m.workMode)}</dd></div>
-      <div><dt>{t('diag.heatingState')}</dt><dd>{stateText(m.heatingState)}</dd></div>
-      <div><dt>{t('diag.dhwState')}</dt><dd>{stateText(m.hwState)}</dd></div>
-      <div><dt>{t('diag.compressor')}</dt><dd>{onOff(compressor)}</dd></div>
-      <div><dt>{t('diag.hup')}</dt><dd>{onOff(heatingPump)}</dd></div>
-      <div><dt>{t('diag.hwPump')}</dt><dd>{onOff(hotWaterPump)}</dd></div>
-      <div><dt>{t('diag.supply')}</dt><dd>{tempText(supply, 1)}</dd></div>
-      <div><dt>{t('diag.return')}</dt><dd>{tempText(returnT, 1)}</dd></div>
-      <div><dt>{t('diag.target')}</dt><dd>{tempText(returnTarget, 1)}</dd></div>
-      <div><dt>{t('diag.buffer')}</dt><dd>{tempText(buffer, 1)}</dd></div>
-      <div><dt>{t('diag.water')}</dt><dd>{tempText(water, 1)}</dd></div>
-      <div><dt>{t('diag.waterTarget')}</dt><dd>{tempText(waterTarget, 1)}</dd></div>
-      <div><dt>{t('diag.power')}</dt><dd>{number(power, 2)} kW</dd></div>
-    </dl>
-    <ul className="nx-diag-list">{items.map((item, index) => <li key={`${item.key}-${index}`} className={item.tone}>{t(item.key, item.params)}</li>)}</ul>
+    <div className="nx-diag-groups">
+      <div className="nx-diag-group">
+        <h3><Activity size={14}/>{t('diag.groupState')}</h3>
+        <dl>
+          <div><dt>{t('diag.mode')}</dt><dd><span className="nx-diag-value key">{stateText(m.workMode)}</span></dd></div>
+          <div><dt>{t('diag.heatingState')}</dt><dd><State point={m.heatingState}/></dd></div>
+          <div><dt>{t('diag.dhwState')}</dt><dd><State point={m.hwState}/></dd></div>
+        </dl>
+      </div>
+      <div className="nx-diag-group">
+        <h3><SlidersHorizontal size={14}/>{t('diag.groupDevices')}</h3>
+        <dl>
+          <div><dt>{t('diag.compressor')}</dt><dd><Status value={onOff(compressor)}/></dd></div>
+          <div><dt>{t('diag.hup')}</dt><dd><Status value={onOff(heatingPump)}/></dd></div>
+          <div><dt>{t('diag.hwPump')}</dt><dd><Status value={onOff(hotWaterPump)}/></dd></div>
+        </dl>
+      </div>
+      <div className="nx-diag-group">
+        <h3><Thermometer size={14}/>{t('diag.groupTemps')}</h3>
+        <dl>
+          <div><dt>{t('diag.supply')}</dt><dd><Temp value={supply}/></dd></div>
+          <div><dt>{t('diag.return')}</dt><dd><Temp value={returnT}/></dd></div>
+          <div><dt>{t('diag.target')}</dt><dd><Temp value={returnTarget} target/></dd></div>
+          <div><dt>{t('diag.buffer')}</dt><dd><Temp value={buffer}/></dd></div>
+          <div><dt>{t('diag.water')}</dt><dd><Temp value={water}/></dd></div>
+          <div><dt>{t('diag.waterTarget')}</dt><dd><Temp value={waterTarget} target/></dd></div>
+        </dl>
+      </div>
+      <div className="nx-diag-group nx-diag-power">
+        <h3><Gauge size={14}/>{t('diag.power')}</h3>
+        <b>{number(power, 2)}<i>kW</i></b>
+        <small>{t('diag.powerNow')}</small>
+      </div>
+    </div>
+    <ul className="nx-diag-list">{items.map((item, index) => {
+      const Icon = toneIcon[item.tone] ?? Info;
+      return <li key={`${item.key}-${index}`} className={item.tone}><Icon size={15}/><span>{t(item.key, item.params)}</span></li>;
+    })}</ul>
   </section>;
 }
 

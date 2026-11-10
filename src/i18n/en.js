@@ -280,6 +280,7 @@ export default {
   },
   diag: {
     title: 'System diagnostics', hint: 'Read-only — no settings are changed.',
+    groupState: 'Mode and states', groupDevices: 'Compressor and pumps', groupTemps: 'Temperatures', powerNow: 'current output',
     mode: 'Work mode', heatingState: 'Heating state', dhwState: 'DHW state', compressor: 'Compressor', hup: 'Heating circuit pump (HUP)', hwPump: 'DHW pump',
     supply: 'Flow', return: 'Return', target: 'Return target', buffer: 'Buffer tank', water: 'DHW', waterTarget: 'DHW target', power: 'Heat output',
     heatOn: 'Heating is running: flow {supply} °C, return {return} °C.',
