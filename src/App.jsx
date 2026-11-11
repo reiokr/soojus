@@ -98,7 +98,7 @@ export default function App() {
     // Võrguvea korral võib service worker anda viimase teadaoleva vastuse. Kasuta seda,
     // et vaade saaks kohe midagi näidata, aga märgi ühendus katkenuks ja proovi ise uuesti.
     const load = async url => {
-      try { const value = await api(url); setServerOffline(false); return value; }
+      try { const value = await api(url, { signal: AbortSignal.timeout(12000) }); setServerOffline(false); return value; }
       catch (e) {
         if (e instanceof OfflineError) {
           setServerOffline(true);
@@ -142,7 +142,7 @@ export default function App() {
     const run = async ([key, url, setter]) => {
       try {
         // Lühike aeg, et surnud Tailscale'i tunnel ei hoiaks vaadet 40 sekundit vanade andmete peal.
-        const value = await api(url, { signal: AbortSignal.timeout(20000) });
+        const value = await api(url, { signal: AbortSignal.timeout(key === 'points' ? 12000 : 20000) });
         if (key === 'points') setServerOffline(false);
         if (rid === requestId.current) setter(value);
         return [key, null];
