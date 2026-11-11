@@ -15,6 +15,19 @@ import './styles.css';
 initLocale();
 // PWA: service worker ainult tootmisbuildis (arenduses segaks Vite'i HMR-i).
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloading = false;
+  // Uus service worker võtab lehe üle alles järgmisel laadimisel. Laadime ise uuesti,
+  // et telefon saaks uuenduse kätte ilma vahemälu käsitsi tühjendamata.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').then(registration => {
+    const check = () => { if (document.visibilityState === 'visible') registration.update().catch(() => {}); };
+    document.addEventListener('visibilitychange', check);
+    window.setTimeout(check, 3000);
+  }).catch(() => {}));
 }
 createRoot(document.getElementById('root')).render(<ErrorBoundary><App /></ErrorBoundary>);
