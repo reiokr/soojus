@@ -652,7 +652,7 @@ export default {
     note: 'Kõver on ligikaudne. Nihe mõjutab kõiki sihte ja rakendub seadmele alles pärast salvestamist.',
     fit: 'Sobitatud kõver', preview: 'Nihke eelvaade', scatter: 'Tegelikud mõõtmised'
   },
-  offline: { message: 'Oled võrguühenduseta. Kuvatakse viimased vahemällu salvestatud andmed.', retry: 'Proovi uuesti' },
+  offline: { message: 'Oled võrguühenduseta. Kuvatakse viimased vahemällu salvestatud andmed.', serverUnreachable: 'Serveriga ühendus puudub. Kontrolli, kas Tailscale on telefonis sees; proovin automaatselt uuesti.', lastUpdate: ' Viimati õnnestus {time}.', retry: 'Proovi uuesti' },
   errorBoundary: { title: 'Midagi läks valesti', body: 'Vaate laadimisel tekkis viga. Andmed ja seadmed ei ole muutunud.', reload: 'Laadi leht uuesti', retry: 'Proovi uuesti' },
 
   backup: {

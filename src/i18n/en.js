@@ -652,7 +652,7 @@ export default {
     note: 'The curve is approximate. The offset affects all targets and is applied to the device only after saving.',
     fit: 'Fitted curve', preview: 'Offset preview', scatter: 'Actual measurements'
   },
-  offline: { message: 'You are offline. Showing the last cached data.', retry: 'Try again' },
+  offline: { message: 'You are offline. Showing the last cached data.', serverUnreachable: 'No connection to the server. Check that Tailscale is running on your phone; retrying automatically.', lastUpdate: ' Last successful update {time}.', retry: 'Try again' },
   errorBoundary: { title: 'Something went wrong', body: 'An error occurred while loading this view. Your data and devices have not been changed.', reload: 'Reload the page', retry: 'Try again' },
 
   backup: {

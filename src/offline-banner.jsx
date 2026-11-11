@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, WifiOff } from 'lucide-react';
 import { t } from './i18n/index.js';
+import { time } from './lib.js';
 
 export function useNetworkStatus() {
   const [online, setOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine);
@@ -13,11 +14,11 @@ export function useNetworkStatus() {
   return online;
 }
 
-export default function OfflineBanner({ online, onRetry }) {
-  if (online) return null;
+export default function OfflineBanner({ online, serverOffline, lastFetch, onRetry }) {
+  if (online && !serverOffline) return null;
   return <div className="offline-banner" role="status" aria-live="polite">
     <WifiOff size={16}/>
-    <span>{t('offline.message')}</span>
+    <span>{online ? t('offline.serverUnreachable') : t('offline.message')}{lastFetch && t('offline.lastUpdate', { time: time(lastFetch) })}</span>
     {onRetry && <button type="button" className="text-button" onClick={onRetry}><RefreshCw size={14}/>{t('offline.retry')}</button>}
   </div>;
 }

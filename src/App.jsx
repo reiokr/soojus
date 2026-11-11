@@ -167,7 +167,7 @@ export default function App() {
       // Võrk või server ei vastanud. Proovi uuesti kasvava vahega (5, 10, 20, 40, 60 s),
       // et Tailscale'i ühenduse taastudes jõuaks värske data ise kohale.
       failureCount.current += 1;
-      nextAttemptAt.current = Date.now() + Math.min(60000, 5000 * 2 ** Math.min(4, failureCount.current - 1));
+      nextAttemptAt.current = Date.now() + Math.min(15000, 5000 * 2 ** Math.min(4, failureCount.current - 1));
     } else {
       failureCount.current = 0;
       nextAttemptAt.current = 0;
@@ -205,7 +205,7 @@ export default function App() {
   // uuendame kohe, kui vaade jälle nähtavaks saab (või tullakse bfcache'ist tagasi).
   useEffect(() => {
     const onVisible = () => {
-      if (!refreshSec || document.visibilityState !== 'visible' || !selection || !systemId) return;
+      if (document.visibilityState !== 'visible' || !selection || !systemId) return;
       if (refreshInFlight.current || Date.now() - lastSuccess.current < 5000) return;
       nextAttemptAt.current = 0;
       refresh();
@@ -253,11 +253,11 @@ export default function App() {
   if (ui === 'next') {
     const ctx = { page, navigate, status, systems, selection, setSelection, points, device, model, system, detail, zones, categories, firmware, aid, mode, subscriptions, activeNotices, errors, loading, refreshing, lastFetch, tick, refresh, bootstrap, online, stale, theme, themeChoice, setThemeChoice, musicHidden, setMusicHidden, favorites, favorite, search, setSearch, setEditing, notify, ovHours, pickOvHours, refreshSec, setRefreshSec, setUi, shared, targetLines, rawCount: rawPoints.length, airobot, weather, lux, climate: climate(outdoor?.value, airobot.view),
       m: { supply, returnT, returnTarget, buffer, water, waterTarget, power, outdoor, heatingState, hwState, workMode, compressor } };
-    return <><OfflineBanner online={networkOnline} onRetry={() => selection ? refresh() : bootstrap()}/><Suspense fallback={<div className="loading-grid" aria-label={t('shell.loadingUi')} style={{ padding: 32 }}><div className="skeleton large"/></div>}><NextUI ctx={ctx}/></Suspense>{overlays}</>;
+    return <><OfflineBanner online={networkOnline} serverOffline={serverOffline} lastFetch={lastFetch} onRetry={() => selection ? refresh() : bootstrap()}/><Suspense fallback={<div className="loading-grid" aria-label={t('shell.loadingUi')} style={{ padding: 32 }}><div className="skeleton large"/></div>}><NextUI ctx={ctx}/></Suspense>{overlays}</>;
   }
 
   return <div className="app-shell">
-    <OfflineBanner online={networkOnline} onRetry={() => selection ? refresh() : bootstrap()}/>
+    <OfflineBanner online={networkOnline} serverOffline={serverOffline} lastFetch={lastFetch} onRetry={() => selection ? refresh() : bootstrap()}/>
     {mobile && <button type="button" aria-label={t('shell.closeNav')} className="nav-backdrop" onClick={() => setMobile(false)}/>}
     <aside className={`sidebar ${mobile ? 'open' : ''}`}>
       <a className="brand" href="/" onClick={e => { e.preventDefault(); navigate('overview'); }}><span className="brand-mark"><Waves size={25}/></span><span>soojus<span className="brand-dot">.</span></span></a>
