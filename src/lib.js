@@ -1,9 +1,30 @@
 import { getLocale, t } from './i18n/index.js';
 import { displayUnit, fromDisplayTemp, getFormats, hour12, tempUnit, toDisplayStep, toDisplayTemp } from './formats.js';
 
+// Service worker annab võrguvea korral vahemällu salvestatud vastuse ja märgib selle
+// X-Soojus-Offline päisega. See viga kannab vanu andmeid, et vaade saaks need alles jätta,
+// aga ei peaks neid värsketeks.
+export class OfflineError extends Error {
+  constructor(message, data) {
+    super(message);
+    this.name = 'OfflineError';
+    this.data = data;
+  }
+}
 export async function api(url, options = {}) {
-  const response = await fetch(`/api${url}`, { ...options, headers: { 'Content-Type': 'application/json', 'X-Soojus-Request': '1', ...options.headers }, signal: options.signal || AbortSignal.timeout(40000) });
-  const data = await response.json();
+  let response;
+  try {
+    response = await fetch(`/api${url}`, { ...options, headers: { 'Content-Type': 'application/json', 'X-Soojus-Request': '1', ...options.headers }, signal: options.signal || AbortSignal.timeout(40000) });
+  } catch (e) {
+    const timeout = e?.name === 'TimeoutError' || e?.name === 'AbortError';
+    throw new OfflineError(t(timeout ? 'common.connectionTimeout' : 'common.networkError'));
+  }
+  let data;
+  try { data = await response.json(); }
+  catch { throw new Error(t('common.requestFailed')); }
+  // Vahemälust tulnud vastus on kasutatav, aga mitte värske – App.jsx jätab selle meelde
+  // ja proovib võrku uuesti seni, kuni päris vastus tuleb.
+  if (response.headers.get('X-Soojus-Offline') === '1') throw new OfflineError(t(response.ok ? 'common.cachedData' : 'common.networkError'), response.ok ? data : undefined);
   if (!response.ok) throw new Error(data.error || t('common.requestFailed'));
   return data;
 }

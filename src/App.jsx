@@ -8,7 +8,7 @@ import { useWeather } from './weather.js';
 import { useLuxtronik } from './luxtronik.jsx';
 import { climate, climatePoints, climateQuery } from './ventilation-logic.js';
 import { pumpState } from './next/logic.js';
-import { api, number, date, time, enumText, enhance, fromDisplayTemp, metric, targetLines, tempStep, tempUnit, tempValue } from './lib.js';
+import { api, number, date, time, enumText, enhance, fromDisplayTemp, metric, targetLines, tempStep, tempUnit, tempValue, OfflineError } from './lib.js';
 import { Badge, Button, Empty, PanelTitle, Reading } from './ui.jsx';
 import OfflineBanner, { useNetworkStatus } from './offline-banner.jsx';
 import GeneralSettings from './general-settings.jsx';
@@ -42,6 +42,7 @@ export default function App() {
   const [status, setStatus] = useState(null), [systems, setSystems] = useState([]), [selection, setSelection] = useState(localStorage.getItem('soojus.device') || '');
   const [rawPoints, setRawPoints] = useState([]), [detail, setDetail] = useState(null), [zones, setZones] = useState([]), [categories, setCategories] = useState({}), [firmware, setFirmware] = useState(null), [aid, setAid] = useState(null), [mode, setMode] = useState(null), [subscriptions, setSubscriptions] = useState(null);
   const [notices, setNotices] = useState([]), [errors, setErrors] = useState({}), [loading, setLoading] = useState(true), [refreshing, setRefreshing] = useState(false), [lastFetch, setLastFetch] = useState(null), [tick, setTick] = useState(0);
+  const [serverOffline, setServerOffline] = useState(false);
   const [mobile, setMobile] = useState(false), [search, setSearch] = useState(''), [toast, setToast] = useState(null), [editing, setEditing] = useState(null);
   const [ovHours, setOvHours] = useState(() => { try { const v = Number(localStorage.getItem('soojus.ovHours')); return [24, 168, 720].includes(v) ? v : 24; } catch { return 24; } });
   const pickOvHours = h => { setOvHours(h); try { localStorage.setItem('soojus.ovHours', String(h)); } catch {} };
@@ -63,6 +64,12 @@ export default function App() {
   const weather = useWeather();
   const lux = useLuxtronik(tick);
   const requestId = useRef(0);
+  // Viimane õnnestunud põhiandmete päring. Taustalt naastes ja võrgu taastudes
+  // otsustame selle järgi, kas kohe uuendada; ebaõnnestunud päring seda ei muuda.
+  const lastSuccess = useRef(0);
+  const refreshInFlight = useRef(false);
+  const failureCount = useRef(0);
+  const nextAttemptAt = useRef(0);
   const system = systems.find(s => s.devices?.some(d => d.id === selection));
   const systemId = system?.systemId;
   const device = system?.devices?.find(d => d.id === selection);
@@ -88,19 +95,41 @@ export default function App() {
   const notify = (text, error = false) => setToast({ text, error });
   const navigate = id => { setPage(id); setMobile(false); const u = new URL(location.href); u.searchParams.set('page', id); history.replaceState({}, '', u); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const bootstrap = useCallback(async () => {
+    // Võrguvea korral võib service worker anda viimase teadaoleva vastuse. Kasuta seda,
+    // et vaade saaks kohe midagi näidata, aga märgi ühendus katkenuks ja proovi ise uuesti.
+    const load = async url => {
+      try { const value = await api(url); setServerOffline(false); return value; }
+      catch (e) {
+        if (e instanceof OfflineError) {
+          setServerOffline(true);
+          if (e.data !== undefined) return e.data;
+        }
+        throw e;
+      }
+    };
     try {
-      const s = await api('/status'); setStatus(s);
-      if (!s.configured || !s.connected) { setSystems([]); setRawPoints([]); setLoading(false); return; }
-      const list = await api('/systems'); setSystems(list);
+      const s = await load('/status'); setStatus(s);
+      if (!s?.configured || !s?.connected) { setSystems([]); setRawPoints([]); setLoading(false); return; }
+      const list = await load('/systems');
+      if (!Array.isArray(list)) throw new Error(t('common.requestFailed'));
+      setSystems(list);
       setSelection(prev => list.some(s => s.devices?.some(d => d.id === prev)) ? prev : list[0]?.devices?.[0]?.id || '');
       setErrors(prev => ({ ...prev, global: null }));
       if (!list.length) setLoading(false);
     } catch (e) { setErrors(prev => ({ ...prev, global: e.message })); setLoading(false); }
   }, []);
   useEffect(() => { bootstrap(); }, [bootstrap]);
+  // Kui telefon ärkas enne Tailscale'i ja esimene ühendus ebaõnnestus, proovi ise uuesti –
+  // muidu jääks vaade „ühendus puudub” seisu kuni käsitsi värskendamiseni.
+  useEffect(() => {
+    if (!serverOffline || systemId) return;
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') bootstrap(); }, 10000);
+    return () => clearInterval(timer);
+  }, [serverOffline, systemId, bootstrap]);
   const refresh = useCallback(async () => {
     if (!selection || !systemId) return;
     const rid = ++requestId.current;
+    refreshInFlight.current = true;
     setRefreshing(true);
     const sid = encodeURIComponent(systemId), did = encodeURIComponent(selection);
     const jobs = [
@@ -111,8 +140,20 @@ export default function App() {
       ['notices', `/systems/${sid}/notifications?active=true`, d => setNotices(d.notifications || [])],
     ];
     const run = async ([key, url, setter]) => {
-      try { const value = await api(url); if (rid === requestId.current) setter(value); return [key, null]; }
-      catch (e) { return [key, e.message]; }
+      try {
+        // Lühike aeg, et surnud Tailscale'i tunnel ei hoiaks vaadet 40 sekundit vanade andmete peal.
+        const value = await api(url, { signal: AbortSignal.timeout(20000) });
+        if (key === 'points') setServerOffline(false);
+        if (rid === requestId.current) setter(value);
+        return [key, null];
+      } catch (e) {
+        if (e instanceof OfflineError) setServerOffline(true);
+        // Vahemälust saadud vanad andmed võib kuvada, aga need ei lähe värskete päringute arvele.
+        if (e instanceof OfflineError && e.data !== undefined && rid === requestId.current) {
+          if (key !== 'points' || Array.isArray(e.data)) setter(e.data);
+        }
+        return [key, e.message];
+      }
     };
     // Esmalt ootame ainult põhinäite; ülejäänud (seade, tsoonid, teated, tellimused)
     // laaditakse taustal, et aeglane pilv ei hoiaks tervet lehte kinni.
@@ -121,30 +162,73 @@ export default function App() {
     for (const job of secondary) run(job).then(([key, error]) => { if (rid === requestId.current) setErrors(prev => ({ ...prev, [key]: error })); });
     const results = await Promise.all(core.map(run));
     if (rid !== requestId.current) return;
+    const pointsError = results.find(([key]) => key === 'points')?.[1];
+    if (pointsError) {
+      // Võrk või server ei vastanud. Proovi uuesti kasvava vahega (5, 10, 20, 40, 60 s),
+      // et Tailscale'i ühenduse taastudes jõuaks värske data ise kohale.
+      failureCount.current += 1;
+      nextAttemptAt.current = Date.now() + Math.min(60000, 5000 * 2 ** Math.min(4, failureCount.current - 1));
+    } else {
+      failureCount.current = 0;
+      nextAttemptAt.current = 0;
+      lastSuccess.current = Date.now();
+      setLastFetch(new Date().toISOString());
+    }
     setErrors(prev => ({ ...prev, global: prev.global, ...Object.fromEntries(results) }));
-    setLastFetch(new Date().toISOString()); setTick(t => t+1); setLoading(false); setRefreshing(false);
+    setTick(t => t+1); setLoading(false); setRefreshing(false); refreshInFlight.current = false;
   }, [selection, systemId]);
   useEffect(() => {
-    const onOnline = () => { if (selection && systemId) refresh(); else bootstrap(); };
+    const onOnline = () => { nextAttemptAt.current = 0; if (selection && systemId) refresh(); else bootstrap(); };
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
   }, [selection, systemId, refresh, bootstrap]);
   useEffect(() => {
     setRawPoints([]); setDetail(null); setZones([]); setCategories({}); setFirmware(null); setAid(null); setMode(null); setSubscriptions(null); setNotices([]); setLastFetch(null);
+    lastSuccess.current = 0;
     if (selection) { localStorage.setItem('soojus.device', selection); setLoading(true); refresh(); }
     return () => { requestId.current++; };
   }, [refresh, selection]);
   // Automaatne värskendus eraldi efektis, et intervalli muutmine ei tühjendaks lehte ega teeks uut päringut.
+  // Kontrollime 5 sekundi tagant, kas valitud intervall on täis: nii ei jää telefonis taustalt
+  // naastes ega Tailscale'i ühenduse taastudes vaade kuni minuti jooksul vanade andmete peale.
   useEffect(() => {
     if (!refreshSec) return;
-    const timer = setInterval(refresh, refreshSec * 1000);
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible' || refreshInFlight.current) return;
+      if (Date.now() < nextAttemptAt.current) return;
+      if (Date.now() - lastSuccess.current >= refreshSec * 1000) refresh();
+    }, 5000);
     return () => clearInterval(timer);
   }, [refresh, refreshSec]);
+  // Rakendus võib Androidis taustal seista tunde. Chrome peatab siis taimerid ja
+  // navigator.onLine jääb tõeseks ka siis, kui Tailscale'i tunnel on maas. Seetõttu
+  // uuendame kohe, kui vaade jälle nähtavaks saab (või tullakse bfcache'ist tagasi).
+  useEffect(() => {
+    const onVisible = () => {
+      if (!refreshSec || document.visibilityState !== 'visible' || !selection || !systemId) return;
+      if (refreshInFlight.current || Date.now() - lastSuccess.current < 5000) return;
+      nextAttemptAt.current = 0;
+      refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [refresh, refreshSec, selection, systemId]);
   // Kui soojuspumba otseandmed on põhiallikas, värskenda näite tihedamini (ainult näidud, mitte kogu leht ega graafikud).
   const directPrimary = Boolean(lux.view?.primary);
   useEffect(() => {
     if (!refreshSec || !directPrimary || !selection || !systemId) return;
-    const did = encodeURIComponent(selection), timer = setInterval(async () => { try { const fresh = await api(`/devices/${did}/points`); if (Array.isArray(fresh)) setRawPoints(fresh); } catch {} }, 10000);
+    const did = encodeURIComponent(selection), timer = setInterval(async () => {
+      try {
+        const fresh = await api(`/devices/${did}/points`, { signal: AbortSignal.timeout(15000) });
+        if (Array.isArray(fresh)) { setRawPoints(fresh); lastSuccess.current = Date.now(); setLastFetch(new Date().toISOString()); }
+      } catch { /* põhivärskendus proovib ise uuesti */ }
+    }, 10000);
     return () => clearInterval(timer);
   }, [directPrimary, selection, systemId, refreshSec]);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(null), 6500); return () => clearTimeout(timer); }, [toast]);
@@ -186,7 +270,7 @@ export default function App() {
       <header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label={t('shell.openMenu')} onClick={() => setMobile(true)}><Menu size={21}/></button><Home size={15}/><span>{t('shell.myHome')}</span><ChevronRight size={13}/><b>{t(pages.find(p => p.id === page)?.label || 'titles.overview')}</b></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15}/>{new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())}</span><GeneralSettings themeChoice={themeChoice} setThemeChoice={setThemeChoice} ui={ui} setUi={setUi} ovHours={ovHours} pickOvHours={pickOvHours} refreshSec={refreshSec} setRefreshSec={setRefreshSec} musicHidden={musicHidden} setMusicHidden={setMusicHidden}/><button className="icon-button notification-button" aria-label={t('shell.notifications')} onClick={() => navigate('alarms')}><Bell size={19}/>{activeNotices.length > 0 && <i/>}</button><span className="avatar">MK</span></div></header>
       <main id="main">
         <div className="page-heading"><div><h1>{t(pages.find(p => p.id === page)?.label || 'titles.overview')}</h1><p>{t(`subtitles.${page}`)}</p></div><div className="heading-actions">{page === 'overview' && <span className="weather-chip"><CloudSun size={22}/>{number(outdoor?.dv)}<span>{t('shell.weatherOut', { unit: outdoor?.du ?? tempUnit() })}</span>{climate(outdoor?.value, airobot.view).indoor != null && <>{' · '}{number(tempValue(climate(outdoor?.value, airobot.view).indoor))}<span>{t('shell.weatherIn', { unit: tempUnit() })}</span></>}</span>}<Button icon={RefreshCw} busy={refreshing} onClick={() => selection ? refresh() : bootstrap()}>{t('shell.refreshAction')}</Button></div></div>
-        {(errors.global || errors.points) && <div role="alert" className="error-banner"><AlertCircle size={19}/><span>{errors.global || errors.points} {rawPoints.length > 0 && t('shell.latestShown')}</span><Button onClick={bootstrap}>Proovi uuesti</Button></div>}
+        {(errors.global || errors.points) && <div role="alert" className="error-banner"><AlertCircle size={19}/><span>{errors.global || errors.points} {rawPoints.length > 0 && t('shell.latestShown')}</span><Button onClick={() => selection ? refresh() : bootstrap()}>{t('shell.retry')}</Button></div>}
         {stale && <div className="info-banner warning"><Clock3 size={18}/><span>{t('shell.staleBanner')}</span></div>}
         {page !== 'settings' && page !== 'ventilation' && (!status?.connected || !device) && !loading ? <div className="panel"><Empty icon={Link2} title={status?.connected ? t('shell.noDevicesTitle') : t('shell.notConnectedTitle')} action={<Button kind="primary" icon={ArrowRight} onClick={() => navigate('settings')}>{t('shell.connectAction')}</Button>}>{t('shell.connectHint')}</Empty></div> : loading && page !== 'settings' && page !== 'ventilation' ? <div className="loading-grid" aria-label={t('shell.loading')}>{[1,2,3,4].map(n => <div key={n} className="skeleton"/>)}<div className="skeleton large"/></div> : <>
           {page === 'overview' && <>

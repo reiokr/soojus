@@ -19,6 +19,16 @@ const isCacheableApi = pathname =>
   pathname === '/api/audio' || pathname.startsWith('/api/devices/') ||
   /^\/api\/systems\/[^/]+\/notifications$/.test(pathname);
 
+// Vahemällu salvestatud API-vastus ei tohi näida värske päringuna: App.jsx loeb selle
+// päise järgi vanaks andmeks ja proovib võrku uuesti seni, kuni päris vastus tuleb.
+async function offlineApiResponse(request) {
+  const cached = await caches.match(request);
+  if (!cached) return new Response(JSON.stringify({ error: 'Offline' }), { status: 503, headers: { 'Content-Type': 'application/json', 'X-Soojus-Offline': '1' } });
+  const headers = new Headers(cached.headers);
+  headers.set('X-Soojus-Offline', '1');
+  return new Response(cached.body, { status: cached.status, statusText: cached.statusText, headers });
+}
+
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -31,7 +41,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(fetch(request).then(response => {
       if (response.ok) { const copy = response.clone(); caches.open(API_CACHE).then(cache => cache.put(request, copy)); }
       return response;
-    }).catch(async () => (await caches.match(request)) || new Response(JSON.stringify({ error: 'Offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
+    }).catch(() => offlineApiResponse(request)));
     return;
   }
   if (request.mode === 'navigate') {

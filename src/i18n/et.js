@@ -707,5 +707,5 @@ export default {
     },
     language: { title: 'Keel', hint: 'Rakenduse keel. Kõik lehed ja seadistused on saadaval mõlemas keeles.', current: 'Kasutusel', inUse: 'Kasutusel', use: 'Kasuta', strings: 'võtit tõlgitud', missing: 'puudub', exportMissing: 'Laadi puuduvad (.json)' }
   },
-  common: { day: 'päev', days: 'päeva', month: 'kuu', months: 'kuud', minutesShort: '{count} min', weeks: { one: '{count} nädal', other: '{count} nädalat' }, requestFailed: 'Päring ebaõnnestus.' }
+  common: { day: 'päev', days: 'päeva', month: 'kuu', months: 'kuud', minutesShort: '{count} min', weeks: { one: '{count} nädal', other: '{count} nädalat' }, requestFailed: 'Päring ebaõnnestus.', networkError: 'Serveriga ühendus puudub. Proovin automaatselt uuesti.', connectionTimeout: 'Server ei vastanud õigeaegselt. Proovin automaatselt uuesti.', cachedData: 'Kuvatud on vahemällu salvestatud andmed. Proovin ühendust uuesti.' }
 };

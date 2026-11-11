@@ -707,5 +707,5 @@ export default {
     },
     language: { title: 'Language', hint: 'Application language. All pages and settings are available in both languages.', current: 'In use', inUse: 'In use', use: 'Use', strings: 'keys translated', missing: 'missing', exportMissing: 'Download missing (.json)' }
   },
-  common: { day: 'day', days: 'days', month: 'month', months: 'months', minutesShort: '{count} min', weeks: { one: '{count} week', other: '{count} weeks' }, requestFailed: 'Request failed.' }
+  common: { day: 'day', days: 'days', month: 'month', months: 'months', minutesShort: '{count} min', weeks: { one: '{count} week', other: '{count} weeks' }, requestFailed: 'Request failed.', networkError: 'No connection to the server. Retrying automatically.', connectionTimeout: 'The server did not respond in time. Retrying automatically.', cachedData: 'Showing cached data. Retrying the connection.' }
 };
