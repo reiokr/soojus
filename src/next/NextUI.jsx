@@ -429,7 +429,7 @@ function Control({ ctx, water }) {
     {ctx.visuals === 'off' && <p className="nx-plan-summary">{stateSentence(state, Boolean(online))}</p>}
     <div className={`nx-split${ctx.visuals === 'off' ? ' is-single' : ''}`}>
       {ctx.visuals !== 'off' && <section className="nx-panel nx-plan-card small nx-a-plan">
-        <HousePlan view={water ? 'water' : 'heat'} {...m} state={state} onOpen={ctx.navigate}/>
+        <HousePlan view={water ? 'water' : 'heat'} {...m} power={power == null ? m.power : { ...(m.power || {}), value: power }} state={state} onOpen={ctx.navigate}/>
       </section>}
       {(readings.length > 0 || extra.length > 0) && <section className="nx-panel nx-a-read"><div className="nx-panel-head"><h2>{t('control.readings')}</h2><span className="nx-muted">{t('control.deviceReadings')}</span></div><div className="nx-tiles">{extra.map(e => <div key={e.label} className={`nx-tile ${e.quality?.key || ''}`}><small>{e.label}</small><b>{e.value}</b>{e.quality && <span className="nx-tile-state">{e.quality.label}</span>}<em>{t('overview.now')}</em></div>)}{readings.map(p => <Tile key={p.parameterId} point={p} quality={qById[p.parameterId]}/>)}</div></section>}
     </div>
