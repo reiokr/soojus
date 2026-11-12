@@ -9,6 +9,7 @@ import { WEATHER_DEMOS } from '../../weather-logic.js';
 import WeatherPanel from './WeatherPanel.jsx';
 import ForecastRail from './ForecastRail.jsx';
 import SoundControl from './SoundControl.jsx';
+import HomeSummary from '../HomeSummary.jsx';
 import { getAmbience } from './ambience.js';
 import { LocationPanel } from '../../location.jsx';
 import { t as tr, getLocale } from '../../i18n/index.js';
@@ -34,12 +35,13 @@ export default function LiveHome({ ctx, embedded = false }) {
   const live = useMemo(() => buildLiveState({ m: ctx.m, climate: ctx.climate, vent, state: pumpState(ctx.m), now: clock, demo, hour, place, forecast, weatherDemo, lux: ctx.lux?.view && ctx.lux.view.primary !== false ? ctx.lux.view : null }), [ctx.m, ctx.climate, vent, clock, demo, hour, place, forecast, weatherDemo, ctx.lux?.view]);
 
   useEffect(() => {
-    const canvas = canvasRef.current, scene = new LiveScene(canvas);
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const scene = new LiveScene(canvas);
     sceneRef.current = scene;
     // Äikese ajal: iga välgulöök annab märku; heli mängib ambience, kuid ainult siis, kui muusika parasjagu käib.
     scene.onLightning = () => getAmbience().playLightning();
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-    scene.reduced = Boolean(reduce?.matches);
+    scene.reduced = ctx.visuals === 'calm';
     const fit = () => { const r = viewRef.current.getBoundingClientRect(); setSize({ w: r.width, h: r.height }); scene.resize(r.width, r.height, Math.min(1.5, window.devicePixelRatio || 1)); if (scene.reduced || !scene.running) scene.frame(performance.now()); };
     // Kaadrisagedus sõltub tähelepanust: aktiivselt vaadates 24 fps, 15 s tegevusetuse järel 8 fps,
     // 90 s järel 2 fps (vaade jääb elama, aga ei köeta). Akna taustal samuti 2 fps.
@@ -60,15 +62,13 @@ export default function LiveHome({ ctx, embedded = false }) {
     window.addEventListener('blur', onFocus);
     const ro = new ResizeObserver(fit); ro.observe(viewRef.current); fit();
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) scene.start(); else scene.stop(); }, { threshold: 0.05 }); io.observe(viewRef.current);
-    const onMotion = () => { scene.reduced = Boolean(reduce.matches); };
-    reduce?.addEventListener?.('change', onMotion);
     return () => {
       ro.disconnect(); io.disconnect(); clearTimeout(idleTimer); clearTimeout(sleepTimer);
       for (const ev of active) window.removeEventListener(ev, wake);
       window.removeEventListener('focus', onFocus); window.removeEventListener('blur', onFocus);
-      reduce?.removeEventListener?.('change', onMotion); scene.destroy();
+      scene.destroy();
     };
-  }, []);
+  }, [ctx.visuals]);
   useEffect(() => { sceneRef.current?.setHover(hot); }, [hot]);
   // Täisekraanil hotspot-nupud eemaldatakse, mistõttu hiirest lahkumise sündmust ei tule: ilma selleta jääks viimane esiletõst (nt maakontuur) kinni.
   useEffect(() => { setHot(null); sceneRef.current?.setFullscreen(full); }, [full]);
@@ -110,6 +110,12 @@ export default function LiveHome({ ctx, embedded = false }) {
   };
   const targets = Object.entries(HOTSPOTS).filter(([id]) => id !== 'vent' || live.vent.present);
   const hoursValue = hour ?? live.time.getHours() + live.time.getMinutes() / 60;
+
+  // Illustratsioonid väljas: sama info tekstiliselt + ilmapaneel, ilma canvas'e ja animatsioonideta.
+  if (ctx.visuals === 'off') return <div className="live-off">
+    <HomeSummary ctx={ctx}/>
+    {w && <WeatherPanel scene={w} forecast={forecast} place={place} sensor={live.outdoor}/>}
+  </div>;
 
   return <section className={`live ${embedded ? 'is-embedded' : ''} ${full ? 'is-full' : ''} ${idle ? 'is-idle' : ''}`} aria-label={tr('nav.live')} onMouseMove={wake} onTouchStart={wake} onKeyDown={wake}>
     <div className="live-stage" ref={stageRef}>

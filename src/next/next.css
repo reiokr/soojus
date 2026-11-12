@@ -777,6 +777,73 @@ button.nx-pill:hover {
 .nx-split .nx-panel {
   margin-bottom: 22px;
 }
+.nx-split.is-single {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "read";
+}
+.nx-plan-summary {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Illustratsioonideta kodu ülevaade */
+.nx-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 10px;
+}
+.nx-summary-tile {
+  padding: 12px 14px;
+  border: 1px solid var(--nx-line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--nx-paper) 55%, transparent);
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+}
+.nx-summary-tile:hover {
+  border-color: var(--nx-ink);
+  background: var(--nx-paper);
+}
+.nx-summary-tile small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.nx-summary-tile b {
+  display: block;
+  margin: 6px 0 2px;
+  font: 700 19px "Plus Jakarta Sans", sans-serif;
+  overflow-wrap: anywhere;
+}
+.nx-summary-tile em {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+.nx-summary-status {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.nx-summary-music {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--nx-line);
+}
+.live-off {
+  display: grid;
+  gap: 0;
+}
 
 /* Kokkuklapitavad seadistused (Küte, Tarbevesi, Legionella) */
 .nx-collapse-panel {

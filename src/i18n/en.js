@@ -73,7 +73,14 @@ export default {
     refresh: 'Refresh', refresh30: '30 s', refresh60: '1 min', refresh300: '5 min', refreshOff: 'Manual',
     refreshHint: 'How often the app fetches data by itself. With “Manual”, only the Refresh button updates the data.',
     music: 'Music player', musicShow: 'Show music player',
-    musicHint: 'When off, the music button is hidden on the Live home page and music stops.'
+    musicHint: 'When off, the music button is hidden on the Live home page and music stops.',
+    visuals: 'Visuals', visualFull: 'Full', visualCalm: 'Calm', visualOff: 'Off',
+    visualsHint: 'Full: illustrations and animations. Calm: still images. Off: information only, no illustrations.'
+  },
+  summary: {
+    title: 'Home overview',
+    hint: 'Illustrations are off — the same key readings and links are here.',
+    openAria: 'Open {page}'
   },
   music: {
     title: 'Music',

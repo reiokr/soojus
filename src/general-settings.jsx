@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CalendarDays, ChartLine, Clock3, Globe, LayoutTemplate, Monitor, Moon, Music2, Palette, RefreshCw, Settings2, Sun, Thermometer, X } from 'lucide-react';
+import { CalendarDays, ChartLine, Clock3, Eye, Globe, LayoutTemplate, Monitor, Moon, Music2, Palette, RefreshCw, Settings2, Sun, Thermometer, X } from 'lucide-react';
 import { t, LOCALES, setLocale } from './i18n/index.js';
 import { useLocale } from './i18n/react.js';
 import { setFormat } from './formats.js';
@@ -14,7 +14,7 @@ const THEMES = [
 // Üldseaded: teema, keel, liides ja muusikamängija ühes väikeses hüpikmenüüs.
 // Sama komponent on mõlemas liideses (klassikaline ülariba ja Kodu-plaan), seega
 // valikud on alati samad ja salvestuvad brauserisse.
-export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi, ovHours, pickOvHours, refreshSec, setRefreshSec, musicHidden, setMusicHidden }) {
+export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi, ovHours, pickOvHours, refreshSec, setRefreshSec, musicHidden, setMusicHidden, visuals, setVisuals }) {
   const locale = useLocale();
   const formats = useFormats();
   const [open, setOpen] = useState(false);
@@ -63,6 +63,15 @@ export default function GeneralSettings({ themeChoice, setThemeChoice, ui, setUi
             onClick={() => pick(setUi, value)}>{t(label)}</button>)}
         </div>
       </div>
+
+      {setVisuals && <div className="prefs-group">
+        <span className="prefs-label"><Eye size={15}/>{t('prefs.visuals')}</span>
+        <div className="segmented prefs-seg" role="group" aria-label={t('prefs.visuals')}>
+          {[['full', 'prefs.visualFull'], ['calm', 'prefs.visualCalm'], ['off', 'prefs.visualOff']].map(([value, label]) => <button key={value} type="button" className={visuals === value ? 'selected' : ''} aria-pressed={visuals === value}
+            onClick={() => setVisuals(value)}>{t(label)}</button>)}
+        </div>
+        <small className="prefs-note">{t('prefs.visualsHint')}</small>
+      </div>}
 
       <div className="prefs-group">
         <span className="prefs-label"><Clock3 size={15}/>{t('prefs.clock')}</span>

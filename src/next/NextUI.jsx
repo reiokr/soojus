@@ -3,6 +3,7 @@ import { Activity, AlertCircle, AlertTriangle, ArrowRight, BarChart3, Bell, Chec
 import { api, number, tempStep, tempText, tempUnit, tempValue, time, enumText, timeTicks } from '../lib.js';
 import { t, getLocale } from '../i18n/index.js';
 import HousePlan from './HousePlan.jsx';
+const HomeSummary = lazy(() => import('./HomeSummary.jsx'));
 import HistoryChart from '../history-chart.jsx';
 import HistoryPage from '../history-page.jsx';
 import Parameters from '../parameters.jsx';
@@ -16,7 +17,7 @@ import DhwCycles from './dhw-cycles.jsx';
 const EnergyPage = lazy(() => import('./energy.jsx'));
 const HeatingCurvePage = lazy(() => import('./curve.jsx'));
 import { co2Quality, climatePoints, climateQuery, readingQuality } from '../ventilation-logic.js';
-import { pumpState, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality, temperatureTrend, systemDiagnostics, tempColor } from './logic.js';
+import { pumpState, stateSentence, formatDuration, daySummary, secondsAsText, dhwQuality, bufferQuality, temperatureTrend, systemDiagnostics, tempColor } from './logic.js';
 import { buildReportModel, buildReportHtml, buildReportText, buildReportDocument } from './error-report.js';
 import './palette.css';
 import './next.css';
@@ -152,7 +153,9 @@ function Overview({ ctx }) {
       {shownNotes.length > 0 ? <ul className="nx-notes">{shownNotes.map((n, i) => <li key={n.id ?? i} className={n.tone}><AlertCircle size={16}/><span>{n.text}</span><button type="button" className="nx-link nx-dismiss" onClick={() => hide(n)} aria-label={n.custom ? t('overview.hideError') : t('overview.hideNote', { text: n.text })}>{t('overview.hide')}</button>{n.action && <button type="button" className="nx-link" onClick={() => ctx.navigate(n.action[1])}>{n.action[0]} <ArrowRight size={13}/></button>}</li>)}</ul> : notes.length === 0 && <AllGood text={t('overview.allgood')}/>}
     </section>
     <div className="nx-overview">
-    <Suspense fallback={<section className="nx-panel"><div className="nx-skeleton"><i/></div></section>}><LiveHome ctx={ctx} embedded/></Suspense>
+    {ctx.visuals === 'off'
+      ? <Suspense fallback={<section className="nx-panel"><div className="nx-skeleton"><i/></div></section>}><HomeSummary ctx={ctx}/></Suspense>
+      : <Suspense fallback={<section className="nx-panel"><div className="nx-skeleton"><i/></div></section>}><LiveHome ctx={ctx} embedded/></Suspense>}
     <SystemDiagnostics ctx={ctx} m={m} state={state}/>
     <section className="nx-panel nx-today">
       <div className="nx-panel-head"><h2>{t('overview.today')}</h2>{day && day.coverage < .9 && <span className="nx-muted">{t('overview.coverage', { percent: Math.round(day.coverage * 100) })}</span>}</div>
@@ -421,10 +424,11 @@ function Control({ ctx, water }) {
     if (m.returnTarget) qById[m.returnTarget.parameterId] = { key: 'key', label: t('control.setpoint') };
   }
   return <>
-    <div className="nx-split">
-      <section className="nx-panel nx-plan-card small nx-a-plan">
+    {ctx.visuals === 'off' && <p className="nx-plan-summary">{stateSentence(state, Boolean(online))}</p>}
+    <div className={`nx-split${ctx.visuals === 'off' ? ' is-single' : ''}`}>
+      {ctx.visuals !== 'off' && <section className="nx-panel nx-plan-card small nx-a-plan">
         <HousePlan view={water ? 'water' : 'heat'} {...m} state={state} onOpen={ctx.navigate}/>
-      </section>
+      </section>}
       {(readings.length > 0 || extra.length > 0) && <section className="nx-panel nx-a-read"><div className="nx-panel-head"><h2>{t('control.readings')}</h2><span className="nx-muted">{t('control.deviceReadings')}</span></div><div className="nx-tiles">{extra.map(e => <div key={e.label} className={`nx-tile ${e.quality?.key || ''}`}><small>{e.label}</small><b>{e.value}</b>{e.quality && <span className="nx-tile-state">{e.quality.label}</span>}<em>{t('overview.now')}</em></div>)}{readings.map(p => <Tile key={p.parameterId} point={p} quality={qById[p.parameterId]}/>)}</div></section>}
     </div>
     <Trend ctx={ctx} initial={water ? 'water' : 'heat'}/>
@@ -516,7 +520,7 @@ function LegionellaPanel({ notify }) {
 }
 
 export default function NextUI({ ctx }) {
-  const { page, navigate, status, systems, selection, setSelection, device, model, system, activeNotices, errors, loading, refreshing, lastFetch, online, stale, theme, themeChoice, setThemeChoice, ovHours, pickOvHours, refreshSec, setRefreshSec, musicHidden, setMusicHidden, setUi, shared, rawCount } = ctx;
+  const { page, navigate, status, systems, selection, setSelection, device, model, system, activeNotices, errors, loading, refreshing, lastFetch, online, stale, theme, themeChoice, setThemeChoice, ovHours, pickOvHours, refreshSec, setRefreshSec, musicHidden, setMusicHidden, visuals, setVisuals, setUi, shared, rawCount } = ctx;
   const [more, setMore] = useState(false);
   const moreRef = useRef(null);
   useEffect(() => {
@@ -528,7 +532,8 @@ export default function NextUI({ ctx }) {
   }, [more]);
   const go = id => { setMore(false); navigate(id); };
   const standalone = page === 'settings' || page === 'ventilation';
-  const notConnected = !standalone && (!status?.connected || !device) && !loading;
+  // Live-leht töötab ka ilma myUplinki ühenduseta (demo-režiim), seega ei kuulu ühendamise värava alla.
+  const notConnected = !standalone && page !== 'live' && (!status?.connected || !device) && !loading;
   const inMore = MORE.some(([id]) => id === page);
   let body;
   if (notConnected) body = <section className="nx-panel"><Empty icon={Link2} title={status?.connected ? t('shell.noDevicesTitle') : t('shell.notConnectedTitle')} action={<Button kind="primary" icon={ArrowRight} onClick={() => go('settings')}>{t('shell.connectAction')}</Button>}>{t('shell.connectHint')}</Empty></section>;
@@ -545,7 +550,7 @@ export default function NextUI({ ctx }) {
     {page === 'alarms' && <><AlarmsPage systemId={system?.systemId} tick={ctx.tick}/><PlanNotes ctx={ctx}/></>}
     {page === 'analysis' && <ErrorAnalysis ctx={ctx}/>}
     {page === 'device' && <DevicePage {...shared} firmware={ctx.firmware} aid={ctx.aid} subscriptions={ctx.subscriptions}/>}
-    {page === 'settings' && <SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} themeChoice={themeChoice} setThemeChoice={setThemeChoice} ovHours={ovHours} pickOvHours={pickOvHours} refreshSec={refreshSec} setRefreshSec={setRefreshSec} musicHidden={musicHidden} setMusicHidden={setMusicHidden} weather={ctx.weather} lux={ctx.lux}/>}
+    {page === 'settings' && <SettingsPage status={status} notify={ctx.notify} onConnect={ctx.bootstrap} tick={ctx.tick} navigate={navigate} ui="next" setUi={setUi} themeChoice={themeChoice} setThemeChoice={setThemeChoice} ovHours={ovHours} pickOvHours={pickOvHours} refreshSec={refreshSec} setRefreshSec={setRefreshSec} musicHidden={musicHidden} setMusicHidden={setMusicHidden} visuals={visuals} setVisuals={setVisuals} weather={ctx.weather} lux={ctx.lux}/>}
   </>;
   return <div className="nx" data-page={page}>
     <header className="nx-top">
@@ -561,7 +566,7 @@ export default function NextUI({ ctx }) {
         {systems.length > 1 && <select aria-label={t('shell.selectPump')} value={selection} onChange={e => setSelection(e.target.value)}>{systems.flatMap(s => (s.devices || []).map(d => <option key={d.id} value={d.id}>{s.name} · {d.product?.name}</option>))}</select>}
         <span className={`nx-status ${online && !stale ? 'ok' : 'warn'}`}><i/>{online ? stale ? t('shell.stale') : t('shell.online') : t('shell.offline')}</span>
         <button type="button" className="nx-icon" aria-label={t('shell.refresh')} onClick={() => selection ? ctx.refresh() : ctx.bootstrap()}><RefreshCw size={17} className={refreshing ? 'spin' : ''}/></button>
-        <GeneralSettings themeChoice={themeChoice} setThemeChoice={setThemeChoice} ui="next" setUi={setUi} ovHours={ovHours} pickOvHours={pickOvHours} refreshSec={refreshSec} setRefreshSec={setRefreshSec} musicHidden={musicHidden} setMusicHidden={setMusicHidden}/>
+        <GeneralSettings themeChoice={themeChoice} setThemeChoice={setThemeChoice} ui="next" setUi={setUi} ovHours={ovHours} pickOvHours={pickOvHours} refreshSec={refreshSec} setRefreshSec={setRefreshSec} musicHidden={musicHidden} setMusicHidden={setMusicHidden} visuals={visuals} setVisuals={setVisuals}/>
         <button type="button" className="nx-icon bell" aria-label={t('shell.notifications')} onClick={() => go('alarms')}><Bell size={17}/>{activeNotices.length > 0 && <i/>}</button>
       </div>
     </header>

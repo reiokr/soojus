@@ -73,7 +73,14 @@ export default {
     refresh: 'Värskendus', refresh30: '30 s', refresh60: '1 min', refresh300: '5 min', refreshOff: 'Käsitsi',
     refreshHint: 'Kui sageli rakendus ise andmeid küsib. „Käsitsi” korral uuendab andmeid ainult Värskenda nupp.',
     music: 'Muusikamängija', musicShow: 'Näita muusikamängijat',
-    musicHint: 'Kui väljas, on muusikanupp Elava kodu lehelt peidetud ja muusika peatub.'
+    musicHint: 'Kui väljas, on muusikanupp Elava kodu lehelt peidetud ja muusika peatub.',
+    visuals: 'Visuaalid', visualFull: 'Täis', visualCalm: 'Vaikne', visualOff: 'Väljas',
+    visualsHint: 'Täis: illustratsioonid ja animatsioonid. Vaikne: pildid liikumiseta. Väljas: ainult info, ilma illustratsioonideta.'
+  },
+  summary: {
+    title: 'Kodu ülevaade',
+    hint: 'Illustratsioonid on väljas — samad põhiandmed ja lingid on siin.',
+    openAria: 'Ava {page}'
   },
   music: {
     title: 'Muusika',
