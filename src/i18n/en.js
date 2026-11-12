@@ -79,7 +79,6 @@ export default {
   },
   summary: {
     title: 'Home overview',
-    hint: 'Illustrations are off — the same key readings and links are here.',
     openAria: 'Open {page}'
   },
   music: {

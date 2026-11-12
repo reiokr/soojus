@@ -79,7 +79,6 @@ export default {
   },
   summary: {
     title: 'Kodu ülevaade',
-    hint: 'Illustratsioonid on väljas — samad põhiandmed ja lingid on siin.',
     openAria: 'Ava {page}'
   },
   music: {

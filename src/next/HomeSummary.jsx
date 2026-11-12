@@ -25,7 +25,7 @@ export default function HomeSummary({ ctx }) {
     { id: 'weather', icon: CloudSun, label: t('live.weather'), value: weather ? tempText(weather.temperature, 1) : '—', note: weather ? `${weather.label}${place?.name ? ` · ${place.name}` : ''}` : undefined, page: 'live' }
   ];
   return <section className="nx-panel nx-summary">
-    <div className="nx-panel-head"><h2>{t('summary.title')}</h2><span className="nx-muted">{t('summary.hint')}</span></div>
+    <div className="nx-panel-head"><h2>{t('summary.title')}</h2></div>
     <div className="nx-summary-grid">
       {tiles.map(tile => {
         const Icon = tile.icon;
