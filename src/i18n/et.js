@@ -259,7 +259,7 @@ export default {
     pauseTitle: 'Paus (lugu jätkub samast kohast)', track: 'Lugu', volume: 'Helitugevus'
   },
   chart: {
-    previousLabel: 'Eelmine periood ({date})', estimate: '{label} (hinnang)', deviceState: 'Seadme olek', idle: 'Seisab',
+    previousLabel: 'Eelmine periood ({date})', estimate: '{label} (hinnang)', deviceState: 'Töörežiim', idle: 'Seisab',
     unavailable: 'Ajalugu pole kättesaadav', loading: 'Laadin mõõtmisi…',
     noRange: 'Sellel ajavahemikul pole mõõtmisi', noRangeHint: 'Vali teine ajavahemik või lähtesta suum.',
     collecting: 'Ajalugu hakkab kogunema', collectingHint: 'Salvestame uued mõõtmised iga minuti järel, kuni Soojuse server töötab. Graafik ilmub pärast vähemalt kaht mõõtmisaega.',

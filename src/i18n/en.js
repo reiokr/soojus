@@ -259,7 +259,7 @@ export default {
     pauseTitle: 'Pause (resumes from the same spot)', track: 'Track', volume: 'Volume'
   },
   chart: {
-    previousLabel: 'Previous period ({date})', estimate: '{label} (estimate)', deviceState: 'Device state', idle: 'Idle',
+    previousLabel: 'Previous period ({date})', estimate: '{label} (estimate)', deviceState: 'Operating mode', idle: 'Idle',
     unavailable: 'History unavailable', loading: 'Loading measurements…',
     noRange: 'No measurements in this period', noRangeHint: 'Pick another period or reset the zoom.',
     collecting: 'History is starting to collect', collectingHint: 'New measurements are saved every minute while the Soojus server runs. The chart appears after at least two timestamps.',
