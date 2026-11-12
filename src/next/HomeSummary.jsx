@@ -19,7 +19,7 @@ export default function HomeSummary({ ctx }) {
   const tiles = [
     { id: 'indoor', icon: HomeIcon, label: t('live.indoor'), value: tempText(live.indoor, 1), page: 'ventilation' },
     { id: 'outdoor', icon: Thermometer, label: t('live.outdoor'), value: tempText(live.outdoor, 1), page: 'heating' },
-    { id: 'water', icon: Droplets, label: t('live.water'), value: tempText(live.water, 1), note: live.waterTarget == null ? undefined : `${t('diag.target')} ${tempText(live.waterTarget, 0)}`, page: 'water' },
+    { id: 'water', icon: Droplets, label: t('live.water'), value: tempText(live.water, 1), note: live.waterTarget == null ? undefined : `${t('diag.waterTarget')} ${tempText(live.waterTarget, 0)}`, page: 'water' },
     { id: 'heat', icon: Flame, label: t('nav.heating'), value: tempText(live.supply, 1), note: live.returnT == null ? undefined : `${t('diag.return')} ${tempText(live.returnT, 1)}`, page: 'heating' },
     { id: 'vent', icon: Fan, label: t('live.ventLabel'), value: live.vent.present ? (live.vent.running ? `${live.vent.level}/10` : t('live.ventStopped')) : '—', note: live.vent.present ? `${ventMode} · CO₂ ${number(live.vent.co2, 0)} ppm` : undefined, page: 'ventilation' },
     { id: 'weather', icon: CloudSun, label: t('live.weather'), value: weather ? tempText(weather.temperature, 1) : '—', note: weather ? `${weather.label}${place?.name ? ` · ${place.name}` : ''}` : undefined, page: 'live' }

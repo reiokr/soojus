@@ -42,7 +42,7 @@ export default function LiveHome({ ctx, embedded = false }) {
     // Äikese ajal: iga välgulöök annab märku; heli mängib ambience, kuid ainult siis, kui muusika parasjagu käib.
     scene.onLightning = () => getAmbience().playLightning();
     scene.reduced = ctx.visuals === 'calm';
-    const fit = () => { const r = viewRef.current.getBoundingClientRect(); setSize({ w: r.width, h: r.height }); scene.resize(r.width, r.height, Math.min(1.5, window.devicePixelRatio || 1)); if (scene.reduced || !scene.running) scene.frame(performance.now()); };
+    const fit = () => { const view = viewRef.current; if (!view) return; const r = view.getBoundingClientRect(); setSize({ w: r.width, h: r.height }); scene.resize(r.width, r.height, Math.min(1.5, window.devicePixelRatio || 1)); if (scene.reduced || !scene.running) scene.frame(performance.now()); };
     // Kaadrisagedus sõltub tähelepanust: aktiivselt vaadates 24 fps, 15 s tegevusetuse järel 8 fps,
     // 90 s järel 2 fps (vaade jääb elama, aga ei köeta). Akna taustal samuti 2 fps.
     const ACTIVE = 24, IDLE = 8, SLEEP = 2;
@@ -60,8 +60,8 @@ export default function LiveHome({ ctx, embedded = false }) {
     const onFocus = () => apply();
     window.addEventListener('focus', onFocus);
     window.addEventListener('blur', onFocus);
-    const ro = new ResizeObserver(fit); ro.observe(viewRef.current); fit();
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) scene.start(); else scene.stop(); }, { threshold: 0.05 }); io.observe(viewRef.current);
+    const ro = new ResizeObserver(fit); if (viewRef.current) ro.observe(viewRef.current); fit();
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) scene.start(); else scene.stop(); }, { threshold: 0.05 }); if (viewRef.current) io.observe(viewRef.current);
     return () => {
       ro.disconnect(); io.disconnect(); clearTimeout(idleTimer); clearTimeout(sleepTimer);
       for (const ev of active) window.removeEventListener(ev, wake);
