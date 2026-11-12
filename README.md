@@ -44,7 +44,7 @@ Rakendusel on kaks liidest, mille vahel saab valida: **Klassikaline** (külgriba
 
 ### Üldseaded
 
-Mõlema liidese ülariba hammasratta nupp (**Üldseaded**) avab väikese menüü, kus saab valida teema, keele, kellaaja ja temperatuuri formaadi, kuupäeva järjekorra, liidese, kodu graafiku perioodi, värskenduse intervalli ja muusikamängija nähtavuse. Kõik valikud salvestuvad brauserisse ja kehtivad kohe:
+Mõlema liidese ülariba hammasratta nupp (**Üldseaded**) avab väikese menüü, kus saab valida teema, keele, kellaaja ja temperatuuri formaadi, kuupäeva järjekorra, liidese, visuaalide režiimi, kodu graafiku perioodi, värskenduse intervalli ja muusikamängija nähtavuse. Kõik valikud salvestuvad brauserisse ja kehtivad kohe:
 
 - **Teema:** *Hele*, *Tume* või *Süsteem*. Süsteemi valik järgib arvuti või telefoni heledat/tumedat režiimi ka siis, kui see muutub; see on ka vaikimisi valik.
 - **Keel:** *Eesti* või *English* (sama, mis seadete lehel).
@@ -52,6 +52,7 @@ Mõlema liidese ülariba hammasratta nupp (**Üldseaded**) avab väikese menüü
 - **Temperatuur:** *°C* või *°F*. Näidud, graafikud ja seadistuste sisestusväli teisendatakse; andmed, ajalugu ja seadmele saadetavad väärtused jäävad Celsiuse kraadidesse. Temperatuurierinevused (kütte temperatuuri nihe, ΔT, küttekõvera nihe) jäävad kelviniteks/Celsiuse vaheks, sest 32° nihe ei kehti vahedele. CSV-eksport ja teavituste lävendite väljad on endiselt °C-s.
 - **Kuupäev:** *PP.KK.AAAA* (keele oma järjekord) või *AAAA-KK-PP* (ISO).
 - **Liides:** *Klassikaline* või *Uus · Kodu-plaan*.
+- **Visuaalid:** *Täis*, *Vaikne* või *Väljas*. *Täis* näitab illustratsioone ja animatsioone; *Vaikne* jätab pildid alles, aga peatab liikumise; *Väljas* peidab illustratsioonid (Elava kodu canvas, maja skeem, klassikalise liidese vooskeem) ja näitab nende asemel sama info tekstilise ülevaatena — Kodu lehel toas/väljas/tarbevesi/küte/ventilatsioon/ilm, Kütte ja Tarbevee lehel „Näidud” tabel täislaiuses. Valik salvestub brauserisse; kui valikut pole tehtud, järgitakse süsteemi „vähendatud liikumise” eelistust. Muusikamängija jääb ka *Väljas* režiimis Kodu ülevaatesse alles.
 - **Kodu graafik:** *24 tundi*, *Nädal* või *Kuu* – ülevaate graafiku periood (sama valik, mis graafiku kohal, ja jääb meelde).
 - **Värskendus:** *30 s*, *1 min*, *5 min* või *Käsitsi* – kui sageli rakendus ise andmeid küsib (vaikimisi 1 min). *Käsitsi* korral uuendab andmeid ainult **Värskenda** nupp. Kui pumba kohalik liides on ühendatud, käivad otseandmed automaatrežiimis siiski 10 sekundi järel.
 - **Muusikamängija:** kui lüliti välja võtta, kaob muusikanupp Elava kodu lehelt (ja Kodu lehe sisse ehitatud vaatest) ning pooleli olev muusika peatub. Uuesti sisse lülitades tuleb nupp tagasi ja muusika algab algusest.
@@ -92,7 +93,7 @@ Elava kodu lehe all on ilmapaneel: animeeritud ikooniga hetkeilm (tuul ja puhang
 
 #### Jõudlus ja ligipääsetavus
 
-Vähendatud liikumise eelistus annab ühe staatilise kaadri; tööde ajal peatub joonistamine, kui vaade pole nähtav.
+Vähendatud liikumise eelistus annab ühe staatilise kaadri; sama teeb *Üldseaded → Visuaalid → Vaikne*. *Väljas* režiimis canvas't ei laadita ega joonistata. Tööde ajal peatub joonistamine, kui vaade pole nähtav.
 
 ## Ühendus
 
