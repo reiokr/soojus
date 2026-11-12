@@ -397,6 +397,8 @@ function Control({ ctx, water }) {
   const readings = points.filter(p => p.group === group && !p.writable)
     .filter(p => !(water && p.parameterId === '40010' && (m.water?.value == null || p.value == null || Math.abs(Number(p.value) - Number(m.water.value)) < 0.3)));
   const lt = ctx.lux?.view?.data?.temperatures, cl = ctx.climate;
+  const luxPower = ctx.lux?.view?.data?.power?.heatOutput;
+  const power = luxPower != null ? Number(luxPower) : m.power?.value == null ? null : Number(m.power.value);
   // Boost-tsooni temperatuur on sama mis paagil, seega näitame selle asemel režiimi – aga ainult siis,
   // kui kõrgendatud tarbevesi on päriselt sisse lülitatud. Väljas olekus piisab seadistuste reast.
   const boost = water ? zones.find(z => /kõrgendatud|ekstra/i.test(z.name) || z.zoneId === '40008') : null;
@@ -408,7 +410,7 @@ function Control({ ctx, water }) {
         value: legRunning ? `siht ${tempText(leg.running.target ?? m.waterTarget, 0)} · lõpeb ${time(leg.running.endsAt)}` : `${enumText(boost.mode)}${boost.setpointHeat != null ? ` · siht ${tempText(boost.setpointHeat)}` : ''}`,
         quality: { key: 'key', label: legRunning ? 'legionella' : 'aktiivne' }
       }].filter(Boolean)
-    : [lt?.brineIn != null && { label: t('control.brineIn'), value: tempText(lt.brineIn, 1) }, lt?.brineOut != null && { label: t('control.brineOut'), value: tempText(lt.brineOut, 1) }, lt?.hotGas != null && { label: t('control.hotGas'), value: tempText(lt.hotGas, 1) }, cl.indoor != null && { label: t('control.indoorTemp'), value: tempText(cl.indoor, 1), quality: readingQuality('temp', cl.indoor) }, cl.outdoor != null && { label: t('control.outdoorTemp', { source: cl.outdoorSource === 'soojuspump' ? t('control.sourcePump') : t('control.sourceVent') }), value: tempText(cl.outdoor, 1) }].filter(Boolean);
+    : [lt?.brineIn != null && { label: t('control.brineIn'), value: tempText(lt.brineIn, 1) }, lt?.brineOut != null && { label: t('control.brineOut'), value: tempText(lt.brineOut, 1) }, lt?.hotGas != null && { label: t('control.hotGas'), value: tempText(lt.hotGas, 1) }, cl.indoor != null && { label: t('control.indoorTemp'), value: tempText(cl.indoor, 1), quality: readingQuality('temp', cl.indoor) }, cl.outdoor != null && { label: t('control.outdoorTemp', { source: cl.outdoorSource === 'soojuspump' ? t('control.sourcePump') : t('control.sourceVent') }), value: tempText(cl.outdoor, 1) }, { label: t('diag.power'), value: power == null ? '—' : `${number(power, 2)} kW` }].filter(Boolean);
   const waterZones = water ? zones : [];
   const state = pumpState(m);
   // Värv ainult seal, kus on võrreldav norm. Pealevool ja tagasivool jäävad teadlikult neutraalseks,
