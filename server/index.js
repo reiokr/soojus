@@ -235,7 +235,7 @@ async function fetchPoints(id, force = false) {
   try {
     data = await cached(`/v2/devices/${enc(id)}/points`, 60000, force, !force);
     if (!Array.isArray(data)) throw new AppError('Seadme näitude vastus ei olnud loend.', 502);
-    rememberPoints(id, data); upstreamProblem = null;
+    upstreamProblem = null;
     if (luxState.data && luxState.readAt) {
       luxState.verified = verifyMapping(data, luxState.data).ok;
       const host = luxConfig()?.host;
@@ -250,6 +250,9 @@ async function fetchPoints(id, force = false) {
   if (isUsable(luxState)) data = overlayDirect(data, luxState.data, luxState.recordTime, { powerSource: powerChoice.source }).points;
   // Pilv võib kirjutuse järel hetk aega vana väärtust näidata – näita seni kirjutatut.
   data = recentWrites.apply(id, data);
+  // Snapshot peab sisaldama sama allikat, mida parasjagu näidatakse (otseandurid, mitte pilve vana väärtus),
+  // muidu hüppab näit vahemällu jäämise ja snapshot'i vahel.
+  rememberPoints(id, data);
   record(id, fromSnapshot ? data.filter(p => p.source === 'direct') : data);
   return data;
 }
