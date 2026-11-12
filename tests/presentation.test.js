@@ -192,10 +192,10 @@ test('filter intervals are shown as days with months in brackets',()=>{
 
 test('a heating mode with a stopped compressor is shown as waiting, not as heating', () => {
   const m = (mode, hs, hw, comp) => ({ workMode: { value: mode }, heatingState: { value: hs }, hwState: { value: hw }, compressor: comp == null ? undefined : { value: comp } });
-  const waiting = pumpState(m(0, 3, 1, 0));
+  const waiting = pumpState(m(0, 2, 1, 0));
   assert.equal(waiting.heatOn, false); assert.equal(waiting.heatDemand, true); assert.equal(waiting.running, false); assert.equal(waiting.stalled, true);
   assert.match(stateSentence(waiting, true), /Küte on nõutud, aga kompressor seisab/);
-  const hwWaiting = pumpState(m(1, 1, 3, 0)); assert.equal(hwWaiting.hwOn, false); assert.match(stateSentence(hwWaiting, true), /Tarbevee soojendus on nõutud/);
+  const hwWaiting = pumpState(m(1, 1, 2, 0)); assert.equal(hwWaiting.hwOn, false); assert.match(stateSentence(hwWaiting, true), /Tarbevee soojendus on nõutud/);
   const running = pumpState(m(0, 3, 1, 1)); assert.equal(running.heatOn, true); assert.equal(running.stalled, false); assert.match(stateSentence(running, true), /kütab praegu maja/);
   const unknown = pumpState(m(0, 3, 1, null)); assert.equal(unknown.heatOn, true, 'kompressori olek teadmata: vana käitumine');
   const idle = pumpState(m(5, 1, 1, 0)); assert.equal(idle.stalled, false); assert.equal(stateSentence(idle, true), 'Pump puhkab.');

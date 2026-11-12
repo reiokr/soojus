@@ -13,11 +13,11 @@ export function pumpState({ workMode, heatingState, hwState, compressor, water, 
   const comp = compressor?.value == null ? null : Number(compressor.value) === 1;
   const num = point => point?.value == null || point.value === '' ? null : Number(point.value);
   const w = num(water), wt = num(waterTarget), r = num(returnT), rt = num(returnTarget);
-  // Vajadus tuleb eelkõige seadme enda olekust (2 = vajadus). Kui see puudub, ei piisa ainult
-  // töörežiimist: tarbevesi võib olla sihi juba saavutanud või tagasivool sihist kõrgemal,
-  // mistõttu kompressori seismine on normaalne, mitte rike.
-  const heatNeed = heatState === 2 || (modeHeat && comp === false && (r == null || rt == null || r < rt - 1));
-  const hwNeed = hwStateValue === 2 || (modeHw && comp === false && (w == null || wt == null || w < wt - 1));
+  // Vajadus tuleb eelkõige seadme enda olekust (2 = vajadus). Kui seade ütleb 3 = "Sees" või 1 = "Puudub vajadus",
+  // siis on kompressori seismine normaalne ka siis, kui temperatuur on sihist mõne kraadi allpool (hüsterees).
+  // Temperatuuripõhist hinnangut kasutame ainult siis, kui seade olekut üldse ei raporteeri.
+  const heatNeed = heatState === 2 || (!Number.isFinite(heatState) && modeHeat && comp === false && (r == null || rt == null || r < rt - 1));
+  const hwNeed = hwStateValue === 2 || (!Number.isFinite(hwStateValue) && modeHw && comp === false && (w == null || wt == null || w < wt - 1));
   const heatOn = modeHeat && comp !== false, hwOn = modeHw && comp !== false;
   const heatDemand = !heatOn && heatNeed;
   const hwDemand = !hwOn && hwNeed;

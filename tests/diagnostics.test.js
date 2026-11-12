@@ -15,7 +15,7 @@ test('diagnostics explain DHW heating without blaming the buffer or the return',
 });
 
 test('diagnostics report DHW demand while the compressor is off but the target is not reached', () => {
-  const state = pumpState({ workMode: { value: 1 }, heatingState: { value: 1 }, hwState: { value: 3 }, compressor: { value: 0 }, water: { value: 45 }, waterTarget: { value: 48 } });
+  const state = pumpState({ workMode: { value: 1 }, heatingState: { value: 1 }, hwState: { value: 2 }, compressor: { value: 0 }, water: { value: 45 }, waterTarget: { value: 48 } });
   const items = systemDiagnostics({
     state, supply: 51, returnT: 51.2, returnTarget: 29.5, buffer: 30,
     water: 45, waterTarget: 48, power: 0,
