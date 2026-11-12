@@ -79,6 +79,7 @@ export default {
   },
   summary: {
     title: 'Home overview',
+    weather: 'Weather forecast',
     openAria: 'Open {page}'
   },
   music: {

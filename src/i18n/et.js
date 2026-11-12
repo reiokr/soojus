@@ -79,6 +79,7 @@ export default {
   },
   summary: {
     title: 'Kodu ülevaade',
+    weather: 'Ilmateade',
     openAria: 'Ava {page}'
   },
   music: {

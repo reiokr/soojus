@@ -22,7 +22,7 @@ export default function HomeSummary({ ctx }) {
     { id: 'water', icon: Droplets, label: t('live.water'), value: tempText(live.water, 1), note: live.waterTarget == null ? undefined : `${t('diag.waterTarget')} ${tempText(live.waterTarget, 0)}`, page: 'water' },
     { id: 'heat', icon: Flame, label: t('nav.heating'), value: tempText(live.supply, 1), note: live.returnT == null ? undefined : `${t('diag.return')} ${tempText(live.returnT, 1)}`, page: 'heating' },
     { id: 'vent', icon: Fan, label: t('live.ventLabel'), value: live.vent.present ? (live.vent.running ? `${live.vent.level}/10` : t('live.ventStopped')) : '—', note: live.vent.present ? `${ventMode} · CO₂ ${number(live.vent.co2, 0)} ppm` : undefined, page: 'ventilation' },
-    { id: 'weather', icon: CloudSun, label: t('live.weather'), value: weather ? tempText(weather.temperature, 1) : '—', note: weather ? `${weather.label}${place?.name ? ` · ${place.name}` : ''}` : undefined, page: 'live' }
+    { id: 'weather', icon: CloudSun, label: t('summary.weather'), value: weather ? tempText(weather.temperature, 1) : '—', note: weather ? `${weather.label}${place?.name ? ` · ${place.name}` : ''}` : undefined, page: 'live' }
   ];
   return <section className="nx-panel nx-summary">
     <div className="nx-panel-head"><h2>{t('summary.title')}</h2></div>
