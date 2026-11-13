@@ -21,7 +21,7 @@ function ChartTip({ active, payload, label, points, colors, spans, stateKnown, t
   const inGap = gaps.some(g => label >= g.from && label <= g.to);
   const prevItems = active && prevShift ? (payload || []).filter(e => e.value != null && points.some(p => plotKey(PREV + p.parameterId) === e.dataKey)) : [];
   if (!items.length && !estimates.length && !prevItems.length) return null;
-  const span = spans.find(s => label >= s.from && label < s.to), state = span ? stateStyle[span.kind] : null;
+  const span = spans.find(s => label >= s.from && label < s.to) ?? spans.find(s => label === s.to), state = span ? stateStyle[span.kind] : null;
   return <div className="chart-tip">
     <b>{date(label, { weekday: 'short' })}</b>
     {items.map(e => { const i = points.findIndex(p => plotKey(p.parameterId) === e.dataKey), p = points[i]; return <div key={e.dataKey}><i style={{ background: colors[i % colors.length] }}/><span>{p.label}</span><strong>{number(e.value, 2)} {unitOf(p)}</strong></div>; })}
