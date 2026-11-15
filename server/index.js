@@ -5,6 +5,7 @@ import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypt
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readLuxtronik, luxValues, errorName, LUX_ID, LUX_MAP, overlayDirect, verifyMapping, isUsable, votePower, updatePowerChoice } from './luxtronik.js';
+import { buildLuxParameterSnapshot, keyLuxParameters, listLuxParameterSnapshots, readLuxParameterChanges, readLuxParameterSnapshot, saveLuxParameterSnapshot, snapshotLuxParametersIfDue } from './lux-parameters.js';
 import { createWeather, searchPlaces, WeatherError } from './weather.js';
 import { validatePlace, DEFAULT_PLACE } from '../src/weather-logic.js';
 import { readAirobot, airobotValues, isPrivateIPv4, decodeErrors, effectiveMode, MODE_TEXT, parseControl, applyControl, parseSettings, applySettings, ControlError } from './airobot.js';
@@ -193,6 +194,7 @@ const airobotView = () => {
 };
 // Soojuspumba kohtvõrguliides (Luxtronik, ainult lugemine): soojakandja temperatuurid, mida myUplinki API ei avalda.
 const luxConfig = () => getSetting('luxtronik');
+const luxParamsDir = path.join(dataDir, 'lux-params');
 const luxState = { data: null, values: [], time: null, error: null, readAt: null, recordTime: null, verified: getSetting('luxVerified') && getSetting('luxVerified') === getSetting('luxtronik')?.host ? true : null };
 let luxBusy = false;
 const powerChoice = { source: getSetting('luxPowerSource') || null, votes: { acInput: 0, heatOutput: 0 }, strikes: 0 };
@@ -651,6 +653,34 @@ app.get('/api/location/search', async (req, res) => {
 });
 app.get('/api/weather', async (req, res) => { const place = placeView(); res.json({ location: place, source: 'Open-Meteo', ...await weatherFor(place) }); });
 app.get('/api/luxtronik', (req, res) => res.json(luxView()));
+// 3003 seadete päevane snapshot: nimekiri + olulisemad väärtused. Täisversioon: /api/luxtronik/parameters/latest
+app.get('/api/luxtronik/parameters', (req, res) => {
+  const latest = readLuxParameterSnapshot(luxParamsDir, 'latest');
+  res.json({
+    latest: latest ? { time: latest.time, host: latest.host, count: latest.count, key: keyLuxParameters(latest), changes: latest.changes || [] } : null,
+    files: listLuxParameterSnapshots(luxParamsDir)
+  });
+});
+app.get('/api/luxtronik/parameters/changes/:date', (req, res) => {
+  const date = req.params.date;
+  if (date !== 'latest' && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AppError('Vale kuupäev.', 400);
+  res.json({ date, changes: readLuxParameterChanges(luxParamsDir, date) });
+});
+app.get('/api/luxtronik/parameters/:date', (req, res) => {
+  const date = req.params.date;
+  if (date !== 'latest' && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AppError('Vale kuupäev.', 400);
+  const snapshot = readLuxParameterSnapshot(luxParamsDir, date);
+  if (!snapshot) throw new AppError('Snapshoti ei leitud.', 404);
+  res.json(snapshot);
+});
+app.post('/api/luxtronik/parameters/snapshot', async (req, res) => {
+  const cfg = luxConfig();
+  if (!cfg?.host) throw new AppError('Soojuspumba kohtvõrguliidest pole seadistatud.', 404);
+  const snapshot = await buildLuxParameterSnapshot({ host: cfg.host });
+  const saved = saveLuxParameterSnapshot(snapshot, luxParamsDir);
+  audit(LUX_ID, 'luxtronik-parameters', { file: saved.file, changes: saved.changes.length });
+  res.json({ ok: true, time: snapshot.time, file: saved.file, changes: saved.changes, key: keyLuxParameters(snapshot) });
+});
 app.post('/api/luxtronik', async (req, res) => {
   const host = String(req.body?.host || '').trim();
   if (!isPrivateIPv4(host)) throw new AppError('Sisesta kohtvõrgu IPv4 aadress, näiteks 192.168.1.20.', 400);
@@ -1151,6 +1181,24 @@ const nightlyBackup = () => {
 };
 setTimeout(nightlyBackup, 60000).unref?.();
 setInterval(nightlyBackup, 15 * 60000).unref?.();
+// Luxtronik 3003 seadete päevane snapshot. Kontroll iga 15 minuti tagant, et esimene
+// õnnestunud lugemine tuleks ka siis, kui server käivitub keset päeva või pump oli maas.
+let luxParamsErrorAt = 0;
+const luxParametersTick = async () => {
+  const cfg = luxConfig();
+  if (!cfg?.host) return;
+  try {
+    const result = await snapshotLuxParametersIfDue({ host: cfg.host, dir: luxParamsDir });
+    if (result.created) logger.info(`Soojus: Luxtronik 3003 snapshot ${result.file} (${result.changes.length} muudatust)`);
+  } catch (e) {
+    if (Date.now() - luxParamsErrorAt > 3600000) {
+      luxParamsErrorAt = Date.now();
+      logger.error(`Soojus: Luxtronik 3003 snapshot ebaõnnestus: ${e.message}`);
+    }
+  }
+};
+setTimeout(luxParametersTick, 120000).unref?.();
+setInterval(luxParametersTick, 15 * 60000).unref?.();
 app.listen(port, process.env.HOST || '127.0.0.1', () => { logger.info(`Soojus: ${origin}`); collect(); pollAirobot(); pollLux(); compact(); legionellaTick(); });
 setInterval(collect, 60000).unref();
 setInterval(pollLux, 10000).unref();

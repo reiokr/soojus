@@ -7,6 +7,30 @@ import net from 'node:net';
 export class LuxtronikError extends Error {}
 
 const READ_CALCULATIONS = 3004;
+const READ_PARAMETERS = 3003;
+
+// 3003 vastuses ei ole staatusvälja: käsk + kirjete arv + int32 väärtused.
+// Kasutame seda ainult seadete päevaseks snapshot'iks (3004 on kiirem ja jooksvaks lugemiseks).
+export function readLuxParametersRaw({ host, port = 8889, timeout = 6000 }) {
+  return new Promise((resolve, reject) => {
+    const socket = net.connect({ host, port });
+    let buf = Buffer.alloc(0), done = false;
+    const finish = (fn, value) => { if (done) return; done = true; clearTimeout(timer); socket.destroy(); fn(value); };
+    const timer = setTimeout(() => finish(reject, new LuxtronikError('Soojuspump ei vastanud õigel ajal.')), timeout);
+    socket.on('connect', () => { const req = Buffer.alloc(8); req.writeInt32BE(READ_PARAMETERS, 0); req.writeInt32BE(0, 4); socket.write(req); });
+    socket.on('error', e => finish(reject, new LuxtronikError(`Ühendus ebaõnnestus: ${e.code || e.message}.`)));
+    socket.on('close', () => finish(reject, new LuxtronikError('Ühendus suleti enne vastust.')));
+    socket.on('data', chunk => {
+      buf = Buffer.concat([buf, chunk]);
+      if (buf.length < 8) return;
+      const cmd = buf.readInt32BE(0), count = buf.readInt32BE(4);
+      if (cmd !== READ_PARAMETERS) return finish(reject, new LuxtronikError('Ootamatu vastus (see ei paista olevat Luxtronik).'));
+      if (count < 60 || count > 5000) return finish(reject, new LuxtronikError('Vastus oli ootamatu pikkusega.'));
+      if (buf.length < 8 + count * 4) return;
+      finish(resolve, Array.from({ length: count }, (_, i) => buf.readInt32BE(8 + i * 4)));
+    });
+  });
+}
 
 export function readLuxCalculations({ host, port = 8889, timeout = 6000 }) {
   return new Promise((resolve, reject) => {
