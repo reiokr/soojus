@@ -15,13 +15,14 @@
 
 | ID | Parameeter | Väärtus | Märkus |
 |---|---|---|---|
-| 35 | `ID_Einst_HREinb_akt` — Einbindung | **0 (Rückl)** | Kahtlus: peaks olema **Trennsp** |
+| 35 | `ID_Einst_HREinb_akt` — Einbindung | **1 (Trennsp)** | Muudetud 15.11.2026 17:08; menüüs peidetud, kirjutatud otse 3002-ga |
 | 116 | `ID_Einst_AnlPrio_Hzakt` — prioriteet küte | 2 | OK |
 | 117 | `ID_Einst_AnlPrio_Bwakt` — prioriteet tarbevesi | 1 | OK |
 | 118 | `ID_Einst_AnlPrio_Swakt` — prioriteet bassein | 3 | OK |
 | 42 | `ID_Einst_MK1Typ_akt` — Mischkreis 1 | 0 (seguventiili pole) | Kontrollida skeemi järgi |
+| 40 | `ID_Einst_BWBer_akt` — BWBer | 1 | Kontroller muutis automaatselt 0 → 1 koos `Trennsp`-iga |
 | 83 | `ID_Einst_ZUPTYP_akt` — Warmw. 3 | 0 (mit ZUP) | Sobib paralleelsele paagile |
-| 148 | `ID_Einst_BwHup_akt` — Warmw. 5 | 0 (ohne HUP) | Sobib paralleelsele paagile |
+| 148 | `ID_Einst_BwHup_akt` — Warmw. 5 | 1 (mit HUP) | Kontroller muutis automaatselt 0 → 1; `Warmw. 5` on menüüs peidetud |
 | 977 | `ID_Einst_Multispeicher_akt` | 0 (väljas) | Teist salvestit ei kasutata |
 | 105 | `ID_Soll_BWS_akt` — tarbevee siht | 48 °C | |
 | 74 | `ID_Einst_BWS_Hyst_akt` — tarbevee hüsterees | 2,0 K | |
@@ -29,6 +30,8 @@
 | 973 | `ID_Einst_BW_max` — max tarbevesi | 65,0 °C | |
 
 Väline tagasivooluandur `TRL_ext` on olemas (äpp näitab „Akupaak“).
+
+Kontrollitud 15.11.2026: `Warmw. 1` / „Tarbeveeboiler1“ = **Andur** (Fühler), seega DHW anduri režiim on korrektne. `BWBer = 1` ei muutnud seda termostaadiks.
 
 ## 3. Käitumine enne ja pärast 23.10.2026
 
@@ -54,6 +57,8 @@ See on **külmaaine/EEV (paisuventiili) probleem**, mitte akupaagi seade. Filtri
 
 ## 5. Kuidas muuta `Einbindung` (eestikeelne menüü)
 
+**Sellel pumbal oli `Einbindung` menüüs peidetud** (`ID_Visi_SysEin_Einbindung = 0`), seetõttu kirjutati parameeter 35 otse Luxtroniku 3002 käsuga 15.11.2026 17:08. Allpool on menüütee juhuks, kui see on nähtav.
+
 Sõnastus võib pumbal veidi erineda; oluline on jõuda `Einbindung` valikuni ja valida `Trennsp` (eralduspaak), mitte `Rückl` (jadapaak).
 
 1. Vajuta pumbal `Menüü` (või hoia nuppu all, kuni avaneb peamenüü).
@@ -67,17 +72,25 @@ Sõnastus võib pumbal veidi erineda; oluline on jõuda `Einbindung` valikuni ja
 
 ## 6. Soovitatud tegevus
 
-1. **Seada `Einbindung = Trennsp`** (menüü: Service → System Einstellung → Einbindung).
+1. **`Einbindung = Trennsp` on nüüd seatud** (parameeter 35 = 1, 15.11.2026 17:08). Menüüs oli see peidetud, seetõttu kirjutati otse 3002-ga.
 2. Kontrollida, et `TRL_ext` andur on akupaagis õiges kohas (keskmine/alumine).
-3. Kontrollida `Warmw. 3 = mit ZUP`, `Warmw. 5 = ohne HUP`, `Mischkr1 = Nein`, `Multispeicher = Nein`.
+3. Kontrollida `Warmw. 1 = Andur` (15.11.2026 kontrollitud), `Warmw. 3 = mit ZUP`, `Warmw. 5 = mit HUP` (kontroller muutis automaatselt), `Mischkr1 = Nein`, `Multispeicher = Nein`.
 4. Jälgida 24–48 h:
    - akupaagi temperatuur peaks liikuma tagasivoolu sihi poole;
    - pealevool/tagasivool ei tohiks olla 5+ K üle sihi;
    - pump võib laadida paaki suurema võimsusega ja siis pausida.
-5. Kui käitumine halveneb, pöörata `Einbindung` tagasi `Rückl` ja fikseerida tulemus.
-6. 765 osas jälgida sagedust; brine filter puhastada; kui kordub tihti, tellida kohalik külmatehnik EEV/külmaaine kontrolliks.
+5. Jälgida **järgmist tarbevee tsüklit**: kas HUP töötab DHW ajal ja kas tarbevesi kütab 48 °C-ni. Kui DHW ei küta või küte läheb DHW ajal liiga soojaks, pöörata `Einbindung` tagasi `Rückl` ja vajadusel `BwHup`/`BWBer` algväärtustele.
+6. Kui käitumine halveneb, pöörata `Einbindung` tagasi `Rückl` (parameeter 35 = 0) ja fikseerida tulemus.
+7. 765 osas jälgida sagedust; brine filter puhastada; kui kordub tihti, tellida kohalik külmatehnik EEV/külmaaine kontrolliks.
 
-## 7. Andmete allikad
+## 7. Muudatuse logi
+
+- **15.11.2026 17:08** — `ID_Einst_HREinb_akt` (35) **0 → 1** (Trennsp), kirjutatud otse Luxtroniku 3002 käsuga (menüüs peidetud).
+- **15.11.2026 17:08** — kontroller muutis automaatselt `ID_Einst_BWBer_akt` (40) **0 → 1** ja `ID_Einst_BwHup_akt` (148) **0 → 1**.
+- **15.11.2026 17:09** — snapshot `data/lux-params/2026-11-15.json`; muudatused `changes-2026-11-15.json`.
+- **15.11.2026** — `Warmw. 1` / „Tarbeveeboiler1“ = **Andur** (kontrollitud menüüst).
+
+## 8. Andmete allikad
 
 - Luxtronik 3003 parameetrid (otselugemine, 15.11.2026).
 - Soojuse rakenduse ajalugu (myUplink punktid + Luxtronik 3004 diagnostika).
